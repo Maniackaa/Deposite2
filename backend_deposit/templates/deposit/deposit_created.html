@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Оплата{% endblock %}
+{% block content %}
+
+      <div class="col-md-4 mx-auto">
+        <div class="card">
+          <div class="card-header">
+              <b>Депозит создан</b>
+            <div class="card-body">
+                Ваш уникальный идентификатор:<br>
+                <p>{{deposit.uid}}</p>
+
+
+              {% if not deposit.input_transaction %}
+                <p>Для подтверждения оплаты введите номер транзакции из вашего чека об оплате:</p>
+                <form method="post" enctype="multipart/form-data" action="{% url 'deposit:created' %}">
+                {% csrf_token %}
+                      {% for field in form %}
+
+                            {{ field }}
+
+                        {% if not field.is_hidden %}
+                                <br>
+                                <small id="{{ field.id_for_label }}-help" class="form-text text-muted">
+                                    {{ field.help_text|safe }}
+                                </small>
+
+                        {% endif %}
+
+                    {% for error in field.errors %}
+                        {{error}}
+                            {% endfor %}
+
+                {% endfor %}
+
+                  <br>
+                  <button type="submit" class="btn btn-primary">
+                       Сохранить
+                    </button>
+                {% endif %}
+              </form>
+                  <br>
+              <div class="d-flex justify-content-around">
+
+            </div>
+                  {% if deposit.input_transaction %}
+                    <p>Не позднее чем через 5 минут статус вашего должен изменться на 'approved'<p>
+                    <p>Текущий статус вашего платежа: <b>{{deposit.status}}</b></p>
+                    <p>Если через 5 минут статус не изменился, прикрепите скриншот чека на странице статуса платежа:<p>
+                    <a href="{% url 'deposit:status' deposit.uid %}">Статус платежа</a>
+                  {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+{% endblock %}
+

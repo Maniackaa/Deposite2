@@ -1,0 +1,21 @@
+
+  {% with request.resolver_match.view_name as view_name %}
+  <div class="row my-3">
+    <ul class="nav nav-pills">
+      <li class="nav-item">
+        <a 
+          class="nav-link {% if view_name == 'deposit:incomings' %}active{% endif %}"
+          href="{% url 'deposit:incomings' %}">
+          Все платежи
+        </a>
+      </li>
+      <li class="nav-item">
+        <a 
+           class="nav-link {% if view_name == 'deposit:incomings_filter' %}active{% endif %}"
+           href="{% url 'deposit:incomings_filter' %}">
+          Платежи по фильтру
+        </a>
+      </li>
+    </ul>
+  </div>
+  {% endwith %}

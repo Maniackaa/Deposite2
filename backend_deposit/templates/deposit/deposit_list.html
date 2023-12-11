@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Список депозитов{% endblock %}
+
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+<div class="">
+{% include 'includes/switcher.html' %}
+   <table class="table table-bordered">
+     <thead class="thead-dark align-content-center">
+       <tr>
+           <th>id</th>
+           <th>Дата регистрации</th>
+           <th>change_time</th>
+           <th>Телефон</th>
+           <th>Сумма</th>
+           <th>Введенная транзакция</th>
+           <th>Статус</th>
+           <th>Прикрепленный чек</th>
+           <th>Привязанный платеж</th>
+           <th>Действие</th>
+       </tr>
+     </thead>
+     <tbody>
+         {% for deposit in page_obj %}
+         <tr>
+            <td>{{ deposit.id }}</td>
+            <td>{{ deposit.register_time|date:"d.m.Y H:i" }}</td>
+            <td>{{ deposit.change_time|date:"d.m.Y H:i" }}</td>
+            <td>{{ deposit.phone }}</td>
+            <td>{{ deposit.pay_sum }}</td>
+            <td class="centered">{{ deposit.input_transaction|default_if_none:"--" }}</td>
+            {% if deposit.status == 'pending' %}
+              <td class="table-danger">{{ deposit.get_status_display }}</td>
+            {% else %}
+              <td class="table-success">{{ deposit.get_status_display }}</td>
+            {% endif %}
+            <td>{{ deposit.pay_screen }}</td>
+            <td>{{ deposit.confirmed_incoming|default_if_none:"--" }}</td>
+            <td><a href="{% url 'deposit:deposit_edit' deposit.id %}">Изменить</a></td>
+         </tr>
+         {% endfor %}
+     </tbody>
+   </table>
+   {% include 'includes/paginator.html' %}
+</div>
+{% endblock %}

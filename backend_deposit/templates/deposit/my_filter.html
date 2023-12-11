@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Настройка фильтра{% endblock %}
+
+
+{% block content %}
+      <div class="col-md-1 ">
+        <div class="card ">
+
+            {{ hello }}
+              {% if form.errors %}
+                  Есть ошибки
+              {% endif %}
+            <form method="post">
+               {% csrf_token %}
+               {% include 'includes/form_fields.html' %}
+
+                    <button type="submit" class="btn btn-primary">
+                         Сохранить
+                    </button>
+
+            </form>
+          </div>
+        </div>
+      </div>
+
+
+{% endblock %}
