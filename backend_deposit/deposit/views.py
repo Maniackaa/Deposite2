@@ -463,8 +463,8 @@ def incoming_list(request):
         return redirect('deposit:incomings')
     template = 'deposit/incomings_list.html'
     all_color = ColorBank.objects.all()
-    x = all_color.filter(name='www.birbank.az').values('color_font').first().get('color_font')
-    print('xxx', x, type(x))
+    # x = all_color.filter(name='www.birbank.az').values('color_font').first().get('color_font')
+    # print('xxx', x, type(x))
     incoming_q = Incoming.objects.order_by('-id').all()
     context = {'page_obj': make_page_obj(request, incoming_q)}
     return render(request, template, context)
