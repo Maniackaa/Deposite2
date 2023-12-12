@@ -6,7 +6,7 @@
 {% include 'includes/operator_menu.html' %}
 <div class="">
 {% include 'includes/switcher2.html' %}
-   <table class="table" style="font-size: medium; line-height: 50%; padding: .1rem .1rem .1rem .1rem">
+   <table class="table" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
      <thead class="thead-dark align-content-center">
      {% with request.resolver_match.view_name as view_name %}
          {% if view_name == 'deposit:incomings_filter' %}
@@ -44,7 +44,14 @@
 
             <td style="background: {{ incoming.color_back }}">{{ incoming.sender }}</td>
             <td>{{ incoming.pay }}</td>
-            <td>{{ incoming.balance }}</td>
+            <td>
+                {% if incoming.balance %}
+                    {{ incoming.balance }}
+                {% elif incoming.image %}
+                    <a class="changelink" href="{{  incoming.image }}">Чек</a>
+                {% endif %}
+            <img class="img-thumbnail"  src="/media/{{incoming.image}}" width="200" height="400">
+            </td>
             <td>{{ incoming.worker|default_if_none:"" }}</td>
             <td>{{ incoming.transaction|default_if_none:"" }}</td>
 
