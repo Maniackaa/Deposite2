@@ -4,86 +4,100 @@
 
 {% block content %}
 {% include 'includes/operator_menu.html' %}
-<div class="col-md-4 fa-align-left">
-    <table class="table table-bordered table-sm" style="font-size: medium">
-         <thead class="thead-dark align-content-center">
-         <tr>
+  <div class="container">
+    <div class="row justify-content-start ">
+      <div class="col-md-auto">
+        <table class="table table-bordered table-sm" style="font-size: medium">
+        <thead class="thead-dark align-content-center">
+           <tr>
                <th>Поле</th>
                <th>Значение</th>
            </tr>
-         </thead>
-      <tbody>
+        </thead>
+        <tbody>
 
-        <tr>
-            <td>id</td>
-            <td>{{ incoming.id }}</td>
-        </tr>
-        <tr>
-            <td>Поступил</td>
-            <td>{{ incoming.register_date }}</td>
-        </tr>
-        <tr>
-            <td>Время на чеке</td>
-            <td>{{ incoming.response_date }}</td>
-        </tr>
-        <tr>
-            <td>Получатель</td>
-            <td>{{ incoming.recipient }}</td>
-        </tr>
-        <tr>
-            <td>Отправитель</td>
-            <td>{{ incoming.sender }}</td>
-        </tr>
-        <tr>
-            <td>Платеж</td>
-            <td>{{ incoming.pay }}</td>
-        </tr>
-        <tr>
-            <td>Баланс</td>
-            <td>{{ incoming.balance }}</td>
-        </tr>
-        <tr>
-            <td>Источник</td>
-            <td>{{ incoming.worker }}</td>
-        </tr>
-        <tr>
-            <td>Транзакция</td>
-            <td>{{ incoming.transaction|default_if_none:"" }}</td>
-        </tr>
-        <tr>
-            <td>Скрин</td>
-            <td>{{ incoming.image }}</td>
-        </tr>
-        <tr>
-            <td>Тип</td>
-            <td>{{ incoming.type }}</td>
-        </tr>
-        <tr>
-            <td>Подтверждено</td>
-            <td>{{ incoming.birpay_confirm_time|default_if_none:"---"  }}</td>
-        </tr>
-        <tr>
-            <td>Ручная корректировка</td>
-            <td>{{ incoming.birpay_edit_time|default_if_none:"---"  }}</td>
-        </tr>
-        <tr>
-            <td>Birpay id</td>
-            <td>{{ incoming.birpay_id }}</td>
-        </tr>
-        <tr>
-            <td>Подтвержденный депозит</td>
-            <td>{{ incoming.confirmed_deposit|default_if_none:"---" }}</td>
-        </tr>
+            <tr>
+                <td>id</td>
+                <td>{{ incoming.id }}</td>
+            </tr>
+            <tr>
+                <td>Поступил</td>
+                <td>{{ incoming.register_date }}</td>
+            </tr>
+            <tr>
+                <td>Время на чеке</td>
+                <td>{{ incoming.response_date }}</td>
+            </tr>
+            <tr>
+                <td>Получатель</td>
+                <td>{{ incoming.recipient }}</td>
+            </tr>
+            <tr>
+                <td>Отправитель</td>
+                <td>{{ incoming.sender }}</td>
+            </tr>
+            <tr>
+                <td>Платеж</td>
+                <td>{{ incoming.pay }}</td>
+            </tr>
+            <tr>
+                <td>Баланс</td>
+                <td>{{ incoming.balance }}</td>
+            </tr>
+            <tr>
+                <td>Источник</td>
+                <td>{{ incoming.worker }}</td>
+            </tr>
+            <tr>
+                <td>Транзакция</td>
+                <td>{{ incoming.transaction|default_if_none:"" }}</td>
+            </tr>
+            <tr>
+                <td>Скрин</td>
+                <td>{{ incoming.image }}</td>
+            </tr>
+            <tr>
+                <td>Тип</td>
+                <td>{{ incoming.type }}</td>
+            </tr>
+            <tr>
+                <td>Подтверждено</td>
+                <td>{{ incoming.birpay_confirm_time|default_if_none:"---"  }}</td>
+            </tr>
+            <tr>
+                <td>Ручная корректировка</td>
+                <td>{{ incoming.birpay_edit_time|default_if_none:"---"  }}</td>
+            </tr>
+            <tr>
+                <td>Birpay id</td>
+                <td>{{ incoming.birpay_id }}</td>
+            </tr>
+            <tr>
+                <td>Подтвержденный депозит</td>
+                <td>{{ incoming.confirmed_deposit|default_if_none:"---" }}</td>
+            </tr>
 
-      </tbody>
-    </table>
+        </tbody>
+        </table>
+      </div>
 
-    <hr>
-    <br><b>Ручная корректировка:</b>
-    <form method="POST">
-        {% csrf_token %}
-          {% include 'includes/form_fields.html' %}
-        <input type="submit" value="Сохранить">
-    </form>
-</div>
+      <div class="col col-md-3">
+        <img class="img-thumbnail"  src="/media/{{incoming.image}}" width="200" height="450">
+      </div>
+    </div>
+
+
+    <div class="row justify-content-start  col-md-3">
+        <div class="col">
+        <br><b>Ручная корректировка:</b>
+        <form method="POST">
+            {% csrf_token %}
+              {% include 'includes/form_fields.html' %}
+            <input type="submit" value="Сохранить">
+        </form>
+        </div>
+    </div>
+  </div>
+
+
 {% endblock %}

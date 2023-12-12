@@ -48,9 +48,8 @@
                 {% if incoming.balance %}
                     {{ incoming.balance }}
                 {% elif incoming.image %}
-                    <a class="changelink" href="{{  incoming.image }}">Чек</a>
+                    <a class="changelink" href="/media/{{ incoming.image }}">Чек</a>
                 {% endif %}
-            <img class="img-thumbnail"  src="/media/{{incoming.image}}" width="200" height="400">
             </td>
             <td>{{ incoming.worker|default_if_none:"" }}</td>
             <td>{{ incoming.transaction|default_if_none:"" }}</td>
