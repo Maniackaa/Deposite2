@@ -73,7 +73,7 @@
                 <td>{{ incoming.birpay_id }}</td>
             </tr>
             <tr>
-                <td>Подтвержденный депозит</td>
+                <td>Депозит</td>
                 <td>{{ incoming.confirmed_deposit|default_if_none:"---" }}</td>
             </tr>
 
@@ -82,7 +82,7 @@
       </div>
 
       <div class="col col-md-3">
-        <img class="img-thumbnail"  src="/media/{{incoming.image}}" width="200" height="450">
+        <img class="img" style="object-fit: cover; object-position: 0 0" src="/media/{{incoming.image}}" width="300" height="400">
       </div>
     </div>
 
