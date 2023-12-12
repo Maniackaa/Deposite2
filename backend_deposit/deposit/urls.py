@@ -29,6 +29,7 @@ urlpatterns = [
 
     path('incomings_filter/', views.IncomingFiltered.as_view(), name='incomings_filter'),
     path('my_filter/', views.my_filter, name='my_filter'),
+    path('incmings_search/', views.IncomingSearch.as_view(), name='incomings_search'),
     path('bank_color/', views.ColorBankCreate.as_view(), name='bank_color'),
 
 ]

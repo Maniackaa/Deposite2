@@ -119,7 +119,9 @@ class MyFilterForm(forms.Form):
 
 
 class ColorBankForm(forms.ModelForm):
-    color = colorfield.fields.ColorWidget()
+    color_back = colorfield.fields.ColorWidget()
+    color_font = colorfield.fields.ColorWidget()
+
 
     class Meta:
         model = ColorBank
@@ -149,4 +151,6 @@ class IncomingForm(forms.ModelForm):
         # exclude = ('birpay_confirm_time', 'worker', 'type')
 
 
+class IncomingSearchForm(forms.Form):
+    register_date = forms.DateField(widget=forms.SelectDateWidget)
 

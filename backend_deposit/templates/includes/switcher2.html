@@ -15,6 +15,12 @@
            href="{% url 'deposit:incomings_filter' %}">
           Платежи по фильтру
         </a>
+        <li class="nav-item">
+        <a
+           class="nav-link {% if view_name == 'deposit:incomings_search' %}active{% endif %}"
+           href="{% url 'deposit:incomings_search' %}">
+          Поиск платежей
+        </a>
       </li>
     </ul>
   </div>

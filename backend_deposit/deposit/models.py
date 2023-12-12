@@ -16,6 +16,17 @@ from backend_deposit.settings import TZ
 logger = logging.getLogger(__name__)
 
 
+class TrashIncoming(models.Model):
+
+    register_date = models.DateTimeField('Время добавления в базу', auto_now=True)
+    text = models.CharField('Текст сообщения', max_length=1000)
+    worker = models.CharField(max_length=50, null=True)
+
+    def __str__(self):
+        string = f'Мусор {self.id} {self.register_date} {self.text[:20]}'
+        return string
+
+
 class Incoming(models.Model):
 
     register_date = models.DateTimeField('Время добавления в базу', auto_now=True)
@@ -110,7 +121,7 @@ class ColorBank(models.Model):
 
     def example(self):
         return format_html(
-            f'<span style="color:  {self.color};">{self.name}</span>'
+            f'<span style="color:  {self.color_font}; background: {self.color_back}">{self.name}</span>'
         )
 
 

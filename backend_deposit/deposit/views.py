@@ -1,46 +1,46 @@
 import datetime
 import logging
 import re
-import time
 import uuid
-from pathlib import Path
 
+from backend_deposit.settings import TZ
 from django.conf import settings
 from django.conf.global_settings import MEDIA_ROOT
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, AccessMixin
+from django.contrib.auth.mixins import (AccessMixin, LoginRequiredMixin,
+                                        PermissionRequiredMixin)
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.messages.views import SuccessMessageMixin
-from django.core.exceptions import ImproperlyConfigured, PermissionDenied
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Value, F, Q, Subquery
+from django.db.models import F, Q, Subquery, Value, OuterRef
 from django.http import HttpResponse, HttpResponseForbidden
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
-from django.utils.decorators import method_decorator
 from django.utils.http import urlencode
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
-
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
-from backend_deposit.settings import TZ
-from deposit.forms import DepositForm, DepositImageForm, DepositTransactionForm, DepositEditForm, MyFilterForm, \
-    ColorBankForm, IncomingForm
-from deposit.func import img_path_to_str, make_after_incoming_save, make_after_save_deposit, send_message_tg
-from deposit.models import BadScreen, Incoming, Deposit, ColorBank
+
+from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
+                           DepositImageForm, DepositTransactionForm,
+                           IncomingForm, MyFilterForm, IncomingSearchForm)
+from deposit.func import (img_path_to_str, make_after_incoming_save,
+                          make_after_save_deposit, send_message_tg)
+from deposit.models import BadScreen, ColorBank, Deposit, Incoming, TrashIncoming
 from deposit.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
+from deposit.text_response_func import (response_sms1, response_sms2,
+                                        response_sms3, response_sms4,
+                                        response_sms5, response_sms6,
+                                        response_sms7)
 
-from deposit.text_response_func import (
-    response_sms1, response_sms2, response_sms3, response_sms4,
-    response_sms5, response_sms6, response_sms7)
-from users.models import User, Profile
-
-logger = err_log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+err_log = logging.getLogger('error_log')
 
 
 def index(request, *args, **kwargs):
@@ -359,6 +359,7 @@ def sms(request: Request):
     Прием sms
     {'id': ['b1899338-2314-400c-a4ff-a9ef3d890c79'], 'from': ['Azericard'], 'to': [''], 'message': ['Mebleg:+50.00 AZN \nKart:5522*4219\nTarix:2023-11-20 17:07:22 \nMerchant:www.birbank.az \nBalans:441.52 AZN'], 'res_sn': ['046417'], 'imsi': ['400017132479582'], 'imei': ['357834563816454'], 'com': ['COM39'], 'simno': [''], 'sendstat': ['0']}>, host: asu-payme.com, user_agent: None, path: /sms/, forwarded: 91.201.116.111
     """
+    print(request)
     errors = []
     text = ''
     try:
@@ -421,6 +422,7 @@ def sms(request: Request):
                 pay=responsed_pay.get('pay'),
                 balance=responsed_pay.get('balance')
             ).exists()
+            is_duplicate = False
             if is_duplicate:
                 logger.debug('Дубликат sms:\n\n{text}')
                 msg = f'Дубликат sms:\n\n{text}'
@@ -431,8 +433,8 @@ def sms(request: Request):
 
         else:
             logger.info(f'Неизвестный шаблон\n{text}')
-            new_incoming = Incoming()
-            logger.debug('Добавлено в мусор')
+            new_trash = TrashIncoming.objects.create(text=text, worker=imei)
+            logger.debug(f'Добавлено в мусор: {new_trash}')
         return HttpResponse(sms_id)
 
     except Exception as err:
@@ -446,8 +448,9 @@ def sms(request: Request):
             send_message_tg(message=msg, chat_ids=settings.ADMIN_IDS)
 
 
-@staff_member_required()
+@staff_member_required(login_url='users:login')
 def incoming_list(request):
+    err_log.info('test_error')
     # Список всех платежей и сохранение birpay
     if request.method == "POST":
         pk = list(request.POST.keys())[1]
@@ -459,6 +462,9 @@ def incoming_list(request):
             incoming.save()
         return redirect('deposit:incomings')
     template = 'deposit/incomings_list.html'
+    all_color = ColorBank.objects.all()
+    x = all_color.filter(name='www.birbank.az').values('color_font').first().get('color_font')
+    print('xxx', x, type(x))
     incoming_q = Incoming.objects.order_by('-id').all()
     context = {'page_obj': make_page_obj(request, incoming_q)}
     return render(request, template, context)
@@ -469,23 +475,43 @@ class IncomingFiltered(ListView):
     model = Incoming
     template_name = 'deposit/incomings_list.html'
     paginate_by = settings.PAGINATE
-    # context_object_name = 'incoming'
 
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_staff:
             raise PermissionDenied('Недостаточно прав')
         user_filter = self.request.user.profile.my_filter
-        register_day = self.request.GET.get('register_day')
-        filtered_incomings = Incoming.objects.filter(
-            recipient__in=user_filter,
-            # response_date__date=datetime.date(2023, 10, 28)
-        ).order_by('-id').all()
-        return filtered_incomings
+        filtered_incoming = Incoming.objects.filter(
+            recipient__in=user_filter).order_by('-id').all()
+        return filtered_incoming
+
+
+class IncomingSearch(ListView):
+    # Поиск платежей
+    model = Incoming
+    template_name = 'deposit/incomings_list.html'
+    paginate_by = settings.PAGINATE
+    search_date = None
+
+    @staticmethod
+    def get_date(year, month, day):
+        return datetime.date(int(year), int(month), int(day))
+
+    def get_queryset(self):
+        all_incoming = Incoming.objects.order_by('-id').all()
+        if 'date_search' in self.request.GET:
+            register_date_year = self.request.GET.get('register_date_year')
+            register_date_month = self.request.GET.get('register_date_month')
+            register_date_day = self.request.GET.get('register_date_day')
+            search_date = self.get_date(register_date_year, register_date_month, register_date_day)
+            self.search_date = search_date
+            all_incoming = all_incoming.filter(
+                register_date__date=search_date).order_by('-id').all()
+        return all_incoming
 
     def get_context_data(self, **kwargs):
-        context = super(IncomingFiltered, self).get_context_data(**kwargs)
-        # Добавляем новую переменную к контексту и инициализируем её некоторым значением
-        context['test'] = 'xxx'
+        context = super(IncomingSearch, self).get_context_data(**kwargs)
+        search_form = IncomingSearchForm(initial={'register_date': self.search_date})
+        context['search_form'] = search_form
         return context
 
 
@@ -515,7 +541,6 @@ class IncomingEdit(UpdateView, ):
     template_name = 'deposit/incoming_edit.html'
 
     def get(self, request, *args, **kwargs):
-        print('get')
         self.object = self.get_object()
         return super().get(request, *args, **kwargs)
 
@@ -529,7 +554,6 @@ class IncomingEdit(UpdateView, ):
         context = super(IncomingEdit, self).get_context_data(**kwargs)
         # Добавляем новую переменную к контексту и инициализируем её некоторым значением
         # context['test'] = 'xxx'
-        print('context', context)
         return context
 
     def form_valid(self, form):

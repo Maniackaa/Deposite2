@@ -90,3 +90,14 @@ services:
 #      - ./certbot/www/:/etc/nginx/ssl/:ro
       - static:/app/static
       - media:/app/media
+
+  table1-writer:
+    restart: always
+    build: ./google_writer
+    command: python3 table1_writer.py
+    env_file: .env
+    depends_on:
+      - redis
+      - db_postgres
+    volumes:
+      - ./logs/Table1:/app/logs

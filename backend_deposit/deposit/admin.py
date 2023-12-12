@@ -1,6 +1,10 @@
 from django.contrib import admin
 
-from deposit.models import Incoming, BadScreen, Deposit, ColorBank
+from deposit.models import Incoming, BadScreen, Deposit, ColorBank, TrashIncoming
+
+
+class TrashIncomingAdmin(admin.ModelAdmin):
+    list_display = ('id', 'register_date', 'text')
 
 
 class IncomingAdmin(admin.ModelAdmin):
@@ -30,6 +34,7 @@ class ColorBankAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Incoming, IncomingAdmin)
+admin.site.register(TrashIncoming, TrashIncomingAdmin)
 admin.site.register(BadScreen, BadScreenAdmin)
 admin.site.register(Deposit, DepositAdmin)
 admin.site.register(ColorBank, ColorBankAdmin)

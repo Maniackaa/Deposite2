@@ -178,7 +178,21 @@ LOGGING = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
+            'filename': 'logs/log.log',
+            'formatter': 'default_formatter',
+
+        },
+        'django_file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
             'filename': 'logs/django.log',
+            'formatter': 'default_formatter',
+
+        },
+        'error_file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'logs/error.log',
             'formatter': 'default_formatter',
 
         },
@@ -189,7 +203,7 @@ LOGGING = {
         },
         'rotating_file_handler': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/rotate.log',
+            'filename': 'logs/rotate_file.log',
             'backupCount': 10,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
@@ -198,7 +212,7 @@ LOGGING = {
         },
         'rotating_file_handler_django': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/rotate.log',
+            'filename': 'logs/rotate_django.log',
             'backupCount': 10,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
@@ -212,8 +226,13 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True
         },
+        'error_log': {
+            'handlers': ['console', 'error_file'],
+            'level': 'DEBUG',
+            'propagate': True
+        },
         'django': {
-            'handlers': ['console', 'file', 'rotating_file_handler_django'],
+            'handlers': ['console', 'django_file', 'rotating_file_handler_django'],
             'level': 'DEBUG',
         },
     }
