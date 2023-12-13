@@ -6,7 +6,7 @@
 {% include 'includes/operator_menu.html' %}
   <div class="container">
     <div class="row justify-content-start ">
-      <div class="col-md-auto">
+      <div class="col col-md-auto">
         <table class="table table-bordered table-sm" style="font-size: medium">
         <thead class="thead-dark align-content-center">
            <tr>
@@ -42,15 +42,15 @@
             </tr>
             <tr>
                 <td>Баланс</td>
-                <td>{{ incoming.balance }}</td>
+                <td>{{ incoming.balance|default_if_none:"---" }}</td>
             </tr>
             <tr>
                 <td>Источник</td>
-                <td>{{ incoming.worker }}</td>
+                <td>{{ incoming.worker|default_if_none:"---" }}</td>
             </tr>
             <tr>
                 <td>Транзакция</td>
-                <td>{{ incoming.transaction|default_if_none:"" }}</td>
+                <td>{{ incoming.transaction|default_if_none:"---" }}</td>
             </tr>
             <tr>
                 <td>Скрин</td>
@@ -70,7 +70,7 @@
             </tr>
             <tr>
                 <td>Birpay id</td>
-                <td>{{ incoming.birpay_id }}</td>
+                <td>{{ incoming.birpay_id|default_if_none:"---" }}</td>
             </tr>
             <tr>
                 <td>Депозит</td>
@@ -82,7 +82,9 @@
       </div>
 
       <div class="col col-md-3">
+          {% if incoming.image %}
         <img class="img" style="object-fit: cover; object-position: 0 0" src="/media/{{incoming.image}}" width="300" height="400">
+          {% endif %}
       </div>
     </div>
 

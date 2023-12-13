@@ -377,9 +377,6 @@ def sms(request: Request):
         text = post.get('message')
         sms_id = post.get('id')
         imei = post.get('imei')
-        # message_url = None
-        # send_message_tg(message=sms_id, chat_id=settings.ADMIN_IDS)
-        # send_message_tg(message=sms_id, chat_id='6051226224')
         patterns = {
             'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
             'sms2': r'.*Mebleg:(.+) AZN.*\nKart:(.*)\nTarix:(.*)\nMerchant:(.*)\nBalans:(.*) .*',
@@ -422,11 +419,10 @@ def sms(request: Request):
                 pay=responsed_pay.get('pay'),
                 balance=responsed_pay.get('balance')
             ).exists()
-            is_duplicate = False
             if is_duplicate:
                 logger.debug('Дубликат sms:\n\n{text}')
                 msg = f'Дубликат sms:\n\n{text}'
-                send_message_tg(message=msg, chat_ids=settings.ADMIN_IDS)
+                send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
             else:
                 created = Incoming.objects.create(**responsed_pay, worker=imei)
                 logger.debug(f'Создан: {created}')
@@ -443,9 +439,8 @@ def sms(request: Request):
         raise err
     finally:
         if errors:
-            # alarm_chat_ids = ['6443007496', '6051226224', settings.ADMIN_IDS]
             msg = f'Ошибки при распознавании sms:\n{errors}\n\n{text}'
-            send_message_tg(message=msg, chat_ids=settings.ADMIN_IDS)
+            send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
 
 
 @staff_member_required(login_url='users:login')
@@ -462,9 +457,6 @@ def incoming_list(request):
             incoming.save()
         return redirect('deposit:incomings')
     template = 'deposit/incomings_list.html'
-    all_color = ColorBank.objects.all()
-    # x = all_color.filter(name='www.birbank.az').values('color_font').first().get('color_font')
-    # print('xxx', x, type(x))
     incoming_q = Incoming.objects.order_by('-id').all()
     context = {'page_obj': make_page_obj(request, incoming_q)}
     return render(request, template, context)
