@@ -40,8 +40,8 @@
          {% for incoming in page_obj %}
          <tr style="">
             <td><a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a></td>
-            <td>{{ incoming.register_date|date:"d.m.Y H:i" }}</td>
-            <td>{{ incoming.response_date|date:"d.m.Y H:i" }}</td>
+            <td>{{ incoming.register_date|date:"d.m H:i" }}</td>
+            <td>{{ incoming.response_date|date:"d.m H:i" }}</td>
             <td>{{ incoming.recipient }}</td>
 
             <td style="color: {{ incoming.color_font }}; background: {{ incoming.color_back }}">{{ incoming.sender }}</td>
