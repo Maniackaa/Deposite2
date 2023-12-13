@@ -366,7 +366,7 @@ def sms(request: Request):
         user_agent = request.META.get("HTTP_USER_AGENT")  # получаем данные бразера
         forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
         path = request.path
-        logger.debug(f'request.data: {request.data},'
+        logger.info(f'request.data: {request.data},'
                      f' host: {host},'
                      f' user_agent: {user_agent},'
                      f' path: {path},'
@@ -419,17 +419,17 @@ def sms(request: Request):
                 balance=responsed_pay.get('balance')
             ).exists()
             if is_duplicate:
-                logger.debug('Дубликат sms:\n\n{text}')
+                logger.info('Дубликат sms:\n\n{text}')
                 msg = f'Дубликат sms:\n\n{text}'
                 send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
             else:
                 created = Incoming.objects.create(**responsed_pay, worker=imei)
-                logger.debug(f'Создан: {created}')
+                logger.info(f'Создан: {created}')
 
         else:
             logger.info(f'Неизвестный шаблон\n{text}')
             new_trash = TrashIncoming.objects.create(text=text, worker=imei)
-            logger.debug(f'Добавлено в мусор: {new_trash}')
+            logger.info(f'Добавлено в мусор: {new_trash}')
         return HttpResponse(sms_id)
 
     except Exception as err:
