@@ -31,7 +31,7 @@
            <th>Отправитель</th>
            <th>Платеж</th>
            <th>Баланс</th>
-           <th>Источник</th>
+
            <th>Транзакция</th>
            <th>Бирпай</th>
        </tr>
@@ -53,7 +53,7 @@
                     <a class="changelink" target="_blank" href="/media/{{ incoming.image }}">Чек</a>
                 {% endif %}
             </td>
-            <td>{{ incoming.worker|default_if_none:"" }}</td>
+
             <td>{{ incoming.transaction|default_if_none:"" }}</td>
 
             <td>
