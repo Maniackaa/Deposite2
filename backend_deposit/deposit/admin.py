@@ -31,6 +31,7 @@ class ColorBankAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'name', 'color_back', 'color_font', 'example'
     )
+    list_display_links = ('id', 'name')
 
 
 admin.site.register(Incoming, IncomingAdmin)
