@@ -71,7 +71,7 @@ class Incoming(models.Model):
     def color_font(self):
         bank_color_font = ColorBank.objects.filter(name=self.sender).first()
         if self.type in ['m10', 'm10_short']:
-            return '#80FFFF'
+            return '#000000'
         if bank_color_font:
             return bank_color_font.color_font
         return '#000000'
