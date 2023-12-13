@@ -6,8 +6,8 @@
 {% include 'includes/operator_menu.html' %}
 <div class="">
 {% include 'includes/switcher2.html' %}
-   <table class="table" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
-     <thead class="thead-dark align-content-center">
+   <table class="table  table-hover" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+     <thead class="">
      {% with request.resolver_match.view_name as view_name %}
          {% if view_name == 'deposit:incomings_filter' %}
              Ваш фильтр на получателя: {{ user.profile.my_filter }}
@@ -38,7 +38,11 @@
      </thead>
      <tbody>
          {% for incoming in page_obj %}
-         <tr style="">
+         <tr
+                 {% if incoming.birpay_id %}
+                 class="table-active"
+                 {% endif %}
+         >
             <td><a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a></td>
             <td>{{ incoming.register_date|date:"d.m H:i" }}</td>
             <td>{{ incoming.response_date|date:"d.m H:i" }}</td>
