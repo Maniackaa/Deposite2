@@ -44,7 +44,7 @@
             <td>{{ incoming.response_date|date:"d.m.Y H:i" }}</td>
             <td>{{ incoming.recipient }}</td>
 
-            <td style="background: {{ incoming.color_back }}">{{ incoming.sender }}</td>
+            <td style="color:{{ incoming.color_font }}; background: {{ incoming.color_back }}">{{ incoming.sender }}</td>
             <td>{{ incoming.pay }}</td>
             <td>
                 {% if incoming.balance %}
