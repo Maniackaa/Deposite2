@@ -357,9 +357,8 @@ def screen(request: Request):
 def sms(request: Request):
     """
     Прием sms
-    {'id': ['b1899338-2314-400c-a4ff-a9ef3d890c79'], 'from': ['Azericard'], 'to': [''], 'message': ['Mebleg:+50.00 AZN \nKart:5522*4219\nTarix:2023-11-20 17:07:22 \nMerchant:www.birbank.az \nBalans:441.52 AZN'], 'res_sn': ['046417'], 'imsi': ['400017132479582'], 'imei': ['357834563816454'], 'com': ['COM39'], 'simno': [''], 'sendstat': ['0']}>, host: asu-payme.com, user_agent: None, path: /sms/, forwarded: 91.201.116.111
+    {'id': ['b1899338-2314-400c-a4ff-a9ef3d890c79'], 'from': ['icard'], 'to': [''], 'message': ['Mebleg:+50.00 AZN '], 'res_sn': ['111'], 'imsi': ['400055555555555'], 'imei': ['123456789000000'], 'com': ['COM39'], 'simno': [''], 'sendstat': ['0']}>, host: asu-payme.com, user_agent: None, path: /sms/, forwarded: 91.201.000.000
     """
-    print(request)
     errors = []
     text = ''
     try:
@@ -445,7 +444,6 @@ def sms(request: Request):
 
 @staff_member_required(login_url='users:login')
 def incoming_list(request):
-    err_log.info('test_error')
     # Список всех платежей и сохранение birpay
     if request.method == "POST":
         pk = list(request.POST.keys())[1]
@@ -475,6 +473,11 @@ class IncomingFiltered(ListView):
         filtered_incoming = Incoming.objects.filter(
             recipient__in=user_filter).order_by('-id').all()
         return filtered_incoming
+
+    def get_context_data(self, **kwargs):
+        context = super(IncomingFiltered, self).get_context_data(**kwargs)
+        context['search_form'] = None
+        return context
 
 
 class IncomingSearch(ListView):

@@ -17,7 +17,9 @@
 
     <form method="GET">
         {% csrf_token %}
-     {{ search_form.as_p }}
+        {% if search_form %}
+            {{ search_form.as_p }}
+        {% endif %}
     <input type="submit" name="date_search" value="Найти">
     </form>
 
@@ -38,7 +40,7 @@
          {% for incoming in page_obj %}
          <tr style="">
             <td><a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a></td>
-            <td>{{ incoming.test }}{{ incoming.register_date|date:"d.m.Y H:i" }}</td>
+            <td>{{ incoming.register_date|date:"d.m.Y H:i" }}</td>
             <td>{{ incoming.response_date|date:"d.m.Y H:i" }}</td>
             <td>{{ incoming.recipient }}</td>
 

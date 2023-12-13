@@ -59,6 +59,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.username
 
+    def get_short_name(self):
+        return self.email
+
+    def get_full_name(self):
+        return self.username
+
     def email_user(self, subject, message, from_email=None, **kwargs):
         send_mail(subject, message, from_email, [self.email], **kwargs)
 

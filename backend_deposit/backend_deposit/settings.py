@@ -233,7 +233,7 @@ LOGGING = {
         },
         'django': {
             'handlers': ['console', 'django_file', 'rotating_file_handler_django'],
-            'level': 'DEBUG',
+            'level': 'WARNING',
         },
     }
 }
