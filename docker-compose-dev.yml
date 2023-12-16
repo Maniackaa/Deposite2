@@ -1,0 +1,102 @@
+version: '3'
+
+volumes:
+  pg_data:
+  pgadmin_data:
+  redis_data:
+  static:
+  media:
+
+services:
+  db_postgres:
+    container_name: db_deposit
+    image: postgres:14-alpine
+    env_file: .env
+    volumes:
+      - ./postgres/init_db:/docker-entrypoint-initdb.d
+#      - ./postgres/postgres-data.conf:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"
+    restart: always
+
+
+  pgadmin:
+    container_name: pgadmin_container_deposit
+    image: dpage/pgadmin4:7.6
+    env_file: .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: $PGADMIN_DEFAULT_EMAIL
+      PGADMIN_DEFAULT_PASSWORD: $PGADMIN_DEFAULT_PASSWORD
+
+    depends_on:
+      - db_postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  redis:
+    container_name: redis_deposit
+    image: redis:latest
+    restart: always
+    environment:
+      - REDIS_PASSWORD=$REDIS_PASSWORD
+      - REDIS_PORT=$REDIS_PORT
+      - REDIS_DATABASES=16
+    entrypoint: redis-server --appendonly yes --requirepass $REDIS_PASSWORD --maxmemory 512mb --maxmemory-policy allkeys-lru
+    networks:
+      - default
+    ports:
+      - "6379:6379"
+    volumes:
+#      - ./redis/data:/data
+      - ./redis/etc/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis_data:/data
+
+
+  backend:
+    build: ./backend_deposit
+    restart: always
+    env_file: .env
+    depends_on:
+      - db_postgres
+    volumes:
+      - static:/app/collected_static/
+      - media:/app/media/
+      - ./logs/backend_deposit:/app/logs
+      - ./backend_deposit:/app
+    entrypoint: bash /app/entrypoint.sh
+
+
+  nginx:
+    image: nginx:1.19.3
+    env_file: .env
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static:/app/static
+      - media:/app/media
+
+
+  table1-writer:
+    restart: always
+    build: ./google_writer
+    command: python3 table1_writer.py
+    env_file: .env
+    depends_on:
+      - redis
+      - db_postgres
+    volumes:
+      - ./logs/Table1:/app/logs
