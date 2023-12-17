@@ -58,23 +58,23 @@ class Incoming(models.Model):
         string = f'Платеж {self.id}. Сумма: {self.pay}. {self.transaction}.  Депозит: {self.confirmed_deposit.id if self.confirmed_deposit else "-"}'
         return string
 
-    @property
-    def color_back(self):
-        bank_color_back = ColorBank.objects.filter(name=self.sender).first()
-        if self.type in ['m10', 'm10_short']:
-            return '#80FFFF'
-        if bank_color_back:
-            return bank_color_back.color_back
-        return '#FFFFFF'
-
-    @property
-    def color_font(self):
-        bank_color_font = ColorBank.objects.filter(name=self.sender).first()
-        if self.type in ['m10', 'm10_short']:
-            return '#000000'
-        if bank_color_font:
-            return bank_color_font.color_font
-        return '#000000'
+    # @property
+    # def color_back(self):
+    #     bank_color_back = ColorBank.objects.filter(name=self.sender).first()
+    #     if self.type in ['m10', 'm10_short']:
+    #         return '#80FFFF'
+    #     if bank_color_back:
+    #         return bank_color_back.color_back
+    #     return '#FFFFFF'
+    #
+    # @property
+    # def color_font(self):
+    #     bank_color_font = ColorBank.objects.filter(name=self.sender).first()
+    #     if self.type in ['m10', 'm10_short']:
+    #         return '#000000'
+    #     if bank_color_font:
+    #         return bank_color_font.color_font
+    #     return '#000000'
 
 
 class Deposit(models.Model):

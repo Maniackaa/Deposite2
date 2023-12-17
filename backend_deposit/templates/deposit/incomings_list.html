@@ -15,21 +15,21 @@
          {% endif %}
 
 
-     {% if view_name != 'deposit:incomings_search' %}
+
      <span class="row justify-content-start">
-            <div class="col-1">
+            <div class="col-2">
             <form method="GET">
                 {% csrf_token %}
                 {% if search_form %}
                     {{ search_form.as_p }}
                 {% endif %}
-
             <input class="btn btn-success" type="submit" name="date_search" value="Найти">
             </form>
             </div>
 
             <p id="last_id" hidden>{{ last_id }}</p>
-            <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 0">
+         {% if view_name != 'deposit:incomings_search' %}
+         <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
             <!-- Здесь будут отображаться уведомления -->
             </div>
     </span>

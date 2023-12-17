@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import re
 import uuid
@@ -452,7 +453,10 @@ def incoming_list(request):
             incoming.save()
         return redirect('deposit:incomings')
     template = 'deposit/incomings_list.html'
-    incoming_q = Incoming.objects.order_by('-id').all()
+    # incoming_q = Incoming.objects.order_by('-id').all()
+    incoming_q = Incoming.objects.raw("with t1 as (SELECT * FROM deposit_colorbank) "
+                                          "SELECT * FROM deposit_incoming JOIN t1 ON t1.name = deposit_incoming.sender"
+                                          " ORDER BY deposit_incoming.id DESC;")
     last_id = Incoming.objects.order_by('id').last().id
     context = {'page_obj': make_page_obj(request, incoming_q),
                'last_id': last_id}
@@ -469,14 +473,24 @@ class IncomingFiltered(ListView):
         if not self.request.user.is_staff:
             raise PermissionDenied('Недостаточно прав')
         user_filter = self.request.user.profile.my_filter
-        filtered_incoming = Incoming.objects.filter(
-            recipient__in=user_filter).order_by('-id').all()
+        filtered_incoming = Incoming.objects.raw(
+            "with t1 as (SELECT * FROM deposit_colorbank)"
+            " SELECT * FROM deposit_incoming JOIN t1 ON t1.name = deposit_incoming.sender"
+            " WHERE deposit_incoming.recipient = ANY(%s)"
+            " ORDER BY deposit_incoming.id DESC;", [user_filter])
+        # filtered_incoming = Incoming.objects.filter(
+        #     recipient__in=user_filter).order_by('-id').all()
         return filtered_incoming
 
     def get_context_data(self, **kwargs):
         context = super(IncomingFiltered, self).get_context_data(**kwargs)
         context['search_form'] = None
-        context['last_id'] = self.object_list.first().id
+
+        user_filter = self.request.user.profile.my_filter
+        last_filtered_id = Incoming.objects.filter(
+            recipient__in=user_filter).order_by('-id').first().id
+        print(last_filtered_id)
+        context['last_id'] = last_filtered_id
         return context
 
 
