@@ -6,22 +6,35 @@
 {% include 'includes/operator_menu.html' %}
 <div class="">
 {% include 'includes/switcher2.html' %}
-   <table class="table  table-hover" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+   <table id="table" class="table  table-hover" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
      <thead class="">
      {% with request.resolver_match.view_name as view_name %}
          {% if view_name == 'deposit:incomings_filter' %}
              Ваш фильтр на получателя: {{ user.profile.my_filter }}
              <a class="changelink" href="{% url 'deposit:my_filter' %}">Изменить</a>
          {% endif %}
-     {% endwith %}
 
-    <form method="GET">
-        {% csrf_token %}
-        {% if search_form %}
-            {{ search_form.as_p }}
-        {% endif %}
-    <input type="submit" name="date_search" value="Найти">
-    </form>
+
+     {% if view_name != 'deposit:incomings_search' %}
+     <span class="row justify-content-start">
+            <div class="col-1">
+            <form method="GET">
+                {% csrf_token %}
+                {% if search_form %}
+                    {{ search_form.as_p }}
+                {% endif %}
+
+            <input class="btn btn-success" type="submit" name="date_search" value="Найти">
+            </form>
+            </div>
+
+            <p id="last_id" hidden>{{ last_id }}</p>
+            <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 0">
+            <!-- Здесь будут отображаться уведомления -->
+            </div>
+    </span>
+    {% endif %}
+    {% endwith %}
 
      <tr>
            <th>id</th>
@@ -38,7 +51,7 @@
      </thead>
      <tbody>
          {% for incoming in page_obj %}
-         <tr
+         <tr id="pay{{ incoming.id }}"
                  {% if incoming.birpay_id %}
                  class="table-active"
                  {% endif %}
@@ -78,4 +91,32 @@
    </table>
    {% include 'includes/paginator.html' %}
 </div>
+
+{% endblock %}
+
+{% block javascript %}
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+            function getPosts() {
+        $.ajax({
+            url: '/get_posts/',
+            type: 'get',
+            dataType: 'json',
+            success: function(response) {
+                // Если данные успешно получены, то создаем карточки для каждого поста
+                    var last_id = $('#last_id').text()
+                    var num = response[0].id
+                    var count = num - last_id
+                    var div = $('#warnings')
+                    div.html(`Новых платежей: ${count}`);
+                    if (count >= 1) {
+                        div.addClass("alert alert-warning")
+                    }
+            }
+        });
+    }
+    // Вызываем функцию для получения списка постов
+    getPosts();
+    setInterval(getPosts, 5000)
+</script>
 {% endblock %}

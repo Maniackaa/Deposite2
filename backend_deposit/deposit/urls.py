@@ -32,6 +32,8 @@ urlpatterns = [
     path('incmings_search/', views.IncomingSearch.as_view(), name='incomings_search'),
     path('bank_color/', views.ColorBankCreate.as_view(), name='bank_color'),
 
+    path('get_posts/', views.get_last, name='get_last'),
+
 ]
 
 if settings.DEBUG:

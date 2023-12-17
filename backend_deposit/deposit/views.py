@@ -16,7 +16,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import F, Q, Subquery, Value, OuterRef
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.http import urlencode
@@ -84,13 +84,10 @@ def deposit_created(request):
     logger.debug(f'deposit_created: {request}')
     if request.method == 'POST':
         data = request.POST
-        print('POST deposit_created', data)
         uid = data['uid']
         phone = data['phone']
         pay = data['pay_sum']
         deposit = Deposit.objects.filter(uid=uid).exists()
-        print(deposit)
-        print(uid, phone, pay)
         if not deposit:
             form = DepositTransactionForm(request.POST or None, files=request.FILES or None, initial={'phone': phone, 'uid': uid, 'pay_sum': pay})
             if form.is_valid():
@@ -456,7 +453,9 @@ def incoming_list(request):
         return redirect('deposit:incomings')
     template = 'deposit/incomings_list.html'
     incoming_q = Incoming.objects.order_by('-id').all()
-    context = {'page_obj': make_page_obj(request, incoming_q)}
+    last_id = Incoming.objects.order_by('id').last().id
+    context = {'page_obj': make_page_obj(request, incoming_q),
+               'last_id': last_id}
     return render(request, template, context)
 
 
@@ -477,6 +476,7 @@ class IncomingFiltered(ListView):
     def get_context_data(self, **kwargs):
         context = super(IncomingFiltered, self).get_context_data(**kwargs)
         context['search_form'] = None
+        context['last_id'] = self.object_list.first().id
         return context
 
 
@@ -507,6 +507,8 @@ class IncomingSearch(ListView):
         context = super(IncomingSearch, self).get_context_data(**kwargs)
         search_form = IncomingSearchForm(initial={'register_date': self.search_date})
         context['search_form'] = search_form
+        last_id = Incoming.objects.order_by('id').last().id
+        context['last_id'] = last_id
         return context
 
 
@@ -547,8 +549,6 @@ class IncomingEdit(UpdateView, ):
 
     def get_context_data(self, **kwargs):
         context = super(IncomingEdit, self).get_context_data(**kwargs)
-        # Добавляем новую переменную к контексту и инициализируем её некоторым значением
-        # context['test'] = 'xxx'
         return context
 
     def form_valid(self, form):
@@ -567,3 +567,12 @@ class ColorBankCreate(CreateView):
     def form_valid(self, form):
         if form.is_valid():
             form.save()
+
+
+def get_last(request):
+    last = Incoming.objects.order_by('id').last()
+    data = list()
+    data.append({
+        'id': last.id,
+    })
+    return JsonResponse(data, safe=False)

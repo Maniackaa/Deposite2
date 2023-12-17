@@ -3,6 +3,7 @@
 <html lang="ru">
   <head>
     {% load static %}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="{% static 'img/fav/favicon.ico' %}" type="image">
@@ -29,5 +30,7 @@
       </div>
       <hr>
     </main>
+    {% block javascript %}
+    {% endblock %}
   </body>
 </html>
