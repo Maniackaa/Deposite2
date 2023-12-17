@@ -28,6 +28,7 @@
             </div>
 
             <p id="last_id" hidden>{{ last_id }}</p>
+            <p id="filter" hidden>{{ filter }}</p>
          {% if view_name != 'deposit:incomings_search' %}
          <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
             <!-- Здесь будут отображаться уведомления -->
@@ -102,8 +103,8 @@
             url: '/get_posts/',
             type: 'get',
             dataType: 'json',
+            data: {'filter': $('#filter').text() },
             success: function(response) {
-                // Если данные успешно получены, то создаем карточки для каждого поста
                     var last_id = $('#last_id').text()
                     var num = response[0].id
                     var count = num - last_id

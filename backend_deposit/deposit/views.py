@@ -455,7 +455,7 @@ def incoming_list(request):
     template = 'deposit/incomings_list.html'
     # incoming_q = Incoming.objects.order_by('-id').all()
     incoming_q = Incoming.objects.raw("with t1 as (SELECT * FROM deposit_colorbank) "
-                                          "SELECT * FROM deposit_incoming JOIN t1 ON t1.name = deposit_incoming.sender"
+                                          "SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
                                           " ORDER BY deposit_incoming.id DESC;")
     last_id = Incoming.objects.order_by('id').last().id
     context = {'page_obj': make_page_obj(request, incoming_q),
@@ -487,10 +487,15 @@ class IncomingFiltered(ListView):
         context['search_form'] = None
 
         user_filter = self.request.user.profile.my_filter
-        last_filtered_id = Incoming.objects.filter(
-            recipient__in=user_filter).order_by('-id').first().id
+        last_filtered_id = None
+        last_filtered = Incoming.objects.filter(
+            recipient__in=user_filter).order_by('-id').first()
+        print(last_filtered)
+        if last_filtered:
+            last_filtered_id = last_filtered.id
         print(last_filtered_id)
         context['last_id'] = last_filtered_id
+        context['filter'] = json.dumps(user_filter)
         return context
 
 
@@ -584,9 +589,15 @@ class ColorBankCreate(CreateView):
 
 
 def get_last(request):
-    last = Incoming.objects.order_by('id').last()
+    all_incomings = Incoming.objects.order_by('id').all()
+    user_filter = request.GET.get('filter')
+    if user_filter:
+        user_filter = json.loads(user_filter)
+        last_id = all_incomings.filter(recipient__in=user_filter).last().id
+    else:
+        last_id = all_incomings.last().id
     data = list()
     data.append({
-        'id': last.id,
+        'id': last_id,
     })
     return JsonResponse(data, safe=False)
