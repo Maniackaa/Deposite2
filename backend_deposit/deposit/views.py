@@ -475,9 +475,10 @@ class IncomingFiltered(ListView):
         user_filter = self.request.user.profile.my_filter
         filtered_incoming = Incoming.objects.raw(
             "with t1 as (SELECT * FROM deposit_colorbank)"
-            " SELECT * FROM deposit_incoming JOIN t1 ON t1.name = deposit_incoming.sender"
+            " SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
             " WHERE deposit_incoming.recipient = ANY(%s)"
             " ORDER BY deposit_incoming.id DESC;", [user_filter])
+        print(filtered_incoming)
         # filtered_incoming = Incoming.objects.filter(
         #     recipient__in=user_filter).order_by('-id').all()
         return filtered_incoming
@@ -591,9 +592,11 @@ class ColorBankCreate(CreateView):
 def get_last(request):
     all_incomings = Incoming.objects.order_by('id').all()
     user_filter = request.GET.get('filter')
+    # print('user_filter:', user_filter)
     if user_filter:
         user_filter = json.loads(user_filter)
-        last_id = all_incomings.filter(recipient__in=user_filter).last().id
+        filtered_incomings = all_incomings.filter(recipient__in=user_filter).all()
+        last_id = filtered_incomings.last().id
     else:
         last_id = all_incomings.last().id
     data = list()
