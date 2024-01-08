@@ -23,7 +23,7 @@ services:
 
   pgadmin:
     container_name: pgadmin_container_deposit
-    image: dpage/pgadmin4:7.6
+    image: dpage/pgadmin4:latest
     env_file: .env
     environment:
       PGADMIN_DEFAULT_EMAIL: $PGADMIN_DEFAULT_EMAIL

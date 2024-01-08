@@ -466,7 +466,9 @@ def incoming_list(request):
     incoming_q = Incoming.objects.raw("with t1 as (SELECT * FROM deposit_colorbank) "
                                           "SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
                                           " ORDER BY deposit_incoming.id DESC;")
-    last_id = Incoming.objects.order_by('id').last().id
+    last_id = Incoming.objects.order_by('id').last()
+    if last_id:
+        last_id = last_id.id
     context = {'page_obj': make_page_obj(request, incoming_q),
                'last_id': last_id}
     return render(request, template, context)
@@ -532,7 +534,9 @@ class IncomingSearch(ListView):
         context = super(IncomingSearch, self).get_context_data(**kwargs)
         search_form = IncomingSearchForm(initial={'register_date': self.search_date})
         context['search_form'] = search_form
-        last_id = Incoming.objects.order_by('id').last().id
+        last_id = Incoming.objects.order_by('id').last()
+        if last_id:
+            last_id = last_id.id
         context['last_id'] = last_id
         return context
 
