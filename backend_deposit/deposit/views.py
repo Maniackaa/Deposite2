@@ -44,6 +44,11 @@ logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')
 
 
+def home(request, *args, **kwargs):
+    template = 'deposit/home.html'
+    return render(request, template_name=template)
+
+
 def index(request, *args, **kwargs):
     try:
         logger.debug(f'index {request}')
@@ -514,6 +519,13 @@ class IncomingSearch(ListView):
     paginate_by = settings.PAGINATE
     search_date = None
 
+    def get(self, request, *args, **kwargs):
+        if self.request.user.is_staff:
+            self.object = None
+            return super().get(request, *args, **kwargs)
+        else:
+            return redirect('deposit:index')
+
     @staticmethod
     def get_date(year, month, day):
         return datetime.date(int(year), int(month), int(day))
@@ -614,9 +626,11 @@ def get_last(request):
     if user_filter:
         user_filter = json.loads(user_filter)
         filtered_incomings = all_incomings.filter(recipient__in=user_filter).all()
-        last_id = filtered_incomings.last().id
+        last_id = filtered_incomings.last()
     else:
-        last_id = all_incomings.last().id
+        last_id = all_incomings.last()
+    if last_id:
+        last_id = last_id.id
     data = list()
     data.append({
         'id': last_id,
