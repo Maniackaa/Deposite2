@@ -35,12 +35,10 @@ class UserCreationForm(forms.ModelForm):
 
     def save(self, commit=True):
         # Save the provided password in hashed format
-        print('# Save the provided password in hashed format')
         user = super(UserCreationForm, self).save(commit=False)
         user.set_password(self.cleaned_data["password1"])
         from users.models import Profile
         if commit:
-            print('commit')
             user.save()
             # Profile.objects.create(
             #     user=user,

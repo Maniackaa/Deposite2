@@ -53,7 +53,8 @@ class TrashIncoming(Base):
     id: Mapped[int] = mapped_column(primary_key=True,
                                     autoincrement=True,
                                     comment='Первичный ключ')
-    register_date: Mapped[time] = mapped_column(DateTime(timezone=True), nullable=True, default=lambda: datetime.datetime.now(tz=tz))
+    register_date: Mapped[time] = mapped_column(DateTime(timezone=True), nullable=True,
+                                                default=lambda: datetime.datetime.now(tz=tz))
     text: Mapped[str] = mapped_column(Text())
 
 
@@ -61,13 +62,3 @@ class TrashIncoming(Base):
 #     create_database(db_url)
 
 # Base.metadata.create_all(engine)
-
-with Session() as session:
-    try:
-        incomings: list[Incoming] = session.query(Incoming).all()
-        for i in incomings:
-            print(i)
-    except Exception as err:
-        print(err)
-
-

@@ -110,7 +110,7 @@ def get_choice():
 
 class MyFilterForm(forms.Form):
     def __init__(self, *args, **kwargs):
-        print('**********__init__ MyFilterForm')
+        # print('**********__init__ MyFilterForm')
         super(MyFilterForm, self).__init__(*args, **kwargs)
         if self.fields.get('my_filter'):
             self.fields['my_filter'].choices = get_choice()

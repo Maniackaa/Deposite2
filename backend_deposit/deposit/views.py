@@ -448,7 +448,6 @@ def incoming_list(request):
         value = request.POST.get(pk) or None
         incoming = Incoming.objects.get(pk=pk)
         if not incoming.birpay_id:
-            old_val = None
             incoming.birpay_id = value
             incoming.birpay_confirm_time = datetime.datetime.now(tz=settings.TZ)
             incoming.save()
@@ -457,7 +456,6 @@ def incoming_list(request):
                 incoming=incoming,
                 user=request.user,
                 val_name='birpay_id',
-                old_val=old_val,
                 new_val=value
             )
             new_history.save()

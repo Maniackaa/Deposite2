@@ -97,13 +97,13 @@ services:
       - ./certbot/www/:/var/www/certbot/:rw
       - ./certbot/conf/:/etc/letsencrypt/:rw
 
-  table1-writer:
-    restart: always
-    build: ./google_writer
-    command: python3 table1_writer.py
-    env_file: .env
-    depends_on:
-      - redis
-      - db_postgres
-    volumes:
-      - ./logs/Table1:/app/logs
+#  table1-writer:
+#    restart: always
+#    build: ./google_writer
+#    command: python3 table1_writer.py
+#    env_file: .env
+#    depends_on:
+#      - redis
+#      - db_postgres
+#    volumes:
+#      - ./logs/Table1:/app/logs

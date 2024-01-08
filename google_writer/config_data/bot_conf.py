@@ -161,7 +161,6 @@ load_dotenv()
 
 conf = load_config()
 tz = conf.tg_bot.TIMEZONE
-print(conf)
 
 
 def get_my_loggers():
