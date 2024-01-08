@@ -23,7 +23,7 @@ services:
 
   pgadmin:
     container_name: pgadmin_container_deposit
-    image: dpage/pgadmin4:7.6
+    image: dpage/pgadmin4:latest
     env_file: .env
     environment:
       PGADMIN_DEFAULT_EMAIL: $PGADMIN_DEFAULT_EMAIL
@@ -90,13 +90,13 @@ services:
       - media:/app/media
 
 
-  table1-writer:
-    restart: always
-    build: ./google_writer
-    command: python3 table1_writer.py
-    env_file: .env
-    depends_on:
-      - redis
-      - db_postgres
-    volumes:
-      - ./logs/Table1:/app/logs
+#  table1-writer:
+#    restart: always
+#    build: ./google_writer
+#    command: python3 table1_writer.py
+#    env_file: .env
+#    depends_on:
+#      - redis
+#      - db_postgres
+#    volumes:
+#      - ./logs/Table1:/app/logs

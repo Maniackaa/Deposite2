@@ -32,7 +32,7 @@ from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
 from deposit.func import (img_path_to_str, make_after_incoming_save,
                           make_after_save_deposit, send_message_tg)
-from deposit.models import BadScreen, ColorBank, Deposit, Incoming, TrashIncoming
+from deposit.models import BadScreen, ColorBank, Deposit, Incoming, TrashIncoming, IncomingChange
 from deposit.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
 from deposit.text_response_func import (response_sms1, response_sms2,
@@ -448,9 +448,20 @@ def incoming_list(request):
         value = request.POST.get(pk) or None
         incoming = Incoming.objects.get(pk=pk)
         if not incoming.birpay_id:
+            old_val = None
             incoming.birpay_id = value
             incoming.birpay_confirm_time = datetime.datetime.now(tz=settings.TZ)
             incoming.save()
+            #Сохраняем историю
+            new_history = IncomingChange(
+                incoming=incoming,
+                user=request.user,
+                val_name='birpay_id',
+                old_val=old_val,
+                new_val=value
+            )
+            new_history.save()
+
         return redirect('deposit:incomings')
     template = 'deposit/incomings_list.html'
     # incoming_q = Incoming.objects.order_by('-id').all()
@@ -478,7 +489,6 @@ class IncomingFiltered(ListView):
             " SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
             " WHERE deposit_incoming.recipient = ANY(%s)"
             " ORDER BY deposit_incoming.id DESC;", [user_filter])
-        print(filtered_incoming)
         # filtered_incoming = Incoming.objects.filter(
         #     recipient__in=user_filter).order_by('-id').all()
         return filtered_incoming
@@ -486,15 +496,12 @@ class IncomingFiltered(ListView):
     def get_context_data(self, **kwargs):
         context = super(IncomingFiltered, self).get_context_data(**kwargs)
         context['search_form'] = None
-
         user_filter = self.request.user.profile.my_filter
         last_filtered_id = None
         last_filtered = Incoming.objects.filter(
             recipient__in=user_filter).order_by('-id').first()
-        print(last_filtered)
         if last_filtered:
             last_filtered_id = last_filtered.id
-        print(last_filtered_id)
         context['last_id'] = last_filtered_id
         context['filter'] = json.dumps(user_filter)
         return context
@@ -564,6 +571,7 @@ class IncomingEdit(UpdateView, ):
     def post(self, request, *args, **kwargs):
         if request.user.has_perm('deposit.can_hand_edit'):
             self.object = self.get_object()
+            #Сохраняем историю
             return super().post(request, *args, **kwargs)
         return HttpResponseForbidden('У вас нет прав делать ручную корректировку')
 
@@ -576,6 +584,14 @@ class IncomingEdit(UpdateView, ):
             incoming: Incoming = self.object
             incoming.birpay_edit_time = datetime.datetime.now(tz=TZ)
             incoming.save()
+            #Сохраняем историю
+            new_history = IncomingChange(
+                incoming=self.object,
+                user=self.request.user,
+                val_name='birpay_id',
+                new_val=incoming.birpay_id
+            )
+            new_history.save()
             return super(IncomingEdit, self).form_valid(form)
 
 

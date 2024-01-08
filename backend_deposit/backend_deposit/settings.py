@@ -20,7 +20,7 @@ MY_APPS = [
     'deposit.apps.DepositConfig',
     # 'api.apps.ApiConfig',
     'crispy_forms',
-    'crispy_bootstrap4'
+    'crispy_bootstrap4',
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
@@ -139,7 +139,9 @@ LOGIN_URL = 'users:login'
 LOGIN_REDIRECT_URL = 'deposit:index'
 LOGOUT_REDIRECT_URL = 'users:login'
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+EMAIL_FILE_PATH = MEDIA_ROOT / 'email'
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [

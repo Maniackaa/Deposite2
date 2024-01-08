@@ -2,6 +2,7 @@ import datetime
 import logging
 import re
 
+from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
 from django.db.transaction import atomic
@@ -14,6 +15,8 @@ from colorfield.fields import ColorField
 from backend_deposit.settings import TZ
 
 logger = logging.getLogger(__name__)
+
+User = get_user_model()
 
 
 class TrashIncoming(models.Model):
@@ -75,6 +78,14 @@ class Incoming(models.Model):
     #     if bank_color_font:
     #         return bank_color_font.color_font
     #     return '#000000'
+
+
+class IncomingChange(models.Model):
+    time = models.DateTimeField(auto_now=True)
+    incoming = models.ForeignKey(Incoming, on_delete=models.CASCADE, related_name='history')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incoming_changes')
+    val_name = models.CharField('Имя поля старое')
+    new_val = models.CharField('Старое значение', null=True)
 
 
 class Deposit(models.Model):
