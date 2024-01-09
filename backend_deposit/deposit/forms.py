@@ -94,13 +94,17 @@ class DepositTransactionForm(forms.ModelForm):
 
 
 def get_choice():
+    """Функция которая ищет получателя для фильтра в форме"""
     tables = connection.creation.connection.introspection.get_table_list(connection.cursor())
     if not tables:
         return []
     result = []
     for table in tables:
         if 'deposit_incoming' == table.name:
-            q = Incoming.objects.all().distinct('recipient').all().values('pk')
+            q = Incoming.objects.exclude(
+                recipient__iregex=r'\d\d\d\d \d\d.*\d\d\d\d').exclude(
+                type__in=('m10', 'm10_short'), sender__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d'
+            ).distinct('recipient').values('pk')
             distinct_recipients = Incoming.objects.filter(
                 pk__in=Subquery(q)).order_by('-register_date').all()
             for incoming in distinct_recipients:

@@ -29,12 +29,12 @@ def bad_ids():
     return result
 
 
-def cards_repors() -> dict:
+def cards_report() -> dict:
     # Возвращает словарь со статистикой по картам
     cards = Incoming.objects.filter(pay__gt=0).all().values('recipient').annotate(
         count=Count('pk'),
         sum=Sum('pay'),
         last_date=Max('register_date'),
         last_id=Max('pk')
-    ).order_by('-count')
+    ).order_by('-register_date')
     return cards

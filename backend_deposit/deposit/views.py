@@ -27,7 +27,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
-from core.stat_func import bad_ids, cards_repors
+from core.stat_func import bad_ids, cards_report
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
@@ -664,10 +664,6 @@ def get_stats(request):
 
     template = 'deposit/stats.html'
     page_obj = bad_ids()
-    # print(page_obj)
-
-
-    cards = cards_repors()
+    cards = cards_report()
     context = {'page_obj': page_obj, 'cards': cards}
-
     return render(request, template, context)
