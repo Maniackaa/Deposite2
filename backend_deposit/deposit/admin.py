@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.admin import DateFieldListFilter
-from rangefilter.filters import DateRangeFilterBuilder
+from rangefilter.filters import DateRangeFilterBuilder, DateRangeQuickSelectListFilterBuilder, \
+    NumericRangeFilterBuilder, DateTimeRangeFilterBuilder
 
 from deposit.models import Incoming, BadScreen, Deposit, ColorBank, TrashIncoming, IncomingChange
 
@@ -13,8 +14,12 @@ class IncomingAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'register_date', 'response_date', 'recipient', 'sender', 'pay', 'transaction', 'confirmed_deposit', 'type', 'image', 'worker'
     )
-    list_filter = (("register_date", DateRangeFilterBuilder()), 'register_date',
-                   ("response_date", DateRangeFilterBuilder()), 'response_date',
+    list_filter = ('register_date', 'response_date',
+                   ("register_date", DateRangeFilterBuilder()),
+                   ("response_date", DateRangeQuickSelectListFilterBuilder()),
+                   ("response_date", DateTimeRangeFilterBuilder()),
+
+
                    'worker', 'type')
 
 
