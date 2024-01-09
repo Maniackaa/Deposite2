@@ -26,7 +26,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
-
+from core.stat_func import bad_ids, cards_repors
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
@@ -553,6 +553,18 @@ class IncomingSearch(ListView):
         return context
 
 
+class IncomingTrashList(ListView):
+    # Мусор
+    model = Incoming
+    template_name = 'deposit/trash_list.html'
+    paginate_by = settings.PAGINATE
+
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_staff:
+            raise PermissionDenied('Недостаточно прав')
+        trash_list = TrashIncoming.objects.order_by('-id').all()
+        return trash_list
+
 @staff_member_required(login_url='users:login')
 def my_filter(request):
     # Изменение фильтра по получателю
@@ -620,6 +632,7 @@ class ColorBankCreate(CreateView):
 
 
 def get_last(request):
+    """Функция поиска последнего id для javascript"""
     all_incomings = Incoming.objects.order_by('id').all()
     user_filter = request.GET.get('filter')
     # print('user_filter:', user_filter)
@@ -636,3 +649,16 @@ def get_last(request):
         'id': last_id,
     })
     return JsonResponse(data, safe=False)
+
+
+def get_stats(request):
+
+    template = 'deposit/stats.html'
+    page_obj = bad_ids()
+    # print(page_obj)
+
+
+    cards = cards_repors()
+    context = {'page_obj': page_obj, 'cards': cards}
+
+    return render(request, template, context)

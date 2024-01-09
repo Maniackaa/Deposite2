@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Домашняя страница{% endblock %}
+
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+    <div class="">
+      {% include 'includes/switcher2.html' %}
+    </div>
+
+
+
+    <div>
+        <table id="table" class="table w-auto table-hover table-bordered" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+
+          <thead>
+            <tr>
+               <th>ID</th>
+               <th>Дата</th>
+               <th>Текст</th>
+            </tr>
+          </thead>
+
+          <tbody>
+              {% for obj in object_list %}
+                <tr class="text-end">
+                  <td>{{ obj.pk }}</td>
+                  <td>{{ obj.register_date }}</td>
+                  <td>{{ obj.text }}</td>
+                </tr>
+              {% endfor %}
+          </tbody>
+
+        </table>
+    </div>
+
+{% endblock %}

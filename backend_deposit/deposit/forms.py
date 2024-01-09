@@ -99,7 +99,7 @@ def get_choice():
         return []
     result = []
     for table in tables:
-        if 'deposit_incoming' in table.name:
+        if 'deposit_incoming' == table.name:
             q = Incoming.objects.all().distinct('recipient').all().values('pk')
             distinct_recipients = Incoming.objects.filter(
                 pk__in=Subquery(q)).order_by('-register_date').all()

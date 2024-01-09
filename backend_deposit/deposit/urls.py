@@ -35,6 +35,9 @@ urlpatterns = [
 
     path('get_posts/', views.get_last, name='get_last'),
 
+    path('stats/', views.get_stats, name='stats'),
+    path('trash/', views.IncomingTrashList.as_view(), name='trash'),
+
 ]
 
 if settings.DEBUG:
