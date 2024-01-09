@@ -6,13 +6,13 @@
 {% include 'includes/operator_menu.html' %}
 <div class="">
 {% include 'includes/switcher2.html' %}
-   <table id="table" class="table  table-hover" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
-     <thead class="">
-     {% with request.resolver_match.view_name as view_name %}
-         {% if view_name == 'deposit:incomings_filter' %}
-             Ваш фильтр на получателя: {{ user.profile.my_filter }}
-             <a class="changelink" href="{% url 'deposit:my_filter' %}">Изменить</a>
-         {% endif %}
+
+
+  {% with request.resolver_match.view_name as view_name %}
+     {% if view_name == 'deposit:incomings_filter' %}
+         Ваш фильтр на получателя: {{ user.profile.my_filter }}
+         <a class="changelink" href="{% url 'deposit:my_filter' %}">Изменить</a>
+     {% endif %}
 
 
 
@@ -30,13 +30,16 @@
             <p id="last_id" hidden>{{ last_id }}</p>
             <p id="filter" hidden>{{ filter }}</p>
          {% if view_name != 'deposit:incomings_search' %}
-         <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
+           <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
             <!-- Здесь будут отображаться уведомления -->
-            </div>
-    </span>
-    {% endif %}
+           </div>
+         {% endif %}
+     </span>
 
 
+      {% include 'includes/paginator.html' %}
+            <table id="table" class="table  table-hover" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+     <thead class="">
      <tr>
            <th>id</th>
            <th>Поступил</th>
@@ -92,7 +95,7 @@
      </tbody>
    </table>
    {% include 'includes/paginator.html' %}
-{% endwith %}
+  {% endwith %}
 </div>
 
 {% endblock %}

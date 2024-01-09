@@ -20,6 +20,7 @@ MY_APPS = [
     # 'api.apps.ApiConfig',
     'crispy_forms',
     'crispy_bootstrap4',
+    'rangefilter',
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 

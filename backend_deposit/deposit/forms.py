@@ -144,11 +144,11 @@ class IncomingForm(forms.ModelForm):
     # birpay_edit_time = forms.DateTimeField(disabled=True, required=False)
     # confirmed_deposit = forms.Select()
     birpay_id = forms.IntegerField(required=False)
-    page = forms.Field(required=False)
+    # page = forms.Field(required=False)
 
     class Meta:
         model = Incoming
-        fields = ('birpay_id', 'page')
+        fields = ('birpay_id',)
         # exclude = ('birpay_confirm_time', 'worker', 'type')
 
 

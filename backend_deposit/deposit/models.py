@@ -40,7 +40,7 @@ class Incoming(models.Model):
     balance = models.FloatField('Баланс', null=True, blank=True)
     transaction = models.IntegerField('Транзакция', null=True, unique=True, blank=True)
     type = models.CharField(max_length=20, default='unknown')
-    worker = models.CharField(max_length=50, null=True)
+    worker = models.CharField(max_length=50, null=True, default='manual')
     image = models.ImageField(upload_to='screens/',
                               verbose_name='скрин', null=True, blank=True)
     birpay_confirm_time = models.DateTimeField('Время подтверждения', null=True, blank=True)
@@ -84,8 +84,8 @@ class IncomingChange(models.Model):
     time = models.DateTimeField(auto_now=True)
     incoming = models.ForeignKey(Incoming, on_delete=models.CASCADE, related_name='history')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incoming_changes')
-    val_name = models.CharField('Имя поля старое')
-    new_val = models.CharField('Старое значение', null=True)
+    val_name = models.CharField('Имя поля')
+    new_val = models.CharField('Новое значение', null=True)
 
 
 class Deposit(models.Model):
