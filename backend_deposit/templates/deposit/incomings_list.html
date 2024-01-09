@@ -57,9 +57,8 @@
          {% for incoming in page_obj %}
          <tr id="pay{{ incoming.id }}"
                  {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-'%}
-                 class="table-active"
-                 {% endif %}
-         >
+                 class="table-success"
+                 {% endif %}>
             <td><a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a></td>
             <td>{{ incoming.register_date|date:"d.m H:i" }}</td>
             <td>{{ incoming.response_date|date:"d.m H:i" }}</td>
