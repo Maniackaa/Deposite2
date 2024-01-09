@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import uuid
+from types import NoneType
 
 from backend_deposit.settings import TZ
 from django.conf import settings
@@ -449,10 +450,11 @@ def sms(request: Request):
 def incoming_list(request):
     # Список всех платежей и сохранение birpay
     if request.method == "POST":
-        pk = list(request.POST.keys())[1]
-        value = request.POST.get(pk) or None
+        input_name = list(request.POST.keys())[1]
+        pk, options = list(request.POST.keys())[1].split('-')
+        value = request.POST.get(input_name) or ''
         incoming = Incoming.objects.get(pk=pk)
-        if not incoming.birpay_id:
+        if isinstance(incoming.birpay_id, NoneType):
             incoming.birpay_id = value
             incoming.birpay_confirm_time = datetime.datetime.now(tz=settings.TZ)
             incoming.save()
@@ -465,7 +467,11 @@ def incoming_list(request):
             )
             new_history.save()
 
-        return redirect('deposit:incomings')
+        if 'filter' in options:
+            return redirect('deposit:incomings_filter')
+        else:
+            return redirect('deposit:incomings')
+
     template = 'deposit/incomings_list.html'
     # incoming_q = Incoming.objects.order_by('-id').all()
     incoming_q = Incoming.objects.raw("with t1 as (SELECT * FROM deposit_colorbank) "

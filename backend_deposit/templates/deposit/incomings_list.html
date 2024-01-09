@@ -35,7 +35,7 @@
             </div>
     </span>
     {% endif %}
-    {% endwith %}
+
 
      <tr>
            <th>id</th>
@@ -53,7 +53,7 @@
      <tbody>
          {% for incoming in page_obj %}
          <tr id="pay{{ incoming.id }}"
-                 {% if incoming.birpay_id %}
+                 {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-'%}
                  class="table-active"
                  {% endif %}
          >
@@ -77,8 +77,9 @@
             <td>
                 <form action="{% url 'deposit:incomings' %}" method="post">
                                     {% csrf_token %}
-                    <input type="text" style="margin-bottom: -10px; margin-top: -10px; font-size: medium; height: 20px" minlength="0" maxlength="12" size="9"  value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}">
-                    {% if incoming.birpay_id %}
+                    <input type="text" style="margin-bottom: -10px; margin-top: -10px; font-size: medium; height: 20px" minlength="0" maxlength="12" size="9"  value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
+
+                    {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-' %}
                       <button disabled style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-primary btn-sm">---</button>
                     {% else %}
                       <button style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-primary btn-sm">Ok</button>
@@ -91,6 +92,7 @@
      </tbody>
    </table>
    {% include 'includes/paginator.html' %}
+{% endwith %}
 </div>
 
 {% endblock %}
