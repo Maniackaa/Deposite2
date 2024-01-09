@@ -18,9 +18,8 @@ class IncomingAdmin(admin.ModelAdmin):
                    ("register_date", DateRangeFilterBuilder()),
                    ("response_date", DateRangeQuickSelectListFilterBuilder()),
                    ("response_date", DateTimeRangeFilterBuilder()),
-
-
                    'worker', 'type')
+    list_per_page = 1000
 
 
 class BadScreenAdmin(admin.ModelAdmin):

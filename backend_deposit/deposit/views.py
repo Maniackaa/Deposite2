@@ -571,6 +571,7 @@ class IncomingTrashList(ListView):
         trash_list = TrashIncoming.objects.order_by('-id').all()
         return trash_list
 
+
 @staff_member_required(login_url='users:login')
 def my_filter(request):
     # Изменение фильтра по получателю
@@ -609,6 +610,8 @@ class IncomingEdit(UpdateView, ):
 
     def get_context_data(self, **kwargs):
         context = super(IncomingEdit, self).get_context_data(**kwargs)
+        history = self.object.history.order_by('-id').all()
+        context['history'] = history
         return context
 
     def form_valid(self, form):

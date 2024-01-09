@@ -79,6 +79,7 @@
 
         </tbody>
         </table>
+
       </div>
 
       <div class="col col-md-3">
@@ -99,6 +100,13 @@
         </form>
         </div>
     </div>
+
+    <span>
+        <hr>
+          {% for log in history %}
+             {{ log.time }} {{ log.user }} {{ log.val_name }} {{ log.new_val }}<br>
+          {% endfor %}
+    </span>
   </div>
 
 
