@@ -36,5 +36,5 @@ def cards_report() -> dict:
         sum=Sum('pay'),
         last_date=Max('register_date'),
         last_id=Max('pk')
-    ).order_by('-register_date')
+    ).order_by('-last_date')
     return cards
