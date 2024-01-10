@@ -15,6 +15,7 @@ from colorfield.fields import ColorField
 from backend_deposit.settings import TZ
 
 logger = logging.getLogger(__name__)
+err_log = logging.getLogger('error_log')
 
 User = get_user_model()
 
@@ -47,6 +48,7 @@ class Incoming(models.Model):
     birpay_edit_time = models.DateTimeField('Время ручной корректировки', null=True, blank=True)
     confirmed_deposit = models.OneToOneField('Deposit', null=True, blank=True, on_delete=models.SET_NULL)
     birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True)
+    comment = models.CharField(max_length=500, null=True, blank=True)
 
     class Meta:
         permissions = [
@@ -86,6 +88,30 @@ class IncomingChange(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incoming_changes')
     val_name = models.CharField('Имя поля')
     new_val = models.CharField('Новое значение', null=True)
+
+    @staticmethod
+    def save_incoming_history(old_incoming, new_incoming, user):
+        # Сохраняем историю
+        try:
+            if old_incoming.birpay_id != new_incoming.birpay_id:
+                new_birpay_id = IncomingChange(
+                    incoming=new_incoming,
+                    user=user,
+                    val_name='birpay_id',
+                    new_val=new_incoming.birpay_id
+                )
+                new_birpay_id.save()
+            if old_incoming.comment != new_incoming.comment:
+                new_comment = IncomingChange(
+                    incoming=new_incoming,
+                    user=user,
+                    val_name='comment',
+                    new_val=new_incoming.comment
+                )
+                new_comment.save()
+        except Exception as err:
+            err_log.error(f'Ошибка при сохранении истории: {err}')
+
 
 
 class Deposit(models.Model):

@@ -105,10 +105,12 @@ def get_choice():
                 recipient__iregex=r'\d\d\d\d \d\d.*\d\d\d\d').exclude(
                 type__in=('m10', 'm10_short'), sender__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d'
             ).distinct('recipient').values('pk')
+            # distinct_recipients = Incoming.objects.filter(
+            #     pk__in=Subquery(q)).order_by('-register_date').all()
             distinct_recipients = Incoming.objects.filter(
-                pk__in=Subquery(q)).order_by('-register_date').all()
+                pk__in=Subquery(q)).values('recipient')
             for incoming in distinct_recipients:
-                result.append((incoming.recipient, incoming.recipient))
+                result.append((incoming['recipient'], incoming['recipient']))
     return result
 
 
@@ -148,11 +150,11 @@ class IncomingForm(forms.ModelForm):
     # birpay_edit_time = forms.DateTimeField(disabled=True, required=False)
     # confirmed_deposit = forms.Select()
     birpay_id = forms.IntegerField(required=False)
-    # page = forms.Field(required=False)
+    comment = forms.CharField(widget=forms.Textarea, required=False)
 
     class Meta:
         model = Incoming
-        fields = ('birpay_id',)
+        fields = ('birpay_id', 'comment')
         # exclude = ('birpay_confirm_time', 'worker', 'type')
 
 

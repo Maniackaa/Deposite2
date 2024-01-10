@@ -617,7 +617,6 @@ class IncomingEdit(UpdateView, ):
     def post(self, request, *args, **kwargs):
         if request.user.has_perm('deposit.can_hand_edit'):
             self.object = self.get_object()
-            #Сохраняем историю
             return super().post(request, *args, **kwargs)
         return HttpResponseForbidden('У вас нет прав делать ручную корректировку')
 
@@ -629,17 +628,14 @@ class IncomingEdit(UpdateView, ):
 
     def form_valid(self, form):
         if form.is_valid():
+            old_incoming = Incoming.objects.get(pk=self.object.id)
             incoming: Incoming = self.object
             incoming.birpay_edit_time = datetime.datetime.now(tz=TZ)
             incoming.save()
-            #Сохраняем историю
-            new_history = IncomingChange(
-                incoming=self.object,
-                user=self.request.user,
-                val_name='birpay_id',
-                new_val=incoming.birpay_id
-            )
-            new_history.save()
+
+            # Сохраняем историю
+            IncomingChange().save_incoming_history(old_incoming, incoming, self.request.user)
+
             return super(IncomingEdit, self).form_valid(form)
 
 
