@@ -42,13 +42,13 @@
      <thead class="">
      <tr>
            <th>id</th>
-           <th>Поступил</th>
-           <th>Время на чеке</th>
+           <th>T прих</th>
+           <th>T на чеке</th>
            <th>Получатель</th>
            <th>Отправитель</th>
            <th>Платеж</th>
            <th>Баланс</th>
-           <th>Транзакция</th>
+           <th>Транз-я</th>
            <th>Бирпай</th>
        </tr>
      </thead>
@@ -80,7 +80,7 @@
 
             <td>{{ incoming.transaction|default_if_none:"" }}</td>
 
-            <td>
+            <td class="text-nowrap">
                 <form action="{% url 'deposit:incomings' %}" method="post">
                                     {% csrf_token %}
                     <input type="text" style="margin-bottom: -10px; margin-top: -10px; font-size: medium; height: 20px" minlength="0" maxlength="12" size="9"  value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
