@@ -485,6 +485,19 @@ def incoming_list(request):
     return render(request, template, context)
 
 
+class IncomingEmpty(ListView):
+    # Не подтвержденные платежи
+    model = Incoming
+    template_name = 'deposit/incomings_list.html'
+    paginate_by = settings.PAGINATE
+
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_staff:
+            raise PermissionDenied('Недостаточно прав')
+        empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-id').all()
+        return empty_incoming
+
+
 class IncomingFiltered(ListView):
     # Отфильтровованные платежи
     model = Incoming

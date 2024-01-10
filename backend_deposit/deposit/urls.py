@@ -28,6 +28,7 @@ urlpatterns = [
     path('incomings/', views.incoming_list, name='incomings'),
     path('incomings/<int:pk>/', views.IncomingEdit.as_view(), name='incoming_edit'),
 
+    path('incomings_empty/', views.IncomingEmpty.as_view(), name='incomings_empty'),
     path('incomings_filter/', views.IncomingFiltered.as_view(), name='incomings_filter'),
     path('my_filter/', views.my_filter, name='my_filter'),
     path('incmings_search/', views.IncomingSearch.as_view(), name='incomings_search'),

@@ -9,6 +9,15 @@
           Все платежи
         </a>
       </li>
+
+      <li class="nav-item">
+        <a
+          class="nav-link {% if view_name == 'deposit:incomings_empty' %}active{% endif %}"
+          href="{% url 'deposit:incomings_empty' %}">
+          Неподтвержденные
+        </a>
+      </li>
+
       <li class="nav-item">
         <a 
            class="nav-link {% if view_name == 'deposit:incomings_filter' %}active{% endif %}"
