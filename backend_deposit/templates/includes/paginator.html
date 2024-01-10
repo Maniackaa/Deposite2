@@ -29,12 +29,12 @@
             <span class="page-link">{{ i }}</span>
           </li>
 
-        {% elif i >= page_obj.number|add:-10 and i <= page_obj.number|add:10  %}
+        {% elif i >= page_obj.number|add:-5 and i <= page_obj.number|add:5  %}
           <li class="page-item">
             <a class="page-link" href="?page={{ i }}">{{ i }}</a>
           </li>
 
-        {% elif i == page_obj.number|add:-50 or i == page_obj.number|add:50  %}
+        {% elif i == page_obj.number|add:-15 or i == page_obj.number|add:15  %}
           <li class="page-item">
             <a class="page-link" href="?page={{ i }}">{{ i }}</a>
           </li>
