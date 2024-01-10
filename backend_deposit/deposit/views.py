@@ -147,7 +147,7 @@ def deposit_status(request, uid):
     return render(request, template_name=template, context=context)
 
 
-def make_page_obj(request, objects, numbers_of_posts=100):
+def make_page_obj(request, objects, numbers_of_posts=settings.PAGINATE):
     paginator = Paginator(objects, numbers_of_posts)
     page_number = request.GET.get('page')
     return paginator.get_page(page_number)
@@ -535,10 +535,12 @@ class IncomingSearch(ListView):
     # Поиск платежей
     model = Incoming
     template_name = 'deposit/incomings_list.html'
-    paginate_by = settings.PAGINATE
+    # paginate_by = settings.PAGINATE
+    paginate_by = 5000
     search_date = None
 
     def get(self, request, *args, **kwargs):
+        print(self.request)
         if self.request.user.is_staff:
             self.object = None
             return super().get(request, *args, **kwargs)

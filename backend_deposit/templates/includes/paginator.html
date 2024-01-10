@@ -1,10 +1,11 @@
 {% if page_obj.has_other_pages %}
 <nav aria-label="Page navigation" class="">
   <ul class="pagination">
+    {% load spurl %}
     {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="?page=1">Первая</a></li>
+      <li class="page-item"><a class="page-link" href="{% spurl query=request.GET set_query='page=1'%}">Первая</a></li>
       <li class="page-item">
-        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+        <a class="page-link" href="{% spurl query=request.GET set_query='page={{ page_obj.previous_page_number }}'%}">
           Предыдущая
         </a>
       </li>
@@ -23,6 +24,7 @@
       </li>
 
     {% endif %}
+
     {% for i in page_obj.paginator.page_range %}
         {% if page_obj.number == i %}
           <li class="page-item active">
@@ -31,23 +33,24 @@
 
         {% elif i >= page_obj.number|add:-5 and i <= page_obj.number|add:5  %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+            <a class="page-link" href="{% spurl query=request.GET set_query='page={{ i }}'%}">{{ i }}</a>
           </li>
 
         {% elif i == page_obj.number|add:-15 or i == page_obj.number|add:15  %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+            <a class="page-link" href="{% spurl query=request.GET set_query='page={{ i }}'%}">{{ i }}</a>
           </li>
         {% endif %}
     {% endfor %}
     {% if page_obj.has_next %}
       <li class="page-item">
-        <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+
+        <a class="page-link" href="{% spurl query=request.GET set_query='page={{ page_obj.next_page_number }}'%}">
           Следующая
         </a>
       </li>
       <li class="page-item">
-        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+        <a class="page-link" href="{% spurl query=request.GET set_query='page={{ page_obj.paginator.num_pages }}'%}">
           Последняя
         </a>
       </li>

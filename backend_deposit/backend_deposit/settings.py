@@ -21,6 +21,7 @@ MY_APPS = [
     'crispy_forms',
     'crispy_bootstrap4',
     'rangefilter',
+    'spurl'
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
@@ -243,4 +244,4 @@ LOGGING = {
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_IDS = os.getenv('ADMIN_IDS').split(',')
 ALARM_IDS = os.getenv('ALARM_IDS').split(',')
-PAGINATE = 100
+PAGINATE = 500
