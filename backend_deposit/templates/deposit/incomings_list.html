@@ -4,51 +4,51 @@
 
 {% block content %}
 {% include 'includes/operator_menu.html' %}
-<div class="">
+<div class="container-fluid ">
 {% include 'includes/switcher2.html' %}
 
 
   {% with request.resolver_match.view_name as view_name %}
-     {% if view_name == 'deposit:incomings_filter' %}
-         Ваш фильтр на получателя: {{ user.profile.my_filter }}
-         <a class="changelink" href="{% url 'deposit:my_filter' %}">Изменить</a>
-     {% endif %}
+    {% if view_name == 'deposit:incomings_filter' %}
+       Ваш фильтр на получателя: {{ user.profile.my_filter }}
+       <a class="changelink" href="{% url 'deposit:my_filter' %}">Изменить</a>
+    {% endif %}
 
 
 
-     <span class="row justify-content-start">
-            <div class="col-2">
-            <form method="GET">
-                {% csrf_token %}
-                {% if search_form %}
-                    {{ search_form.as_p }}
-                {% endif %}
-            <input class="btn btn-success" type="submit" name="date_search" value="Найти">
-            </form>
-            </div>
+    <span class="row justify-content-start">
+      <div class="col-2">
+        <form method="GET">
+          {% csrf_token %}
+          {% if search_form %}
+            {{ search_form.as_p }}
+          {% endif %}
+          <input class="btn btn-success" type="submit" name="date_search" value="Найти">
+       </form>
+      </div>
+      <p id="last_id" hidden>{{ last_id }}</p>
+      <p id="filter" hidden>{{ filter }}</p>
+      {% if view_name == 'deposit:incomings' or view_name == 'deposit:incomings_filter' %}
+       <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
+         <!-- Здесь будут отображаться уведомления -->
+        </div>
+      {% endif %}
+    </span>
 
-            <p id="last_id" hidden>{{ last_id }}</p>
-            <p id="filter" hidden>{{ filter }}</p>
-         {% if view_name == 'deposit:incomings' or view_name == 'deposit:incomings_filter' %}
-           <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
-            <!-- Здесь будут отображаться уведомления -->
-           </div>
-         {% endif %}
-     </span>
 
-
-      {% include 'includes/paginator.html' %}
-            <table id="table" class="table  table-hover" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+     {% include 'includes/paginator.html' %}
+     <div class="container-fluid ">
+     <table id="table" class="table table-bordered table-hover" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
      <thead class="">
-     <tr>
+     <tr class="">
            <th>id</th>
            <th>T прих</th>
            <th>T на чеке</th>
            <th>Получатель</th>
            <th>Отправитель</th>
-           <th>Платеж</th>
-           <th>Баланс</th>
-           <th>Транз-я</th>
+           <th>Pay</th>
+           <th>Б</th>
+           <th>Тр-я</th>
            <th>Бирпай</th>
        </tr>
      </thead>
@@ -72,13 +72,13 @@
             <td>{{ incoming.pay }}</td>
             <td>
                 {% if incoming.balance %}
-                    {{ incoming.balance }}
+                    {{ incoming.balance|floatformat:0  }}
                 {% elif incoming.image %}
                     <a target="_blank" href="/media/{{ incoming.image }}">Чек</a>
                 {% endif %}
             </td>
 
-            <td>{{ incoming.transaction|default_if_none:"" }}</td>
+            <td title="{{ incoming.transaction }}">{{ incoming.transaction|default_if_none:""|make_list|slice:'-4:'|join:'' }}</td>
 
             <td class="text-nowrap">
                 <form action="{% url 'deposit:incomings' %}" method="post">
@@ -97,6 +97,7 @@
          {% endfor %}
      </tbody>
    </table>
+   </div>
    {% include 'includes/paginator.html' %}
   {% endwith %}
 </div>
