@@ -22,7 +22,7 @@ User = get_user_model()
 
 class TrashIncoming(models.Model):
 
-    register_date = models.DateTimeField('Время добавления в базу', auto_now=True)
+    register_date = models.DateTimeField('Время добавления в базу', auto_now_add=True)
     text = models.CharField('Текст сообщения', max_length=1000)
     worker = models.CharField(max_length=50, null=True)
 
@@ -33,7 +33,7 @@ class TrashIncoming(models.Model):
 
 class Incoming(models.Model):
 
-    register_date = models.DateTimeField('Время добавления в базу', auto_now=True)
+    register_date = models.DateTimeField('Время добавления в базу', auto_now_add=True)
     response_date = models.DateTimeField('Распознанное время', null=True, blank=True)
     recipient = models.CharField('Получатель', max_length=50, null=True, blank=True)
     sender = models.CharField('Отравитель/карта', max_length=50, null=True, blank=True)
@@ -83,7 +83,7 @@ class Incoming(models.Model):
 
 
 class IncomingChange(models.Model):
-    time = models.DateTimeField(auto_now=True)
+    time = models.DateTimeField(auto_now_add=True)
     incoming = models.ForeignKey(Incoming, on_delete=models.CASCADE, related_name='history')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incoming_changes')
     val_name = models.CharField('Имя поля')
@@ -111,7 +111,6 @@ class IncomingChange(models.Model):
                 new_comment.save()
         except Exception as err:
             err_log.error(f'Ошибка при сохранении истории: {err}')
-
 
 
 class Deposit(models.Model):
@@ -142,7 +141,7 @@ class BadScreen(models.Model):
     name = models.CharField(unique=False, max_length=200)
     image = models.ImageField(upload_to='bad_screens/',
                               verbose_name='скрин')
-    incoming_time = models.DateTimeField('Время добавления в базу', auto_now=True)
+    incoming_time = models.DateTimeField('Время добавления в базу', auto_now_add=True)
     worker = models.CharField(max_length=50, null=True)
     transaction = models.IntegerField('Транзакция', null=True, unique=True, blank=True)
     type = models.CharField(max_length=20, default='unknown')
