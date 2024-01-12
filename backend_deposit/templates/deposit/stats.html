@@ -10,14 +10,15 @@
 
     <div class="row">
 
-    <div class="col-md-6">
+    <div class="col-md-auto">
         <table id="table" class="table w-auto table-hover table-bordered" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+        <caption align="top">Статистика по картам</caption>
 
           <thead>
             <tr>
                <th>Карта</th>
-               <th>Посл id</th>
-               <th>посл. платеж</th>
+               <th>Посл<br>id</th>
+               <th>посл.<br>платеж</th>
                <th>Кол-во</th>
                <th>Сумма</th>
             </tr>
@@ -28,7 +29,7 @@
                 <tr class="text-end">
                   <td>{{ obj.recipient }}</td>
                   <td>{{ obj.last_id }}</td>
-                  <td>{{ obj.last_date }}</td>
+                  <td>{{ obj.last_date|date:'d.m.Y' }}</td>
                   <td>{{ obj.count }}</td>
                   <td>{{ obj.sum|floatformat:0 }}</td>
                 </tr>
@@ -41,10 +42,22 @@
 
     <div class="col-md-auto">
 
-            <table id="table" class="table w-auto table-hover table-bordered table-sm" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+            <table id="table" class="table w-auto table-hover table-bordered table-sm" style="font-size: small; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+            <caption align="top">Статистика по дням</caption>
 
           <thead>
-            <tr>
+
+          <tr>
+               <th></th>
+                <th></th>
+               <th colspan="4" style="text-align: center">День</th>
+                <th colspan="4" style="text-align: center">См. 1</th>
+                <th colspan="4" style="text-align: center">См. 2</th>
+                <th colspan="4" style="text-align: center">См. 3</th>
+
+            </tr>
+
+            <tr style="text-align: center">
                <th>Дата</th>
                 <th>Наимен</th>
                <th>Всего</th>
@@ -67,32 +80,37 @@
           </thead>
 
           <tbody>
-              {% for key, value in day_reports.items %}
+              {% for key_date, value in day_reports.items %}
+
+
+
+
                 <tr class="text-end">
-                  <td>{{ key|date:'d.m.Y' }}</td>
+                    <td>{{ key_date|date:'d.m.Y' }}</td>
                     <td><div>Сумма</div><div>Кол-во</div></td>
-                    <td><div>{{  value.all_day.step_sum|floatformat:0 }}</div><div>{{  value.all_day.count }}</div></td>
-                    <td>{{ value.all_day.confirm_sum|floatformat:0 }}<div>{{ value.all_day.confirm_count }}</div></td>
-                    <td>{{ value.all_day.unconfirm_sum|floatformat:0 }}<div>{{ value.all_day.unconfirm_count }}</div></td>
-                    <td> {{ value.all_day.rk_sum|floatformat:0 }}<div>{{ value.all_day.count_rk }}</div></td>
+                  {% for step_name, step_value in value.items %}
 
-                <td><div>{{  value.step1.step_sum|floatformat:0 }}</div><div>{{  value.step1.count }}</div></td>
-                    <td>{{ value.step1.confirm_sum|floatformat:0 }}<div>{{ value.step1.confirm_count }}</div></td>
-                    <td>{{ value.step1.unconfirm_sum|floatformat:0 }}<div>{{ value.step1.unconfirm_count }}</div></td>
-                    <td> {{ value.step1.rk_sum|floatformat:0 }}<div>{{ value.step1.count_rk }}</div></td>
-                
-                              <td><div>{{  value.step2.step_sum|floatformat:0 }}</div><div>{{  value.step2.count }}</div></td>
-                    <td>{{ value.step2.confirm_sum|floatformat:0 }}<div>{{ value.step2.confirm_count }}</div></td>
-                    <td>{{ value.step2.unconfirm_sum|floatformat:0 }}<div>{{ value.step2.unconfirm_count }}</div></td>
-                    <td> {{ value.step2.rk_sum|floatformat:0 }}<div>{{ value.step2.count_rk }}</div></td>
-                
-                              <td><div>{{  value.step3.step_sum|floatformat:0 }}</div><div>{{  value.step3.count }}</div></td>
-                    <td>{{ value.step3.confirm_sum|floatformat:0 }}<div>{{ value.step3.confirm_count }}</div></td>
-                    <td>{{ value.step3.unconfirm_sum|floatformat:0 }}<div>{{ value.step3.unconfirm_count }}</div></td>
-                    <td> {{ value.step3.rk_sum|floatformat:0 }}<div>{{ value.step3.count_rk }}</div></td>
+                    <td  style="width: 50px"><div>{{  step_value.step_sum|floatformat:0 }}</div><div>{{  step_value.count }}</div></td>
+                    <td style="width: 50px">{{ step_value.confirm_sum|floatformat:0 }}<div>{{ step_value.confirm_count }}</div></td>
+                    <td style="width: 50px">{{ step_value.unconfirm_sum|floatformat:0 }}<div>{{ step_value.unconfirm_count }}</div></td>
+                    <td style="width: 50px"> {{ step_value.rk_sum|floatformat:0 }}<div>{{ step_value.count_rk }}</div></td>
 
 
-
+                  {% endfor %}
+{#                    <td><div>{{  value.step1.step_sum|floatformat:0 }}</div><div>{{  value.step1.count }}</div></td>#}
+{#                    <td style="width: 50px">{{ value.step1.confirm_sum|floatformat:0 }}<div>{{ value.step1.confirm_count }}</div></td>#}
+{#                    <td style="width: 50px">{{ value.step1.unconfirm_sum|floatformat:0 }}<div>{{ value.step1.unconfirm_count }}</div></td>#}
+{#                    <td style="width: 50px"> {{ value.step1.rk_sum|floatformat:0 }}<div>{{ value.step1.count_rk }}</div></td>#}
+{#                #}
+{#                    <td style="width: 50px"><div>{{  value.step2.step_sum|floatformat:0 }}</div><div>{{  value.step2.count }}</div></td>#}
+{#                    <td style="width: 50px">{{ value.step2.confirm_sum|floatformat:0 }}<div>{{ value.step2.confirm_count }}</div></td>#}
+{#                    <td style="width: 50px">{{ value.step2.unconfirm_sum|floatformat:0 }}<div>{{ value.step2.unconfirm_count }}</div></td>#}
+{#                    <td style="width: 50px"> {{ value.step2.rk_sum|floatformat:0 }}<div>{{ value.step2.count_rk }}</div></td>#}
+{#                #}
+{#                    <td style="width: 50px"><div>{{  value.step3.step_sum|floatformat:0 }}</div><div>{{  value.step3.count }}</div></td>#}
+{#                    <td style="width: 50px">{{ value.step3.confirm_sum|floatformat:0 }}<div>{{ value.step3.confirm_count }}</div></td>#}
+{#                    <td style="width: 50px">{{ value.step3.unconfirm_sum|floatformat:0 }}<div>{{ value.step3.unconfirm_count }}</div></td>#}
+{#                    <td style="width: 50px"> {{ value.step3.rk_sum|floatformat:0 }}<div>{{ value.step3.count_rk }}</div></td>#}
 
                 </tr>
               {% endfor %}

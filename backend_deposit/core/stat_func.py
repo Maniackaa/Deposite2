@@ -62,10 +62,10 @@ class StepStat:
 @dataclass
 class DayReport:
     date: datetime.datetime
+    all_day: StepStat
     step1: StepStat
     step2: StepStat
     step3: StepStat
-    all_day: StepStat
 
 
 def day_reports(days=30) -> dict:
@@ -179,7 +179,7 @@ ORDER BY date1
         for day_delta in range((end_period - start_period).days):
             current_day = (end_period - datetime.timedelta(days=day_delta))
             # {'2023-10-27': {'step1': StepStat(), 'step2': StepStat(), 'step3': StepStat(), 'all_day': StepStat()},...}
-            days_stat_dict[current_day] = {'step1': StepStat(), 'step2': StepStat(), 'step3': StepStat(), 'all_day': StepStat(),}
+            days_stat_dict[current_day] = {'all_day': StepStat(), 'step1': StepStat(), 'step2': StepStat(), 'step3': StepStat(),}
 
         def fill_stat_dict(stat_dict, step_name, step_queryset):
             for step_stat in step_queryset:
@@ -199,10 +199,11 @@ ORDER BY date1
                 current_day_stat[step_name] = current_step
             return stat_dict
 
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'all_day', all_day)
         days_stat_dict = fill_stat_dict(days_stat_dict, 'step1', step1)
         days_stat_dict = fill_stat_dict(days_stat_dict, 'step2', step2)
         days_stat_dict = fill_stat_dict(days_stat_dict, 'step3', step3)
-        days_stat_dict = fill_stat_dict(days_stat_dict, 'all_day', all_day)
+
 
 
 
