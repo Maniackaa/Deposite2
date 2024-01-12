@@ -694,6 +694,6 @@ def get_stats(request):
     template = 'deposit/stats.html'
     page_obj = bad_incomings()
     cards = cards_report()
-    days_stat_dict = day_reports(30)
+    days_stat_dict = day_reports(100)
     context = {'page_obj': page_obj, 'cards': cards, 'day_reports': days_stat_dict}
     return render(request, template, context)

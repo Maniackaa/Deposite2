@@ -69,7 +69,7 @@ def day_reports(days=30) -> dict:
     """
     try:
         bad_incomings_query = bad_incomings()
-        all_incomings = Incoming.objects.all()
+        all_incomings = Incoming.objects.filter(pay__gt=0).all()
         result_incomings = all_incomings.exclude(pk__in=bad_incomings_query).all()
 
         end_period = datetime.datetime.now().date()
