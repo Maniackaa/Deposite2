@@ -26,7 +26,7 @@
           <input class="btn btn-success " type="submit" name="date_search" value="Найти">
        </form>
       </div>
-      <p id="last_id" hidden>{{ last_id|cut:" "  }}</p>
+      <p id="last_id" hidden>{{ last_id }}</p>
       <p id="filter" hidden>{{ filter }}</p>
       {% if view_name == 'deposit:incomings' or view_name == 'deposit:incomings_filter' %}
        <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
@@ -80,6 +80,8 @@
 
             <td title="{{ incoming.transaction }}">{{ incoming.transaction|default_if_none:""|make_list|slice:'-4:'|join:'' }}</td>
 
+         {% load l10n %}
+         {% localize off %}
             <td class="text-nowrap">
                 <form action="{% url 'deposit:incomings' %}" method="post">
                                     {% csrf_token %}
@@ -92,6 +94,7 @@
                     {% endif %}
                 </form>
             </td>
+         {% endlocalize %}
 
          </tr>
          {% endfor %}
@@ -114,7 +117,8 @@
             dataType: 'json',
             data: {'filter': $('#filter').text() },
             success: function(response) {
-                    var last_id = $('#last_id').text()
+                    var last_id = $('#last_id').text().replace(/\D/g, '')
+                    console.log(last_id)
                     var num = response[0].id
                     var count = num - last_id
                     var div = $('#warnings')

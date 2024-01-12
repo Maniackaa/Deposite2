@@ -684,7 +684,7 @@ def get_last(request):
         last_id = last_id.id
     data = list()
     data.append({
-        'id': last_id,
+        'id': str(last_id),
     })
     return JsonResponse(data, safe=False)
 
