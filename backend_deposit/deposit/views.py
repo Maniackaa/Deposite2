@@ -558,14 +558,14 @@ class IncomingSearch(ListView):
         end0 = self.request.GET.get('end_0', '')
         end1 = self.request.GET.get('end_1', '')
         only_empty = self.request.GET.get('only_empty', '')
+        pay = self.request.GET.get('pay', 0)
         end_time = None
         tz = pytz.timezone(settings.TIME_ZONE)
+        start_time = ''
         if begin0:
             begin = f'{begin0 + " " + begin1}'.strip()
             start_time = datetime.datetime.fromisoformat(begin)
             start_time = tz.localize(start_time)
-        else:
-            return all_incoming[:10]
         if end0:
             end_time = datetime.datetime.fromisoformat(f'{end0 + " " + end1}'.strip())
             end_time = tz.localize(end_time)
@@ -575,6 +575,10 @@ class IncomingSearch(ListView):
             all_incoming = all_incoming.filter(response_date__lte=end_time).all()
         if only_empty:
             all_incoming = all_incoming.filter(Q(birpay_id='') | Q(birpay_id=None))
+        if pay:
+            all_incoming = all_incoming.filter(pay=pay)
+        if not begin0 and not end0 and not only_empty and not pay:
+            return all_incoming[:0]
         return all_incoming
 
     def get_context_data(self, **kwargs):

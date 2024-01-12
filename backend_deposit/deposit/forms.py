@@ -165,4 +165,4 @@ class IncomingSearchForm(forms.Form):
     begin = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
     end = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
     only_empty = forms.BooleanField(widget=CheckboxInput(), label='Только неподтвержденные', required=False)
-
+    pay = forms.FloatField(required=False)
