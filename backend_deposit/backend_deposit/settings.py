@@ -18,7 +18,7 @@ MY_APPS = [
     'users.apps.UsersConfig',
     'deposit.apps.DepositConfig',
     # 'api.apps.ApiConfig',
-    'crispy_forms',
+    # 'crispy_forms',
     'crispy_bootstrap4',
     'rangefilter',
     'spurl'

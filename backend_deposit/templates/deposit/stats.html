@@ -8,7 +8,9 @@
       {% include 'includes/switcher2.html' %}
     </div>
 
-    <div>
+    <div class="row">
+
+    <div class="col-md-6">
         <table id="table" class="table w-auto table-hover table-bordered" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
 
           <thead>
@@ -36,4 +38,36 @@
         </table>
     </div>
 
+
+    <div class="col-md-6">
+
+            <table id="table" class="table w-auto table-hover table-bordered" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+
+          <thead>
+            <tr>
+               <th>Дата</th>
+               <th>День</th>
+               <th>Смена 1</th>
+               <th>Смена 2</th>
+               <th>Смена 3</th>
+            </tr>
+          </thead>
+
+          <tbody>
+              {% for key, value in day_reports.items %}
+                <tr class="text-end">
+                  <td>{{ key|date:'d.m.Y' }}</td>
+                  <td>{{  value.all_day.pay_sum }} ({{ value.all_day.count }})</td>
+                  <td>{{  value.step1.pay_sum }} ({{ value.step1.count }})</td>
+                  <td>{{  value.step2.pay_sum }} ({{ value.step2.count }})</td>
+                  <td>{{  value.step3.pay_sum }} ({{ value.step3.count }})</td>
+                </tr>
+              {% endfor %}
+          </tbody>
+
+        </table>
+
+    </div>
+
+    </div>
 {% endblock %}

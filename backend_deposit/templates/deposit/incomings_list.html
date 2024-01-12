@@ -17,13 +17,13 @@
 
 
     <span class="row justify-content-start">
-      <div class="col-2">
-        <form method="GET">
-          {% csrf_token %}
+      <div class="col-6">
+        <form method="GET" target="_blank">
+
           {% if search_form %}
             {{ search_form.as_p }}
           {% endif %}
-          <input class="btn btn-success" type="submit" name="date_search" value="Найти">
+          <input class="btn btn-success " type="submit" name="date_search" value="Найти">
        </form>
       </div>
       <p id="last_id" hidden>{{ last_id }}</p>

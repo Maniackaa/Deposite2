@@ -4,11 +4,14 @@ import logging
 import colorfield.fields
 from colorfield.fields import ColorField
 from django import forms
+from django.contrib.admin import widgets
 from django.core.exceptions import ValidationError
 from django.db import connection
 from django.db.models import Subquery
+from django.forms import CheckboxInput
 
 from .models import Deposit, Incoming, ColorBank
+from .widgets import MinimalSplitDateTimeMultiWidget
 
 logger = logging.getLogger(__name__)
 
@@ -159,5 +162,7 @@ class IncomingForm(forms.ModelForm):
 
 
 class IncomingSearchForm(forms.Form):
-    register_date = forms.DateField(widget=forms.SelectDateWidget)
+    begin = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
+    end = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
+    only_empty = forms.BooleanField(widget=CheckboxInput(), label='Только неподтвержденные', required=False)
 

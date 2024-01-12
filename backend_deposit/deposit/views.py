@@ -5,6 +5,8 @@ import re
 import uuid
 from types import NoneType
 
+import pytz
+
 from backend_deposit.settings import TZ
 from django.conf import settings
 from django.conf.global_settings import MEDIA_ROOT
@@ -27,7 +29,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
-from core.stat_func import bad_ids, cards_report
+from core.stat_func import cards_report, day_reports, bad_incomings
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
@@ -535,12 +537,10 @@ class IncomingSearch(ListView):
     # Поиск платежей
     model = Incoming
     template_name = 'deposit/incomings_list.html'
-    # paginate_by = settings.PAGINATE
     paginate_by = 5000
     search_date = None
 
     def get(self, request, *args, **kwargs):
-        print(self.request)
         if self.request.user.is_staff:
             self.object = None
             return super().get(request, *args, **kwargs)
@@ -553,19 +553,33 @@ class IncomingSearch(ListView):
 
     def get_queryset(self):
         all_incoming = Incoming.objects.order_by('-id').all()
-        if 'date_search' in self.request.GET:
-            register_date_year = self.request.GET.get('register_date_year')
-            register_date_month = self.request.GET.get('register_date_month')
-            register_date_day = self.request.GET.get('register_date_day')
-            search_date = self.get_date(register_date_year, register_date_month, register_date_day)
-            self.search_date = search_date
-            all_incoming = all_incoming.filter(
-                register_date__date=search_date).order_by('-id').all()
+        begin0 = self.request.GET.get('begin_0', '')
+        begin1 = self.request.GET.get('begin_1', '')
+        end0 = self.request.GET.get('end_0', '')
+        end1 = self.request.GET.get('end_1', '')
+        only_empty = self.request.GET.get('only_empty', '')
+        end_time = None
+        tz = pytz.timezone(settings.TIME_ZONE)
+        if begin0:
+            begin = f'{begin0 + " " + begin1}'.strip()
+            start_time = datetime.datetime.fromisoformat(begin)
+            start_time = tz.localize(start_time)
+        else:
+            return all_incoming[:10]
+        if end0:
+            end_time = datetime.datetime.fromisoformat(f'{end0 + " " + end1}'.strip())
+            end_time = tz.localize(end_time)
+        if start_time:
+            all_incoming = all_incoming.filter(response_date__gte=start_time).all()
+        if end_time:
+            all_incoming = all_incoming.filter(response_date__lte=end_time).all()
+        if only_empty:
+            all_incoming = all_incoming.filter(Q(birpay_id='') | Q(birpay_id=None))
         return all_incoming
 
     def get_context_data(self, **kwargs):
         context = super(IncomingSearch, self).get_context_data(**kwargs)
-        search_form = IncomingSearchForm(initial={'register_date': self.search_date})
+        search_form = IncomingSearchForm(initial={'begin': self.search_date})
         context['search_form'] = search_form
         last_id = Incoming.objects.order_by('id').last()
         if last_id:
@@ -674,7 +688,8 @@ def get_last(request):
 def get_stats(request):
 
     template = 'deposit/stats.html'
-    page_obj = bad_ids()
+    page_obj = bad_incomings()
     cards = cards_report()
-    context = {'page_obj': page_obj, 'cards': cards}
+    days_stat_dict = day_reports(30)
+    context = {'page_obj': page_obj, 'cards': cards, 'day_reports': days_stat_dict}
     return render(request, template, context)
