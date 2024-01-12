@@ -41,15 +41,28 @@
 
     <div class="col-md-auto">
 
-            <table id="table" class="table w-auto table-hover table-bordered" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+            <table id="table" class="table w-auto table-hover table-bordered table-sm" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
 
           <thead>
             <tr>
                <th>Дата</th>
-               <th>День</th>
-               <th>Смена 1</th>
-               <th>Смена 2</th>
-               <th>Смена 3</th>
+                <th>Наимен</th>
+               <th>Всего</th>
+                <th>Подтв</th>
+                <th>Не<br>подтв</th>
+                <th>РК</th>
+                            <th>Всего</th>
+                <th>Подтв</th>
+                <th>Не<br>подтв</th>
+                <th>РК</th>
+                            <th>Всего</th>
+                <th>Подтв</th>
+                <th>Не<br>подтв</th>
+                <th>РК</th>
+                            <th>Всего</th>
+                <th>Подтв</th>
+                <th>Не<br>подтв</th>
+                <th>РК</th>
             </tr>
           </thead>
 
@@ -57,10 +70,30 @@
               {% for key, value in day_reports.items %}
                 <tr class="text-end">
                   <td>{{ key|date:'d.m.Y' }}</td>
-                  <td>{{  value.all_day.pay_sum|floatformat:0 }} ({{ value.all_day.count }})</td>
-                  <td>{{  value.step1.pay_sum|floatformat:0 }} ({{ value.step1.count }})</td>
-                  <td>{{  value.step2.pay_sum|floatformat:0 }} ({{ value.step2.count }})</td>
-                  <td>{{  value.step3.pay_sum|floatformat:0 }} ({{ value.step3.count }})</td>
+                    <td><div>Сумма</div><div>Кол-во</div></td>
+                    <td><div>{{  value.all_day.step_sum|floatformat:0 }}</div><div>{{  value.all_day.count }}</div></td>
+                    <td>{{ value.all_day.confirm_sum|floatformat:0 }}<div>{{ value.all_day.confirm_count }}</div></td>
+                    <td>{{ value.all_day.unconfirm_sum|floatformat:0 }}<div>{{ value.all_day.unconfirm_count }}</div></td>
+                    <td> {{ value.all_day.rk_sum|floatformat:0 }}<div>{{ value.all_day.count_rk }}</div></td>
+
+                <td><div>{{  value.step1.step_sum|floatformat:0 }}</div><div>{{  value.step1.count }}</div></td>
+                    <td>{{ value.step1.confirm_sum|floatformat:0 }}<div>{{ value.step1.confirm_count }}</div></td>
+                    <td>{{ value.step1.unconfirm_sum|floatformat:0 }}<div>{{ value.step1.unconfirm_count }}</div></td>
+                    <td> {{ value.step1.rk_sum|floatformat:0 }}<div>{{ value.step1.count_rk }}</div></td>
+                
+                              <td><div>{{  value.step2.step_sum|floatformat:0 }}</div><div>{{  value.step2.count }}</div></td>
+                    <td>{{ value.step2.confirm_sum|floatformat:0 }}<div>{{ value.step2.confirm_count }}</div></td>
+                    <td>{{ value.step2.unconfirm_sum|floatformat:0 }}<div>{{ value.step2.unconfirm_count }}</div></td>
+                    <td> {{ value.step2.rk_sum|floatformat:0 }}<div>{{ value.step2.count_rk }}</div></td>
+                
+                              <td><div>{{  value.step3.step_sum|floatformat:0 }}</div><div>{{  value.step3.count }}</div></td>
+                    <td>{{ value.step3.confirm_sum|floatformat:0 }}<div>{{ value.step3.confirm_count }}</div></td>
+                    <td>{{ value.step3.unconfirm_sum|floatformat:0 }}<div>{{ value.step3.unconfirm_count }}</div></td>
+                    <td> {{ value.step3.rk_sum|floatformat:0 }}<div>{{ value.step3.count_rk }}</div></td>
+
+
+
+
                 </tr>
               {% endfor %}
           </tbody>

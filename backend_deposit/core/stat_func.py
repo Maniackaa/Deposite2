@@ -49,8 +49,14 @@ def cards_report() -> dict:
 
 @dataclass
 class StepStat:
-    pay_sum: float = 0
+    step_sum: float = 0
     count: int = 0
+    unconfirm_count: int = 0
+    confirm_count: int = 0
+    unconfirm_sum: int = 0
+    confirm_sum: float = 0
+    count_rk: int = 0
+    rk_sum: float = 0
 
 
 @dataclass
@@ -75,38 +81,100 @@ def day_reports(days=30) -> dict:
         end_period = datetime.datetime.now().date()
         start_period = (end_period - datetime.timedelta(days=days))
 
-        # Весь день
-        # [{'response_date__date': datetime.date(2023, 10, 22), 'sum': 65.0, 'count': 2, 'avg': 32.5},...]
-        all_day = result_incomings.values(
-            'response_date__date').annotate(
-            sum=Sum('pay'),
-            count=Count('pk'),
-            avg=Avg('pay')
+        all_day = Incoming.objects.raw(
+            """
+        SET timezone TO 'Europe/Moscow';
+        select distinct(date1),  max(id) as id, step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum from
+        
+        (SELECT id, response_date, response_date::date as date1,
+        SUM(pay) OVER(PARTITION BY response_date::date) as step_sum,
+        count(pay) OVER(PARTITION BY response_date::date) as count,
+        count(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY response_date::date) as unconfirm_count,
+        count(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY response_date::date) as confirm_count,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY response_date::date), 0) as unconfirm_sum,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY response_date::date), 0) as confirm_sum,
+        count(id) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY response_date::date) as count_rk,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY response_date::date), 0) as rk_sum
+        FROM public.deposit_incoming
+        WHERE response_date::date >= %s and response_date::date <= %s AND pay> 0) as t
+        
+        GROUP BY date1,  step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum 
+        ORDER BY date1
+            """, [str(start_period), str(end_period)]
         )
 
-        # Смена1 0-8.
-        step_1 = result_incomings.filter(response_date__hour__gte=0, response_date__hour__lt=8).values(
-            'response_date__date').annotate(
-            sum=Sum('pay'),
-            count=Count('pk'),
-            avg=Avg('pay')
+        step1 = Incoming.objects.raw(
+            """
+        SET timezone TO 'Europe/Moscow';
+        select distinct(date1),  max(id) as id, step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum from
+        
+        (SELECT id, response_date, response_date::date as date1,
+        SUM(pay) OVER(PARTITION BY response_date::date) as step_sum,
+        count(pay) OVER(PARTITION BY response_date::date) as count,
+        count(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY response_date::date) as unconfirm_count,
+        count(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY response_date::date) as confirm_count,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY response_date::date), 0) as unconfirm_sum,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY response_date::date), 0) as confirm_sum,
+        count(id) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY response_date::date) as count_rk,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY response_date::date), 0) as rk_sum
+        FROM public.deposit_incoming
+        WHERE response_date::date >= %s and response_date::date <= %s AND pay> 0 AND
+        date_part('hour', response_date) >= 0 AND date_part('hour', response_date) < 8
+        ) as t
+        
+        GROUP BY date1,  step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum
+        ORDER BY date1
+            """, [str(start_period), str(end_period)]
         )
 
-        # Смена1 8-16.
-        step_2 = result_incomings.filter(response_date__hour__gte=8, response_date__hour__lt=16).values(
-            'response_date__date').annotate(
-            sum=Sum('pay'),
-            count=Count('pk'),
-            avg=Avg('pay')
+        step2 = Incoming.objects.raw(
+            """
+        SET timezone TO 'Europe/Moscow';
+        select distinct(date1),  max(id) as id, step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum from
+        
+        (SELECT id, response_date, response_date::date as date1,
+        SUM(pay) OVER(PARTITION BY response_date::date) as step_sum,
+        count(pay) OVER(PARTITION BY response_date::date) as count,
+        count(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY response_date::date) as unconfirm_count,
+        count(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY response_date::date) as confirm_count,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY response_date::date), 0) as unconfirm_sum,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY response_date::date), 0) as confirm_sum,
+        count(id) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY response_date::date) as count_rk,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY response_date::date), 0) as rk_sum
+        FROM public.deposit_incoming
+        WHERE response_date::date >= %s and response_date::date <= %s AND pay > 0 AND
+        date_part('hour', response_date) >= 8 AND date_part('hour', response_date) < 16
+        ) as t
+        
+        GROUP BY date1,  step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum 
+        ORDER BY date1
+            """, [str(start_period), str(end_period)]
         )
 
-        # Смена3 16-0.
-        step_3 = result_incomings.filter(response_date__hour__gte=16).values(
-            'response_date__date').annotate(
-            sum=Sum('pay'),
-            count=Count('pk'),
-            avg=Avg('pay')
+        step3 = Incoming.objects.raw(
+            """
+SET timezone TO 'Europe/Moscow';
+select distinct(date1),  max(id) as id, step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum  from
+
+(SELECT id, response_date, response_date::date as date1,
+SUM(pay) OVER(PARTITION BY response_date::date) as step_sum,
+count(pay) OVER(PARTITION BY response_date::date) as count,
+count(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY response_date::date) as unconfirm_count,
+count(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY response_date::date) as confirm_count,
+COALESCE(sum(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY response_date::date), 0) as unconfirm_sum,
+COALESCE(sum(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY response_date::date), 0) as confirm_sum,
+count(id) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY response_date::date) as count_rk,
+COALESCE(sum(pay) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY response_date::date), 0) as rk_sum
+FROM public.deposit_incoming
+WHERE response_date::date >= %s and response_date::date <= %s AND pay > 0 AND
+date_part('hour', response_date) >= 16 
+) as t
+
+GROUP BY date1,  step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum
+ORDER BY date1
+            """, [str(start_period), str(end_period)]
         )
+
         days_stat_dict = {}
         for day_delta in range((end_period - start_period).days):
             current_day = (end_period - datetime.timedelta(days=day_delta))
@@ -115,20 +183,29 @@ def day_reports(days=30) -> dict:
 
         def fill_stat_dict(stat_dict, step_name, step_queryset):
             for step_stat in step_queryset:
-                step_date = step_stat['response_date__date']
-                if end_period >= step_date >= start_period:
-                    current_step = StepStat(
-                        pay_sum=step_stat['sum'],
-                        count=step_stat['count'],
-                    )
-                    current_day_stat = stat_dict.get(step_date)
-                    current_day_stat[step_name] = current_step
+                step_date = step_stat.date1
+
+                current_step = StepStat(
+                    step_sum=step_stat.step_sum,
+                    count=step_stat.count,
+                    unconfirm_count=step_stat.unconfirm_count,
+                    confirm_count=step_stat.confirm_count,
+                    unconfirm_sum=step_stat.unconfirm_sum,
+                    confirm_sum=step_stat.confirm_sum,
+                    count_rk=step_stat.count_rk,
+                    rk_sum=step_stat.rk_sum,
+                )
+                current_day_stat = stat_dict.get(step_date)
+                current_day_stat[step_name] = current_step
             return stat_dict
 
-        days_stat_dict = fill_stat_dict(days_stat_dict, 'step1', step_1)
-        days_stat_dict = fill_stat_dict(days_stat_dict, 'step2', step_2)
-        days_stat_dict = fill_stat_dict(days_stat_dict, 'step3', step_3)
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'step1', step1)
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'step2', step2)
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'step3', step3)
         days_stat_dict = fill_stat_dict(days_stat_dict, 'all_day', all_day)
+
+
+
         return days_stat_dict
     except Exception as err:
         logger.error(err)
