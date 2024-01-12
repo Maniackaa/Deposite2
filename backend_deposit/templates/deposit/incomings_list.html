@@ -26,7 +26,7 @@
           <input class="btn btn-success " type="submit" name="date_search" value="Найти">
        </form>
       </div>
-      <p id="last_id" hidden>{{ last_id }}</p>
+      <p id="last_id" hidden>{{ last_id|cut:" "  }}</p>
       <p id="filter" hidden>{{ filter }}</p>
       {% if view_name == 'deposit:incomings' or view_name == 'deposit:incomings_filter' %}
        <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
