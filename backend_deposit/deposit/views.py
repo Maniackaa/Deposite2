@@ -501,6 +501,56 @@ def incoming_list(request):
     return render(request, template, context)
 
 
+@staff_member_required(login_url='users:login')
+def incoming_list2(request):
+    # Список всех платежей и сохранение birpay
+    if request.method == "POST":
+        input_name = list(request.POST.keys())[1]
+        pk, options = list(request.POST.keys())[1].split('-')
+        value = request.POST.get(input_name) or ''
+        incoming = Incoming.objects.get(pk=pk)
+        if isinstance(incoming.birpay_id, NoneType):
+            incoming.birpay_id = value
+            incoming.birpay_confirm_time = datetime.datetime.now(tz=settings.TZ)
+            incoming.save()
+            #Сохраняем историю
+            new_history = IncomingChange(
+                incoming=incoming,
+                user=request.user,
+                val_name='birpay_id',
+                new_val=value
+            )
+            new_history.save()
+
+        if 'filter' in options:
+            return redirect('deposit:incomings_filter')
+        else:
+            return redirect('deposit:incomings')
+
+    template = 'deposit/incomings_list.html'
+    # incoming_q = Incoming.objects.order_by('-id').all()
+    # incoming_q = Incoming.objects.raw(
+    #     "with t1 as (SELECT * FROM deposit_colorbank) "
+    #                                       "SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
+    #                                       " ORDER BY deposit_incoming.id DESC;")
+
+    incoming_q = Incoming.objects.raw(
+    """
+    SELECT *,
+    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id asc) as prev_balance,
+    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id asc) + pay as check_balance
+    FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+    ORDER BY deposit_incoming.id DESC;
+    """
+    )
+
+    last_id = Incoming.objects.order_by('id').last()
+    if last_id:
+        last_id = last_id.id
+    context = {'page_obj': make_page_obj(request, incoming_q),
+               'last_id': last_id}
+    return render(request, template, context)
+
 class IncomingEmpty(ListView):
     # Не подтвержденные платежи
     model = Incoming

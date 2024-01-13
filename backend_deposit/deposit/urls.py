@@ -26,6 +26,7 @@ urlpatterns = [
     path('sms/', views.sms, name='sms'),
 
     path('incomings/', views.incoming_list, name='incomings'),
+    path('incomings2/', views.incoming_list2, name='incomings2'),
     path('incomings/<int:pk>/', views.IncomingEdit.as_view(), name='incoming_edit'),
 
     path('incomings_empty/', views.IncomingEmpty.as_view(), name='incomings_empty'),
