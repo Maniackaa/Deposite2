@@ -637,10 +637,13 @@ class IncomingSearch(ListView):
         end1 = self.request.GET.get('end_1', '')
         only_empty = self.request.GET.get('only_empty', '')
         pay = self.request.GET.get('pay', 0)
+        pk = self.request.GET.get('pk', 1)
         sort_by_sms_time = self.request.GET.get('sort_by_sms_time', 0)
         end_time = None
         tz = pytz.timezone(settings.TIME_ZONE)
         start_time = ''
+        if pk:
+            return Incoming.objects.filter(pk=pk)
         if sort_by_sms_time:
             all_incoming = Incoming.objects.order_by('-id').all()
         else:
