@@ -162,7 +162,12 @@ class IncomingForm(forms.ModelForm):
 
 
 class IncomingSearchForm(forms.Form):
+    search_in = forms.ChoiceField(choices=[
+        ('register_date', 'Время поступления'),
+        ('response_date', 'Время в смс/чеке')
+    ], label='Поиск по')
     begin = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
     end = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
     only_empty = forms.BooleanField(widget=CheckboxInput(), label='Только неподтвержденные', required=False)
     pay = forms.FloatField(required=False)
+    sort_by_sms_time = forms.BooleanField(widget=CheckboxInput(), label='Сортировка по времени чека', required=False)

@@ -174,7 +174,7 @@ LOGGING = {
     'formatters': {
         'default_formatter': {
             # 'format': "%(asctime)s - %(levelname)s - %(funcName)s: %(lineno)d - %(message)s"
-            'format': '\t%(asctime)s %(levelname)s %(module)s/%(funcName)s\n%(message)s',
+            'format': '[%(asctime)s] #%(levelname)-8s %(filename)s:%(lineno)d %(module)s/%(funcName)s\n%(message)s',
         },
     },
     'handlers': {

@@ -485,13 +485,12 @@ def incoming_list(request):
     incoming_q = Incoming.objects.raw(
     """
     SELECT *,
-    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id desc) as prev_balance,
-    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id desc) + pay as check_balance
+    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
+    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
     FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
     ORDER BY deposit_incoming.id DESC;
     """
     )
-
 
     last_id = Incoming.objects.order_by('id').last()
     if last_id:
@@ -512,8 +511,8 @@ class IncomingEmpty(ListView):
             raise PermissionDenied('Недостаточно прав')
         # empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-id').all()
         empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-response_date', '-id').annotate(
-            prev_balance=Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'id']),
-            check_balance=F('pay') + Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'id']),
+            prev_balance=Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'balance', 'id']),
+            check_balance=F('pay') + Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'balance', 'id']),
         ).order_by('-id').all()
         return empty_incoming
 
@@ -537,8 +536,8 @@ class IncomingFiltered(ListView):
         filtered_incoming = Incoming.objects.raw(
         """
         SELECT *,
-        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id desc) as prev_balance,
-        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id desc) + pay as check_balance
+        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
+        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
         FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
         WHERE deposit_incoming.recipient = ANY(%s)
         ORDER BY deposit_incoming.id DESC
@@ -566,7 +565,7 @@ class IncomingSearch(ListView):
     # Поиск платежей
     model = Incoming
     template_name = 'deposit/incomings_list.html'
-    paginate_by = 5000
+    paginate_by = 1000
     search_date = None
 
     def get(self, request, *args, **kwargs):
@@ -581,16 +580,21 @@ class IncomingSearch(ListView):
         return datetime.date(int(year), int(month), int(day))
 
     def get_queryset(self):
-        all_incoming = Incoming.objects.order_by('-id').all()
+        search_in = self.request.GET.get('search_in', 'register_date')
         begin0 = self.request.GET.get('begin_0', '')
         begin1 = self.request.GET.get('begin_1', '')
         end0 = self.request.GET.get('end_0', '')
         end1 = self.request.GET.get('end_1', '')
         only_empty = self.request.GET.get('only_empty', '')
         pay = self.request.GET.get('pay', 0)
+        sort_by_sms_time = self.request.GET.get('sort_by_sms_time', 0)
         end_time = None
         tz = pytz.timezone(settings.TIME_ZONE)
         start_time = ''
+        if sort_by_sms_time:
+            all_incoming = Incoming.objects.order_by('-id').all()
+        else:
+            all_incoming = Incoming.objects.order_by('-response_date').all()
         if begin0:
             begin = f'{begin0 + " " + begin1}'.strip()
             start_time = datetime.datetime.fromisoformat(begin)
@@ -598,10 +602,17 @@ class IncomingSearch(ListView):
         if end0:
             end_time = datetime.datetime.fromisoformat(f'{end0 + " " + end1}'.strip())
             end_time = tz.localize(end_time)
-        if start_time:
-            all_incoming = all_incoming.filter(response_date__gte=start_time).all()
-        if end_time:
-            all_incoming = all_incoming.filter(response_date__lte=end_time).all()
+
+        if search_in == 'response_date':
+            if start_time:
+                all_incoming = all_incoming.filter(response_date__gte=start_time).all()
+            if end_time:
+                all_incoming = all_incoming.filter(response_date__lte=end_time).all()
+        else:
+            if start_time:
+                all_incoming = all_incoming.filter(register_date__gte=start_time).all()
+            if end_time:
+                all_incoming = all_incoming.filter(register_date__lte=end_time).all()
         if only_empty:
             all_incoming = all_incoming.filter(Q(birpay_id='') | Q(birpay_id=None))
         if pay:
@@ -618,6 +629,7 @@ class IncomingSearch(ListView):
         if last_id:
             last_id = last_id.id
         context['last_id'] = last_id
+
         return context
 
 
