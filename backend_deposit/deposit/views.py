@@ -485,8 +485,8 @@ def incoming_list(request):
     incoming_q = Incoming.objects.raw(
     """
     SELECT *,
-    LAG(balance, -1) OVER(PARTITION BY recipient order by deposit_incoming.id desc) as prev_balance,
-    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by deposit_incoming.id desc) + pay as check_balance
+    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id desc) as prev_balance,
+    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id desc) + pay as check_balance
     FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
     ORDER BY deposit_incoming.id DESC;
     """
@@ -510,9 +510,10 @@ class IncomingEmpty(ListView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_staff:
             raise PermissionDenied('Недостаточно прав')
-        empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-id').all()
-        empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).annotate(
-            prev_balance=Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=F('id').asc())
+        # empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-id').all()
+        empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-response_date', '-id').annotate(
+            prev_balance=Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'id']),
+            check_balance=F('pay') + Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'id']),
         ).order_by('-id').all()
         return empty_incoming
 
@@ -527,16 +528,17 @@ class IncomingFiltered(ListView):
         if not self.request.user.is_staff:
             raise PermissionDenied('Недостаточно прав')
         user_filter = self.request.user.profile.my_filter
-        filtered_incoming = Incoming.objects.raw(
-            "with t1 as (SELECT * FROM deposit_colorbank)"
-            " SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
-            " WHERE deposit_incoming.recipient = ANY(%s)"
-            " ORDER BY deposit_incoming.id DESC;", [user_filter])
+        # filtered_incoming = Incoming.objects.raw(
+        #     "with t1 as (SELECT * FROM deposit_colorbank)"
+        #     " SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
+        #     " WHERE deposit_incoming.recipient = ANY(%s)"
+        #     " ORDER BY deposit_incoming.id DESC;", [user_filter])
 
         filtered_incoming = Incoming.objects.raw(
         """
         SELECT *,
-        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by deposit_incoming.id desc) as prev_balance
+        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id desc) as prev_balance,
+        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id desc) + pay as check_balance
         FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
         WHERE deposit_incoming.recipient = ANY(%s)
         ORDER BY deposit_incoming.id DESC
