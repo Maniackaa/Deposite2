@@ -537,8 +537,8 @@ def incoming_list2(request):
     incoming_q = Incoming.objects.raw(
     """
     SELECT *,
-    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id asc) as prev_balance,
-    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, deposit_incoming.id asc) + pay as check_balance
+    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by register_date desc, deposit_incoming.response_date desc) as prev_balance,
+    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by register_date desc, deposit_incoming.response_date desc) + pay as check_balance
     FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
     ORDER BY deposit_incoming.id DESC;
     """
