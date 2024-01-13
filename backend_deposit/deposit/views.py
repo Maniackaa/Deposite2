@@ -477,18 +477,18 @@ def incoming_list(request):
 
     template = 'deposit/incomings_list.html'
     # incoming_q = Incoming.objects.order_by('-id').all()
-    incoming_q = Incoming.objects.raw(
-        "with t1 as (SELECT * FROM deposit_colorbank) "
-                                          "SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
-                                          " ORDER BY deposit_incoming.id DESC;")
+    # incoming_q = Incoming.objects.raw(
+    #     "with t1 as (SELECT * FROM deposit_colorbank) "
+    #                                       "SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
+    #                                       " ORDER BY deposit_incoming.id DESC;")
 
     incoming_q = Incoming.objects.raw(
     """
     SELECT *,
-LAG(balance, -1) OVER(PARTITION BY recipient order by deposit_incoming.id desc) as prev_balance
-
-FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
-ORDER BY deposit_incoming.id DESC;
+    LAG(balance, -1) OVER(PARTITION BY recipient order by deposit_incoming.id desc) as prev_balance,
+    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by deposit_incoming.id desc) + pay as check_balance
+    FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+    ORDER BY deposit_incoming.id DESC;
     """
     )
 
