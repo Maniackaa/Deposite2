@@ -6,6 +6,7 @@ import uuid
 from types import NoneType
 
 import pytz
+from django.db.models.functions import Lag
 
 from backend_deposit.settings import TZ
 from django.conf import settings
@@ -19,7 +20,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import F, Q, Subquery, Value, OuterRef
+from django.db.models import F, Q, Subquery, Value, OuterRef, Window
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -476,9 +477,22 @@ def incoming_list(request):
 
     template = 'deposit/incomings_list.html'
     # incoming_q = Incoming.objects.order_by('-id').all()
-    incoming_q = Incoming.objects.raw("with t1 as (SELECT * FROM deposit_colorbank) "
+    incoming_q = Incoming.objects.raw(
+        "with t1 as (SELECT * FROM deposit_colorbank) "
                                           "SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
                                           " ORDER BY deposit_incoming.id DESC;")
+
+    incoming_q = Incoming.objects.raw(
+    """
+    SELECT *,
+LAG(balance, -1) OVER(PARTITION BY recipient order by deposit_incoming.id desc) as prev_balance
+
+FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+ORDER BY deposit_incoming.id DESC;
+    """
+    )
+
+
     last_id = Incoming.objects.order_by('id').last()
     if last_id:
         last_id = last_id.id
@@ -497,6 +511,9 @@ class IncomingEmpty(ListView):
         if not self.request.user.is_staff:
             raise PermissionDenied('Недостаточно прав')
         empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-id').all()
+        empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).annotate(
+            prev_balance=Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=F('id').asc())
+        ).order_by('-id').all()
         return empty_incoming
 
 
@@ -515,6 +532,16 @@ class IncomingFiltered(ListView):
             " SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
             " WHERE deposit_incoming.recipient = ANY(%s)"
             " ORDER BY deposit_incoming.id DESC;", [user_filter])
+
+        filtered_incoming = Incoming.objects.raw(
+        """
+        SELECT *,
+        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by deposit_incoming.id desc) as prev_balance
+        FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+        WHERE deposit_incoming.recipient = ANY(%s)
+        ORDER BY deposit_incoming.id DESC
+        """, [user_filter])
+
         # filtered_incoming = Incoming.objects.filter(
         #     recipient__in=user_filter).order_by('-id').all()
         return filtered_incoming

@@ -72,7 +72,7 @@
             <td>{{ incoming.pay }}</td>
             <td>
                 {% if incoming.balance %}
-                    {{ incoming.balance|floatformat:0  }}
+                    {{ incoming.balance|floatformat:0  }}{% if incoming.balance %} ({{ incoming.prev_balance }}){% endif %}
                 {% elif incoming.image %}
                     <a target="_blank" href="/media/{{ incoming.image }}">Чек</a>
                 {% endif %}
