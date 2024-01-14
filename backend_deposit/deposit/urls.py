@@ -38,6 +38,8 @@ urlpatterns = [
     path('get_posts/', views.get_last, name='get_last'),
 
     path('stats/', views.get_stats, name='stats'),
+    path('stats_card/', views.get_stats, name='stats_card'),
+    path('stats_day/', views.get_stats, name='stats_day'),
     path('trash/', views.IncomingTrashList.as_view(), name='trash'),
 
 ]

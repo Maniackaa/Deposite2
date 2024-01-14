@@ -1,0 +1,51 @@
+<table id="table" class="table w-auto table-hover table-bordered table-sm" style="font-size: small; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+  <caption align="top">Статистика по дням</caption>
+  <thead>
+    <tr>
+        <th></th>
+        <th></th>
+        <th colspan="4" style="text-align: center">День</th>
+        <th colspan="4" style="text-align: center">См. 1</th>
+        <th colspan="4" style="text-align: center">См. 2</th>
+        <th colspan="4" style="text-align: center">См. 3</th>
+
+    </tr>
+    <tr style="text-align: center">
+        <th>Дата</th>
+        <th>Наимен</th>
+        <th>Всего</th>
+        <th>Подтв</th>
+        <th>Не<br>подтв</th>
+        <th>РК</th>
+        <th>Всего</th>
+        <th>Подтв</th>
+        <th>Не<br>подтв</th>
+        <th>РК</th>
+        <th>Всего</th>
+        <th>Подтв</th>
+        <th>Не<br>подтв</th>
+        <th>РК</th>
+        <th>Всего</th>
+        <th>Подтв</th>
+        <th>Не<br>подтв</th>
+        <th>РК</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for key_date, value in day_reports.items %}
+      <tr class="text-end">
+          <td>{{ key_date|date:'d.m.Y' }}</td>
+          <td><div>Сумма</div><div>Кол-во</div></td>
+
+            {% for step_name, step_value in value.items %}
+              <td style="width: 50px; border-left-width: 5px"><div>{{  step_value.step_sum|floatformat:0 }}</div><div>{{  step_value.count }}</div></td>
+              <td style="width: 50px; color: #4cae4c">{{ step_value.confirm_sum|floatformat:0 }}<div>{{ step_value.confirm_count }}</div></td>
+              <td style="width: 50px; color: #8a6d3b">{{ step_value.unconfirm_sum|floatformat:0 }}<div>{{ step_value.unconfirm_count }}</div></td>
+              <td style="width: 50px; color: #d19b3d; border-right-width: 5px"> {{ step_value.rk_sum|floatformat:0 }}<div>{{ step_value.count_rk }}</div></td>
+            {% endfor %}
+      </tr>
+    {% endfor %}
+</tbody>
+
+</table>

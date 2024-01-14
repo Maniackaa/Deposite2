@@ -1,0 +1,25 @@
+<table id="table" class="table w-auto table-hover table-bordered" style="font-size: medium; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+  <caption align="top">Статистика по картам</caption>
+  <thead>
+    <tr>
+       <th>Карта</th>
+       <th>Посл<br>id</th>
+       <th>посл.<br>платеж</th>
+       <th>Кол-во</th>
+       <th>Сумма</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for obj in cards %}
+      <tr class="text-end">
+        <td>{{ obj.recipient }}</td>
+        <td>{{ obj.last_id }}</td>
+        <td>{{ obj.last_date|date:'d.m.Y' }}</td>
+        <td>{{ obj.count }}</td>
+        <td>{{ obj.sum|floatformat:0 }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+
+</table>

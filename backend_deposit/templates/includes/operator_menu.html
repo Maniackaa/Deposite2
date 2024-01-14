@@ -17,8 +17,9 @@
             Статистика
           </a>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="{% url 'deposit:deposits' %}">ссылка 1</a></li>
-            <li><a class="dropdown-item" href="{% url 'deposit:stats' %}">Статистика по картам</a></li>
+            <li><a class="dropdown-item" href="{% url 'deposit:stats_card' %}">Статистика по картам</a></li>
+            <li><a class="dropdown-item" href="{% url 'deposit:stats_day' %}">Статистика по дням</a></li>
+              <li><a class="dropdown-item" href="{% url 'deposit:stats' %}">Карты + дни</a></li>
           </ul>
         </li>
       </ul>
