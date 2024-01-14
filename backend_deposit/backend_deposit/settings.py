@@ -21,7 +21,7 @@ MY_APPS = [
     # 'crispy_forms',
     'crispy_bootstrap4',
     'rangefilter',
-    'spurl'
+    'spurl',
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 

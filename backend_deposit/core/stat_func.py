@@ -40,7 +40,6 @@ def bad_incomings():
 def cards_report() -> dict:
     # Возвращает словарь со статистикой по картам
     credit_cards = CreditCard.objects.all()
-    print(credit_cards.values('name'))
     cards = Incoming.objects.filter(pay__gt=0).all().values('recipient').annotate(
         count=Count('pk'),
         sum=Sum('pay'),
@@ -54,7 +53,6 @@ def cards_report() -> dict:
         card_id=Subquery(credit_cards.filter(name=OuterRef('recipient')).values('id')),
     ).order_by('-last_date')
 
-    print(cards[0])
     return cards
 
 

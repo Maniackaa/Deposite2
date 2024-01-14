@@ -36,7 +36,7 @@ from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
 from deposit.func import (img_path_to_str, make_after_incoming_save,
                           make_after_save_deposit, send_message_tg)
-from deposit.models import BadScreen, ColorBank, Deposit, Incoming, TrashIncoming, IncomingChange
+from deposit.models import BadScreen, ColorBank, Deposit, Incoming, TrashIncoming, IncomingChange, CreditCard
 from deposit.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
 from deposit.text_response_func import (response_sms1, response_sms2,
@@ -613,6 +613,7 @@ class IncomingSearch(ListView):
     search_date = None
 
     def get(self, request, *args, **kwargs):
+        self.object_list = self.get_queryset()
         if self.request.user.is_staff:
             self.object = None
             return super().get(request, *args, **kwargs)
@@ -639,9 +640,9 @@ class IncomingSearch(ListView):
         if pk:
             return Incoming.objects.filter(pk=pk)
         if sort_by_sms_time:
-            all_incoming = Incoming.objects.order_by('-id').all()
-        else:
             all_incoming = Incoming.objects.order_by('-response_date').all()
+        else:
+            all_incoming = Incoming.objects.order_by('-id').all()
         if begin0:
             begin = f'{begin0 + " " + begin1}'.strip()
             start_time = datetime.datetime.fromisoformat(begin)
@@ -670,13 +671,25 @@ class IncomingSearch(ListView):
 
     def get_context_data(self, **kwargs):
         context = super(IncomingSearch, self).get_context_data(**kwargs)
-        search_form = IncomingSearchForm(initial={'begin': self.search_date})
+        request_dict = self.request.GET.dict()
+        begin_0 = request_dict.get('begin_0')
+        begin_1 = request_dict.get('begin_1')
+        end_0 = request_dict.get('end_0')
+        end_1 = request_dict.get('end_1')
+        begin = None
+        end = None
+        if begin_0:
+            begin = datetime.datetime.fromisoformat(f'{begin_0} {begin_1}'.strip())
+        if end_0:
+            end = datetime.datetime.fromisoformat(f'{end_0} {end_1}'.strip())
+        request_dict.update({'begin': begin})
+        request_dict.update({'end': end})
+        search_form = IncomingSearchForm(initial={**request_dict})
         context['search_form'] = search_form
         last_id = Incoming.objects.order_by('id').last()
         if last_id:
             last_id = last_id.id
         context['last_id'] = last_id
-
         return context
 
 
