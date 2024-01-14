@@ -2,10 +2,11 @@ import datetime
 import logging
 from dataclasses import dataclass
 
-from django.db.models import Sum, Count, Max, Q, F, Avg
+from django.db.models import Sum, Count, Max, Q, F, Avg, Value, Subquery, OuterRef
+from django.forms import CharField
 
 from backend_deposit.settings import TZ
-from deposit.models import Incoming
+from deposit.models import Incoming, CreditCard
 
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')
@@ -38,12 +39,22 @@ def bad_incomings():
 
 def cards_report() -> dict:
     # Возвращает словарь со статистикой по картам
+    credit_cards = CreditCard.objects.all()
+    print(credit_cards.values('name'))
     cards = Incoming.objects.filter(pay__gt=0).all().values('recipient').annotate(
         count=Count('pk'),
         sum=Sum('pay'),
         last_date=Max('register_date'),
-        last_id=Max('pk')
+        last_id=Max('pk'),
+        text=Subquery(credit_cards.filter(name=OuterRef('recipient')).values('text')),
+        number=Subquery(credit_cards.filter(name=OuterRef('recipient')).values('number')),
+        expire=Subquery(credit_cards.filter(name=OuterRef('recipient')).values('expire')),
+        cvv=Subquery(credit_cards.filter(name=OuterRef('recipient')).values('cvv')),
+        status=Subquery(credit_cards.filter(name=OuterRef('recipient')).values('status')),
+        card_id=Subquery(credit_cards.filter(name=OuterRef('recipient')).values('id')),
     ).order_by('-last_date')
+
+    print(cards[0])
     return cards
 
 

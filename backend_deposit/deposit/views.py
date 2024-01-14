@@ -476,12 +476,6 @@ def incoming_list(request):
             return redirect('deposit:incomings')
 
     template = 'deposit/incomings_list.html'
-    # incoming_q = Incoming.objects.order_by('-id').all()
-    # incoming_q = Incoming.objects.raw(
-    #     "with t1 as (SELECT * FROM deposit_colorbank) "
-    #                                       "SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
-    #                                       " ORDER BY deposit_incoming.id DESC;")
-
     incoming_q = Incoming.objects.raw(
     """
     SELECT *,
@@ -491,13 +485,6 @@ def incoming_list(request):
     ORDER BY deposit_incoming.id DESC;
     """
     )
-
-    incoming_q = Incoming.objects.annotate(
-        color=Subquery(ColorBank.objects.filter(name=OuterRef('sender')).values('color_back')[:1]),
-        color2=Subquery(ColorBank.objects.filter(name=OuterRef('sender')).values('color_font')[:1]),
-    )
-    print(incoming_q.query)
-
 
     last_id = Incoming.objects.order_by('id').last()
     if last_id:

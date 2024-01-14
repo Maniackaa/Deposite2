@@ -7,17 +7,29 @@
        <th>посл.<br>платеж</th>
        <th>Кол-во</th>
        <th>Сумма</th>
+       <th></th>
+       <th>Номер карты</th>
+       <th>Exp</th>
+       <th>cvv</th>
+       <th>Статус</th>
+       <th>Комментарий</th>
     </tr>
   </thead>
 
   <tbody>
     {% for obj in cards %}
       <tr class="text-end">
-        <td>{{ obj.recipient }}</td>
+        <td><span>{{ obj.recipient }}</span><br><span>{{obj.text}}</span></td>
         <td>{{ obj.last_id }}</td>
         <td>{{ obj.last_date|date:'d.m.Y' }}</td>
         <td>{{ obj.count }}</td>
         <td>{{ obj.sum|floatformat:0 }}</td>
+        <td></td>
+        <td>{{ obj.number|default_if_none:'' }}</td>
+        <td>{{ obj.expire|default_if_none:'' }}</td>
+        <td>{{ obj.cvv|default_if_none:'' }}</td>
+        <td>{{ obj.status|default_if_none:'' }}</td>
+        <td>{{ obj.text|default_if_none:'' }}</td>
       </tr>
     {% endfor %}
   </tbody>

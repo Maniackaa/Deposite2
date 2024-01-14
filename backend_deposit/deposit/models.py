@@ -63,24 +63,6 @@ class Incoming(models.Model):
         string = f'Платеж {self.id}. Сумма: {self.pay}. {self.transaction}.  Депозит: {self.confirmed_deposit.id if self.confirmed_deposit else "-"}'
         return string
 
-    # @property
-    # def color_back(self):
-    #     bank_color_back = ColorBank.objects.filter(name=self.sender).first()
-    #     if self.type in ['m10', 'm10_short']:
-    #         return '#80FFFF'
-    #     if bank_color_back:
-    #         return bank_color_back.color_back
-    #     return '#FFFFFF'
-    #
-    # @property
-    # def color_font(self):
-    #     bank_color_font = ColorBank.objects.filter(name=self.sender).first()
-    #     if self.type in ['m10', 'm10_short']:
-    #         return '#000000'
-    #     if bank_color_font:
-    #         return bank_color_font.color_font
-    #     return '#000000'
-
 
 class IncomingChange(models.Model):
     time = models.DateTimeField(auto_now_add=True)
@@ -159,6 +141,15 @@ class ColorBank(models.Model):
         return format_html(
             f'<span style="color:  {self.color_font}; background: {self.color_back}">{self.name}</span>'
         )
+
+
+class CreditCard(models.Model):
+    name = models.CharField(unique=True, max_length=50)
+    number = models.CharField(unique=True, max_length=19, default='', blank=True)
+    expire = models.CharField(max_length=10, default='', blank=True)
+    cvv = models.CharField(max_length=10, default='', blank=True)
+    status = models.CharField(max_length=20, default='', blank=True)
+    text = models.CharField(max_length=100, default='', blank=True)
 
 
 @receiver(post_delete, sender=BadScreen)
