@@ -162,7 +162,7 @@ class IncomingForm(forms.ModelForm):
 
 
 class IncomingSearchForm(forms.Form):
-    pk = forms.IntegerField(required=False)
+    pk = forms.IntegerField(required=False, label='id')
     search_in = forms.ChoiceField(choices=[
         ('register_date', 'Время поступления'),
         ('response_date', 'Время в смс/чеке')

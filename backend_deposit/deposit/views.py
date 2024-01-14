@@ -492,6 +492,13 @@ def incoming_list(request):
     """
     )
 
+    incoming_q = Incoming.objects.annotate(
+        color=Subquery(ColorBank.objects.filter(name=OuterRef('sender')).values('color_back')[:1]),
+        color2=Subquery(ColorBank.objects.filter(name=OuterRef('sender')).values('color_font')[:1]),
+    )
+    print(incoming_q.query)
+
+
     last_id = Incoming.objects.order_by('id').last()
     if last_id:
         last_id = last_id.id
