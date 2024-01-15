@@ -47,7 +47,7 @@ class IncomingChangeAdmin(admin.ModelAdmin):
         'id', 'time', 'incoming', 'user', 'val_name', 'new_val'
     )
     list_display_links = ('id', 'time')
-    list_filter = ('incoming',)
+    list_filter = ('user',)
 
 
 class CreditCardAdmin(admin.ModelAdmin):

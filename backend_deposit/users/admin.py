@@ -97,6 +97,10 @@ class UserAdmin(BaseUserAdmin):
     list_display_links = ('id', 'username')
 
 
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'first_name', 'last_name')
+    list_display_links = ('id', 'user')
+
+
 admin.site.register(User, UserAdmin)
-# admin.site.register(User)
-admin.site.register(Profile)
+admin.site.register(Profile, ProfileAdmin)
