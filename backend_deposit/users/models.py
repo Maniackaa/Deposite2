@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.mail import send_mail
 from django.contrib.auth.base_user import AbstractBaseUser
-from django.contrib.auth.models import PermissionsMixin
+from django.contrib.auth.models import PermissionsMixin, Group
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
 from django.db.models.signals import post_save
@@ -68,6 +68,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     def email_user(self, subject, message, from_email=None, **kwargs):
         send_mail(subject, message, from_email, [self.email], **kwargs)
 
+    def group(self):
+        user_groups = self.groups.values('name')
+        group_list = []
+        for group in user_groups:
+            group_list.append(group.get('name'))
+        return group_list
+
 
 @receiver(post_save, sender=User)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
@@ -96,6 +103,9 @@ class Profile(models.Model):
     )
 
     my_filter = models.JSONField('Фильтр по получателю', default=list)
+
+    def __str__(self):
+        return f'{self.user.username}'
 
     class Meta:
         verbose_name = "Профиль пользователя"

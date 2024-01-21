@@ -48,6 +48,7 @@ class IncomingChangeAdmin(admin.ModelAdmin):
     )
     list_display_links = ('id', 'time')
     list_filter = ('user',)
+    readonly_fields = ('id', 'time', 'incoming', 'user', 'val_name', 'new_val')
 
 
 class CreditCardAdmin(admin.ModelAdmin):

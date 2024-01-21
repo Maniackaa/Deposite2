@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')
 
 
+@staff_member_required(login_url='users:login')
 def home(request, *args, **kwargs):
     template = 'deposit/home.html'
     return render(request, template_name=template)
@@ -544,6 +545,7 @@ def incoming_list2(request):
                'last_id': last_id}
     return render(request, template, context)
 
+
 class IncomingEmpty(ListView):
     # Не подтвержденные платежи
     model = Incoming
@@ -790,6 +792,7 @@ def get_last(request):
     return JsonResponse(data, safe=False)
 
 
+@staff_member_required(login_url='users:login')
 def get_stats(request):
 
     template = 'deposit/stats.html'

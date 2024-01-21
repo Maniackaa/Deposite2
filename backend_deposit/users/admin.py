@@ -65,8 +65,13 @@ class UserChangeForm(forms.ModelForm):
         # This is done here, rather than on the field, because the
         # field does not have access to the initial value
         return self.initial["password"]
-#
-#
+
+
+class ProfileInline(admin.StackedInline):
+    model = Profile
+    fields = ('first_name', 'last_name')
+    can_delete = False
+
 class UserAdmin(BaseUserAdmin):
     # The forms to add and change user instances
     form = UserChangeForm
@@ -75,12 +80,12 @@ class UserAdmin(BaseUserAdmin):
     # The fields to be used in displaying the User model.
     # These override the definitions on the base UserAdmin
     # that reference specific fields on auth.User.
-    list_display = ('id', 'username', 'email', 'is_superuser', 'is_staff')
-    list_filter = ('is_superuser', )
+    list_display = ('id', 'username', 'email', 'is_superuser', 'is_staff', 'group')
+    list_filter = ('is_superuser', 'groups')
     fieldsets = (
         (None, {'fields': ('username', 'email', 'password',)}),
         ('Personal info', {'fields': ()}),
-        ('Permissions', {'fields': ('is_superuser', 'is_staff', 'role', "groups",
+        ('Permissions', {'fields': ('is_superuser', 'is_staff', "groups",
                     "user_permissions",)}),
     )
     # add_fieldsets is not a standard ModelAdmin attribute. UserAdmin
@@ -95,6 +100,7 @@ class UserAdmin(BaseUserAdmin):
     ordering = ('email',)
     filter_horizontal = ()
     list_display_links = ('id', 'username')
+    inlines = [ProfileInline]
 
 
 class ProfileAdmin(admin.ModelAdmin):
