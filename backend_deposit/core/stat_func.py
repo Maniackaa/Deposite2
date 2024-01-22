@@ -235,11 +235,33 @@ def get_img_for_day_graph():
     stat['date'] = stat['register_date'].dt.date
     stat = stat[stat['pay'] > 0]
     stat = stat[['id', 'date', 'reg_hr', 'pay']]
-    day_stat = stat.groupby('date').agg({'pay': ['sum']})
+    day_stat = stat.groupby('date').agg({'pay': ['sum', 'count']})
     day_stat = day_stat.reindex()
-    sns_plot = sns.barplot(data=day_stat, x='date', y=("pay", 'sum'))
+
+    # sns_plot = sns.barplot(data=day_stat, x='date', y=("pay", 'sum'))
+    # sns_plot.bar_label(sns_plot.containers[0])
+    # plot_file = BytesIO()
+    # figure = sns_plot.get_figure()
+    # figure.savefig(plot_file, format='png')
+    # encoded_file = base64.b64encode(plot_file.getvalue()).decode()
+    #
+    # sns_plot2 = sns.barplot(data=day_stat, x='date', y=("pay", 'count'))
+    # sns_plot2.bar_label(sns_plot2.containers[0])
+    # plot_file2 = BytesIO()
+    # figure2 = sns_plot2.get_figure()
+    # figure2.savefig(plot_file2, format='png')
+    # encoded_file2 = base64.b64encode(plot_file2.getvalue()).decode()
+
+    import matplotlib.pyplot as plt
+    fig, axes = plt.subplots(2, 1, figsize=(12, 12))
+    axes[0].set_title("Количество платежей")
+    sns.barplot(x='date', y=('pay', 'count'), data=day_stat, ax=axes[0])
+    sns.barplot(x='date', y=('pay', 'sum'), data=day_stat, ax=axes[1])
+    axes[1].set_title("Сумма платежей")
     plot_file = BytesIO()
-    figure = sns_plot.get_figure()
+    figure = fig.get_figure()
     figure.savefig(plot_file, format='png')
     encoded_file = base64.b64encode(plot_file.getvalue()).decode()
+
+
     return encoded_file

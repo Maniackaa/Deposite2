@@ -808,5 +808,5 @@ def day_graph(request):
         raise PermissionDenied('Недостаточно прав')
     template = 'deposit/test.html'
     encoded_file = get_img_for_day_graph()
-    context = {'fig': encoded_file}
+    context = {'fig1': encoded_file}
     return render(request, template, context)
