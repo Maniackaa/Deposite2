@@ -48,7 +48,7 @@ def cards_report() -> dict:
     cards = Incoming.objects.filter(pay__gt=0).all().values('recipient').annotate(
         count=Count('pk'),
         sum=Sum('pay'),
-        last_date=Max('register_date'),
+        last_date=Max('response_date'),
         last_id=Max('pk'),
         text=Subquery(credit_cards.filter(name=OuterRef('recipient')).values('text')),
         number=Subquery(credit_cards.filter(name=OuterRef('recipient')).values('number')),
@@ -230,10 +230,10 @@ def get_img_for_day_graph():
     result_incomings = all_incomings.exclude(pk__in=bad_incomings_query).all()
     df = pd.DataFrame(list(result_incomings.values()))
     print(df)
-    df['register_date'] = df['register_date'].dt.tz_convert("Europe/Moscow")
-    stat = df[['id', 'register_date', 'recipient', 'pay']]
-    stat['reg_hr'] = stat.register_date.dt.hour
-    stat['date'] = stat['register_date'].dt.date
+    df['response_date'] = df['response_date'].dt.tz_convert("Europe/Moscow")
+    stat = df[['id', 'response_date', 'recipient', 'pay']]
+    stat['reg_hr'] = stat.response_date.dt.hour
+    stat['date'] = stat['response_date'].dt.date
     # stat = stat[stat['pay'] > 0]
     stat = stat[['id', 'date', 'reg_hr', 'pay']]
     print(stat)
