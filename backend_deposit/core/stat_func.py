@@ -3,7 +3,12 @@ import logging
 from dataclasses import dataclass
 
 from django.db.models import Sum, Count, Max, Q, F, Avg, Value, Subquery, OuterRef
-from django.forms import CharField
+import seaborn as sns
+import pandas as pd
+import matplotlib
+matplotlib.use('AGG')
+from io import BytesIO
+import base64
 
 from backend_deposit.settings import TZ
 from deposit.models import Incoming, CreditCard
@@ -218,3 +223,23 @@ def day_reports(days=30) -> dict:
         logger.error(err)
         err_log.error(err, exc_info=True)
 
+
+def get_img_for_day_graph():
+    bad_incomings_query = bad_incomings()
+    all_incomings = Incoming.objects.filter(pay__gt=0).all()
+    result_incomings = all_incomings.exclude(pk__in=bad_incomings_query).all()
+    df = pd.DataFrame(list(result_incomings.values()))
+    df['register_date'] = df['register_date'].dt.tz_convert("Europe/Moscow")
+    stat = df[['id', 'register_date', 'recipient', 'pay']]
+    stat['reg_hr'] = stat.register_date.dt.hour
+    stat['date'] = stat['register_date'].dt.date
+    stat = stat[stat['pay'] > 0]
+    stat = stat[['id', 'date', 'reg_hr', 'pay']]
+    day_stat = stat.groupby('date').agg({'pay': ['sum']})
+    day_stat = day_stat.reindex()
+    sns_plot = sns.barplot(data=day_stat, x='date', y=("pay", 'sum'))
+    plot_file = BytesIO()
+    figure = sns_plot.get_figure()
+    figure.savefig(plot_file, format='png')
+    encoded_file = base64.b64encode(plot_file.getvalue()).decode()
+    return encoded_file

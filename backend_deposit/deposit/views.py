@@ -30,7 +30,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
-from core.stat_func import cards_report, day_reports, bad_incomings
+from core.stat_func import cards_report, day_reports, bad_incomings, get_img_for_day_graph
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
@@ -803,29 +803,10 @@ def get_stats(request):
     return render(request, template, context)
 
 
-def test_fig(request):
-    import seaborn as sns
-    import pandas as pd
-    from io import BytesIO
-    import base64
-    import matplotlib
-    matplotlib.use('AGG')
-
+def day_graph(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied('Недостаточно прав')
     template = 'deposit/test.html'
-    df = pd.DataFrame(list(Incoming.objects.all().values()))
-    df['register_date'] = df['register_date'].dt.tz_convert("Europe/Moscow")
-    stat = df[['id', 'register_date', 'recipient', 'pay']]
-    stat['reg_hr'] = stat.register_date.dt.hour
-    stat['date'] = stat['register_date'].dt.date
-    stat = stat[stat['pay'] > 0]
-    stat = stat[['id', 'date', 'reg_hr', 'pay']]
-    day_stat = stat.groupby('date').agg({'pay': ['sum']})
-    day_stat = day_stat.reindex()
-    sns_plot = sns.barplot(data=day_stat, x='date', y=("pay", 'sum'))
-
-    plot_file = BytesIO()
-    figure = sns_plot.get_figure()
-    figure.savefig(plot_file, format='png')
-    encoded_file = base64.b64encode(plot_file.getvalue()).decode()
+    encoded_file = get_img_for_day_graph()
     context = {'fig': encoded_file}
     return render(request, template, context)
