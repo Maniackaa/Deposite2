@@ -258,10 +258,13 @@ def get_img_for_day_graph():
     sns.barplot(x='date', y=('pay', 'count'), data=day_stat, ax=axes[0])
     sns.barplot(x='date', y=('pay', 'sum'), data=day_stat, ax=axes[1])
     axes[1].set_title("Сумма платежей")
+    axes[0].set_xticklabels(axes[0].get_xticklabels(), rotation=90)
+    axes[1].set_xticklabels(axes[1].get_xticklabels(), rotation=90)
+    plt.subplots_adjust(hspace=0.5)
+
     plot_file = BytesIO()
     figure = fig.get_figure()
     figure.savefig(plot_file, format='png')
     encoded_file = base64.b64encode(plot_file.getvalue()).decode()
-
 
     return encoded_file
