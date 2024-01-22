@@ -258,6 +258,8 @@ def get_img_for_day_graph():
     sns.barplot(x='date', y=('pay', 'count'), data=day_stat, ax=axes[0])
     sns.barplot(x='date', y=('pay', 'sum'), data=day_stat, ax=axes[1])
     axes[1].set_title("Сумма платежей")
+    axes[0].bar_label(axes[0].containers[0])
+    axes[1].bar_label(axes[1].containers[0])
     axes[0].set_xticklabels(axes[0].get_xticklabels(), rotation=90)
     axes[1].set_xticklabels(axes[1].get_xticklabels(), rotation=90)
     plt.subplots_adjust(hspace=0.5)
