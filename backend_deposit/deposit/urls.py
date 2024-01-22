@@ -41,8 +41,8 @@ urlpatterns = [
     path('stats_card/', views.get_stats, name='stats_card'),
     path('stats_day/', views.get_stats, name='stats_day'),
     path('trash/', views.IncomingTrashList.as_view(), name='trash'),
-
-]
+    path('test/', views.test_fig, name='test'),
+    ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
