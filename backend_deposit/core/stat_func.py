@@ -229,7 +229,7 @@ def get_img_for_day_graph():
     all_incomings = Incoming.objects.filter(pay__gt=0).all()
     result_incomings = all_incomings.exclude(pk__in=bad_incomings_query).all()
     df = pd.DataFrame(list(result_incomings.values()))
-    df['register_date'] = df['register_date'].dt.tz_convert("Europe/Moscow")
+    # df['register_date'] = df['register_date'].dt.tz_convert("Europe/Moscow")
     stat = df[['id', 'register_date', 'recipient', 'pay']]
     stat['reg_hr'] = stat.register_date.dt.hour
     stat['date'] = stat['register_date'].dt.date
