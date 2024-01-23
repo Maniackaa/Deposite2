@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Статистика{% endblock %}
+
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+    <div class="">
+      {% include 'includes/switcher2.html' %}
+    </div>
+
+
+    <div class="row">
+
+            <div class="col-md-auto">
+                {% include 'includes/stats_day_table.html' %}
+            </div>
+
+    </div>
+{% endblock %}

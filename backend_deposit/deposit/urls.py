@@ -40,6 +40,7 @@ urlpatterns = [
     path('stats/', views.get_stats, name='stats'),
     path('stats_card/', views.get_stats, name='stats_card'),
     path('stats_day/', views.get_stats, name='stats_day'),
+    path('stats_day2/', views.get_stats2, name='stats_day2'),
     path('trash/', views.IncomingTrashList.as_view(), name='trash'),
     path('graph/', views.day_graph, name='graph'),
     ]

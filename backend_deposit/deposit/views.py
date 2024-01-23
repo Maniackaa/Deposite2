@@ -30,7 +30,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
-from core.stat_func import cards_report, day_reports, bad_incomings, get_img_for_day_graph
+from core.stat_func import cards_report, day_reports, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
@@ -754,6 +754,8 @@ class IncomingEdit(UpdateView, ):
             old_incoming = Incoming.objects.get(pk=self.object.id)
             incoming: Incoming = self.object
             incoming.birpay_edit_time = datetime.datetime.now(tz=TZ)
+            if not incoming.birpay_confirm_time:
+                incoming.birpay_confirm_time = datetime.datetime.now(tz=TZ)
             incoming.save()
 
             # Сохраняем историю
@@ -799,6 +801,16 @@ def get_stats(request):
     page_obj = bad_incomings()
     cards = cards_report()
     days_stat_dict = day_reports(100)
+    context = {'page_obj': page_obj, 'cards': cards, 'day_reports': days_stat_dict}
+    return render(request, template, context)
+
+
+@staff_member_required(login_url='users:login')
+def get_stats2(request):
+    template = 'deposit/stats2.html'
+    page_obj = bad_incomings()
+    cards = cards_report()
+    days_stat_dict = day_reports_birpay_confirm(100)
     context = {'page_obj': page_obj, 'cards': cards, 'day_reports': days_stat_dict}
     return render(request, template, context)
 

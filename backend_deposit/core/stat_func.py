@@ -224,6 +224,149 @@ def day_reports(days=30) -> dict:
         err_log.error(err, exc_info=True)
 
 
+def day_reports_birpay_confirm(days=30) -> dict:
+    """
+    Формирует статистику по дням
+    :return: {'2023-10-27': {'step1': StepStat(), 'step2': StepStat(), 'step3': StepStat(), 'all_day': StepStat()},...}
+    """
+    try:
+        bad_incomings_query = bad_incomings()
+        all_incomings = Incoming.objects.filter(pay__gt=0).all()
+        result_incomings = all_incomings.exclude(pk__in=bad_incomings_query).all()
+
+        end_period = datetime.datetime.now().date()
+        start_period = (end_period - datetime.timedelta(days=days))
+
+        all_day = Incoming.objects.raw(
+            """
+        SET timezone TO 'Europe/Moscow';
+        select distinct(date1),  max(id) as id, step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum from
+
+        (SELECT id, birpay_confirm_time, birpay_confirm_time::date as date1,
+        SUM(pay) OVER(PARTITION BY birpay_confirm_time::date) as step_sum,
+        count(pay) OVER(PARTITION BY birpay_confirm_time::date) as count,
+        count(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY birpay_confirm_time::date) as unconfirm_count,
+        count(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY birpay_confirm_time::date) as confirm_count,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as unconfirm_sum,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as confirm_sum,
+        count(id) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY birpay_confirm_time::date) as count_rk,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as rk_sum
+        FROM public.deposit_incoming
+        WHERE birpay_confirm_time::date >= %s and birpay_confirm_time::date <= %s AND pay> 0) as t
+
+        GROUP BY date1,  step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum 
+        ORDER BY date1
+            """, [str(start_period), str(end_period)]
+        )
+
+        step1 = Incoming.objects.raw(
+            """
+        SET timezone TO 'Europe/Moscow';
+        select distinct(date1),  max(id) as id, step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum from
+
+        (SELECT id, birpay_confirm_time, birpay_confirm_time::date as date1,
+        SUM(pay) OVER(PARTITION BY birpay_confirm_time::date) as step_sum,
+        count(pay) OVER(PARTITION BY birpay_confirm_time::date) as count,
+        count(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY birpay_confirm_time::date) as unconfirm_count,
+        count(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY birpay_confirm_time::date) as confirm_count,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as unconfirm_sum,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as confirm_sum,
+        count(id) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY birpay_confirm_time::date) as count_rk,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as rk_sum
+        FROM public.deposit_incoming
+        WHERE birpay_confirm_time::date >= %s and birpay_confirm_time::date <= %s AND pay> 0 AND
+        date_part('hour', birpay_confirm_time) >= 0 AND date_part('hour', birpay_confirm_time) < 8
+        ) as t
+
+        GROUP BY date1,  step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum
+        ORDER BY date1
+            """, [str(start_period), str(end_period)]
+        )
+
+        step2 = Incoming.objects.raw(
+            """
+        SET timezone TO 'Europe/Moscow';
+        select distinct(date1),  max(id) as id, step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum from
+
+        (SELECT id, birpay_confirm_time, birpay_confirm_time::date as date1,
+        SUM(pay) OVER(PARTITION BY birpay_confirm_time::date) as step_sum,
+        count(pay) OVER(PARTITION BY birpay_confirm_time::date) as count,
+        count(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY birpay_confirm_time::date) as unconfirm_count,
+        count(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY birpay_confirm_time::date) as confirm_count,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as unconfirm_sum,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as confirm_sum,
+        count(id) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY birpay_confirm_time::date) as count_rk,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as rk_sum
+        FROM public.deposit_incoming
+        WHERE birpay_confirm_time::date >= %s and birpay_confirm_time::date <= %s AND pay > 0 AND
+        date_part('hour', birpay_confirm_time) >= 8 AND date_part('hour', birpay_confirm_time) < 16
+        ) as t
+
+        GROUP BY date1,  step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum 
+        ORDER BY date1
+            """, [str(start_period), str(end_period)]
+        )
+
+        step3 = Incoming.objects.raw(
+            """
+        SET timezone TO 'Europe/Moscow';
+        select distinct(date1),  max(id) as id, step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum  from
+
+        (SELECT id, birpay_confirm_time, birpay_confirm_time::date as date1,
+        SUM(pay) OVER(PARTITION BY birpay_confirm_time::date) as step_sum,
+        count(pay) OVER(PARTITION BY birpay_confirm_time::date) as count,
+        count(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY birpay_confirm_time::date) as unconfirm_count,
+        count(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY birpay_confirm_time::date) as confirm_count,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id = '' or birpay_id is NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as unconfirm_sum,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_id != '' and birpay_id is not NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as confirm_sum,
+        count(id) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY birpay_confirm_time::date) as count_rk,
+        COALESCE(sum(pay) FILTER (WHERE  birpay_edit_time is not NULL) OVER(PARTITION BY birpay_confirm_time::date), 0) as rk_sum
+        FROM public.deposit_incoming
+        WHERE birpay_confirm_time::date >= %s and birpay_confirm_time::date <= %s AND pay > 0 AND
+        date_part('hour', birpay_confirm_time) >= 16 
+        ) as t
+
+        GROUP BY date1,  step_sum, count, unconfirm_count, confirm_count, unconfirm_sum, confirm_sum, count_rk, rk_sum
+        ORDER BY date1
+            """, [str(start_period), str(end_period)]
+        )
+
+        days_stat_dict = {}
+        for day_delta in range((end_period - start_period).days):
+            current_day = (end_period - datetime.timedelta(days=day_delta))
+            # {'2023-10-27': {'step1': StepStat(), 'step2': StepStat(), 'step3': StepStat(), 'all_day': StepStat()},...}
+            days_stat_dict[current_day] = {'all_day': StepStat(), 'step1': StepStat(), 'step2': StepStat(),
+                                           'step3': StepStat(), }
+
+        def fill_stat_dict(stat_dict, step_name, step_queryset):
+            for step_stat in step_queryset:
+                step_date = step_stat.date1
+
+                current_step = StepStat(
+                    step_sum=step_stat.step_sum,
+                    count=step_stat.count,
+                    unconfirm_count=step_stat.unconfirm_count,
+                    confirm_count=step_stat.confirm_count,
+                    unconfirm_sum=step_stat.unconfirm_sum,
+                    confirm_sum=step_stat.confirm_sum,
+                    count_rk=step_stat.count_rk,
+                    rk_sum=step_stat.rk_sum,
+                )
+                current_day_stat = stat_dict.get(step_date)
+                current_day_stat[step_name] = current_step
+            return stat_dict
+
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'all_day', all_day)
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'step1', step1)
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'step2', step2)
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'step3', step3)
+
+        return days_stat_dict
+    except Exception as err:
+        logger.error(err)
+        err_log.error(err, exc_info=True)
+
+
 def get_img_for_day_graph():
     bad_incomings_query = bad_incomings()
     all_incomings = Incoming.objects.filter(pay__gt=0).all()
