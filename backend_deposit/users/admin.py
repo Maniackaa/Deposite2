@@ -1,4 +1,3 @@
-from django.contrib import admin
 from django.contrib.auth import get_user_model
 
 from users.models import Profile
@@ -7,11 +6,9 @@ User = get_user_model()
 
 from django import forms
 from django.contrib import admin
-from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 
-#
 
 class UserCreationForm(forms.ModelForm):
     """A form for creating new users. Includes all the required
@@ -46,8 +43,8 @@ class UserCreationForm(forms.ModelForm):
             #     my_filter=[]
             # )
         return user
-#
-#
+
+
 class UserChangeForm(forms.ModelForm):
     """A form for updating users. Includes all the fields on
     the user, but replaces the password field with admin's
@@ -69,8 +66,9 @@ class UserChangeForm(forms.ModelForm):
 
 class ProfileInline(admin.StackedInline):
     model = Profile
-    fields = ('first_name', 'last_name')
+    fields = ('first_name', 'last_name', 'view_bad_warning')
     can_delete = False
+
 
 class UserAdmin(BaseUserAdmin):
     # The forms to add and change user instances
@@ -86,7 +84,7 @@ class UserAdmin(BaseUserAdmin):
         (None, {'fields': ('username', 'email', 'password',)}),
         ('Personal info', {'fields': ()}),
         ('Permissions', {'fields': ('is_superuser', 'is_staff', "groups",
-                    "user_permissions",)}),
+                                    "user_permissions",)}),
     )
     # add_fieldsets is not a standard ModelAdmin attribute. UserAdmin
     # overrides get_fieldsets to use this attribute when creating a user.
@@ -104,7 +102,7 @@ class UserAdmin(BaseUserAdmin):
 
 
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'first_name', 'last_name')
+    list_display = ('id', 'user', 'first_name', 'last_name', 'view_bad_warning')
     list_display_links = ('id', 'user')
 
 

@@ -103,6 +103,7 @@ class Profile(models.Model):
     )
 
     my_filter = models.JSONField('Фильтр по получателю', default=list)
+    view_bad_warning = models.BooleanField(default=False)
 
     def __str__(self):
         return f'{self.user.username}'

@@ -105,7 +105,6 @@
    {% include 'includes/paginator.html' %}
   {% endwith %}
 </div>
-
 {% endblock %}
 
 {% block javascript %}
@@ -129,17 +128,18 @@
                         if (count >= 1) {
                             div.addClass("alert alert-warning")
                         }
-
-                        var current_bad_id = response[0].last_bad_id
-                        var last_bad_id = $('#last_bad_id').text().replace(/\D/g, '')
-                        var count_bad_screen = current_bad_id - last_bad_id
-                        console.log(current_bad_id)
-                        console.log(last_bad_id)
-                        console.log(count_bad_screen)
-                        if (count_bad_screen > 0) {
-                            alert('Есть новые плохие скрины');
-                            document.getElementById("last_bad_id").textContent=current_bad_id.toString();
-                        }
+                        {% if  request.user.profile.view_bad_warning %}
+                            var current_bad_id = response[0].last_bad_id
+                            var last_bad_id = $('#last_bad_id').text().replace(/\D/g, '')
+                            var count_bad_screen = current_bad_id - last_bad_id
+                            console.log(current_bad_id)
+                            console.log(last_bad_id)
+                            console.log(count_bad_screen)
+                            if (count_bad_screen > 0) {
+                                alert('Есть новые плохие скрины');
+                                document.getElementById("last_bad_id").textContent=current_bad_id.toString();
+                            }
+                        {% endif %}
 
                 }
             });

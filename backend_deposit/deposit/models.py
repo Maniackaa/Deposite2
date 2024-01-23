@@ -53,6 +53,7 @@ class Incoming(models.Model):
     class Meta:
         permissions = [
             ("can_hand_edit", "Может делать ручные корректировки"),
+            # ("can_see_bad_warning", "Видит уведомления о новых BadScreen"),
         ]
 
     def __iter__(self):
