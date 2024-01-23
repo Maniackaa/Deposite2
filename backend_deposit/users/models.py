@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib import admin
 from django.core.mail import send_mail
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin, Group
@@ -75,6 +76,10 @@ class User(AbstractBaseUser, PermissionsMixin):
             group_list.append(group.get('name'))
         return group_list
 
+    @admin.display(boolean=True, description='Видит уведомления?')
+    def bad_warning(self):
+        return self.profile.view_bad_warning
+
 
 @receiver(post_save, sender=User)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
@@ -102,7 +107,7 @@ class Profile(models.Model):
         blank=True
     )
 
-    my_filter = models.JSONField('Фильтр по получателю', default=list)
+    my_filter = models.JSONField('Фильтр по получателю', default=list, blank=True)
     view_bad_warning = models.BooleanField(default=False)
 
     def __str__(self):
