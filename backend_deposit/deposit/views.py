@@ -30,7 +30,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
-from core.stat_func import cards_report, day_reports, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm
+from core.stat_func import cards_report, day_reports, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
+    day_reports_orm
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
@@ -815,7 +816,8 @@ def get_stats(request):
     template = 'deposit/stats.html'
     page_obj = bad_incomings()
     cards = cards_report()
-    days_stat_dict = day_reports(100)
+    # days_stat_dict = day_reports(100)
+    days_stat_dict = day_reports_orm(100)
     context = {'page_obj': page_obj, 'cards': cards, 'day_reports': days_stat_dict}
     return render(request, template, context)
 

@@ -2,10 +2,12 @@ import datetime
 import logging
 from dataclasses import dataclass
 
-from django.db.models import Sum, Count, Max, Q, F, Avg, Value, Subquery, OuterRef
+from django.db.models import Sum, Count, Max, Q, F, Avg, Value, Subquery, OuterRef, Window, DateField
 import seaborn as sns
 import pandas as pd
 import matplotlib
+from django.db.models.functions import TruncDate, ExtractHour, Cast, Coalesce
+
 matplotlib.use('AGG')
 from io import BytesIO
 import base64
@@ -228,6 +230,102 @@ def day_reports(days=30) -> dict:
         err_log.error(err, exc_info=True)
 
 
+def day_reports_orm(days=30) -> dict:
+    """
+    Формирует статистику по дням на ORM
+    :return: {'2023-10-27': {'step1': StepStat(), 'step2': StepStat(), 'step3': StepStat(), 'all_day': StepStat()},...}
+    """
+    try:
+        end_period = datetime.datetime.now().date()
+        start_period = (end_period - datetime.timedelta(days=days))
+        bad_incomings_query = bad_incomings()
+        filtered_incoming = Incoming.objects.filter(pay__gt=0).exclude(pk__in=bad_incomings_query)
+
+        all_query = (
+            filtered_incoming
+            .annotate(date1=TruncDate('response_date', tzinfo=TZ))
+            # .annotate(hour=ExtractHour('response_date'))
+            # .filter(response_date__hour__gte=0)
+            .annotate(step_sum=Window(expression=Sum('pay'), partition_by=[TruncDate('response_date', tzinfo=TZ)]))
+            .annotate(step_count=Window(expression=Count('pay'), partition_by=[TruncDate('response_date', tzinfo=TZ)]))
+            .annotate(confirm_sum=Window(expression=Sum('pay', filter=~Q(birpay_id='') & ~Q(birpay_id__isnull=True)),
+                                         partition_by=[Cast('response_date', DateField())]))
+            .annotate(
+                confirm_count=Window(expression=Count('pay', filter=~Q(birpay_id='') & ~Q(birpay_id__isnull=True)),
+                                     partition_by=[TruncDate('response_date', tzinfo=TZ)])
+            )
+            .annotate(unconfirm_sum=Window(expression=Sum('pay', filter=Q(birpay_id='') | Q(birpay_id__isnull=True)),
+                                           partition_by=[TruncDate('response_date', tzinfo=TZ)]))
+            .annotate(
+                unconfirm_count=Window(expression=Count('pay', filter=Q(birpay_id='') | Q(birpay_id__isnull=True)),
+                                       partition_by=[TruncDate('response_date', tzinfo=TZ)])
+            )
+            .annotate(rk_sum=Window(expression=Sum('pay', filter=Q(birpay_edit_time__isnull=False)),
+                                    partition_by=[TruncDate('response_date', tzinfo=TZ)]))
+            .annotate(rk_count=Window(expression=Count('pay', filter=Q(birpay_edit_time__isnull=False)),
+                                      partition_by=[TruncDate('response_date', tzinfo=TZ)]))
+        )
+
+        # print(all_query)
+        step1 = all_query.filter(response_date__hour__gte=0, response_date__hour__lt=8).values('date1', 'step_sum', 'step_count',
+                 'confirm_sum', 'confirm_count',
+                 'unconfirm_sum', 'unconfirm_count',
+                 'rk_sum', 'rk_count'
+                 ).distinct('date1').order_by('date1')
+        step2 = all_query.filter(response_date__hour__gte=8, response_date__hour__lt=16).values('date1', 'step_sum', 'step_count',
+                 'confirm_sum', 'confirm_count',
+                 'unconfirm_sum', 'unconfirm_count',
+                 'rk_sum', 'rk_count'
+                 ).distinct('date1').order_by('date1')
+        step3 = all_query.filter(response_date__hour__gte=16).values('date1', 'step_sum', 'step_count',
+                 'confirm_sum', 'confirm_count',
+                 'unconfirm_sum', 'unconfirm_count',
+                 'rk_sum', 'rk_count'
+                 ).distinct('date1').order_by('date1')
+        all_day = all_query.values(
+            'date1', 'step_sum', 'step_count',
+            'confirm_sum', 'confirm_count',
+            'unconfirm_sum', 'unconfirm_count',
+            'rk_sum', 'rk_count'
+        ).distinct('date1').order_by('date1')
+
+        # for day in all_day:
+        #     print(day)
+
+        days_stat_dict = {}
+        for day_delta in range((end_period - start_period).days):
+            current_day = (end_period - datetime.timedelta(days=day_delta))
+            # {'2023-10-27': {'step1': StepStat(), 'step2': StepStat(), 'step3': StepStat(), 'all_day': StepStat()},...}
+            days_stat_dict[current_day] = {'all_day': StepStat(), 'step1': StepStat(), 'step2': StepStat(), 'step3': StepStat(),}
+
+        def fill_stat_dict(stat_dict, step_name, step_queryset):
+            for step_stat in step_queryset:
+                # print(step_stat)
+                step_date = step_stat.get('date1')
+                current_step = StepStat(
+                    step_sum=step_stat.get('step_sum'),
+                    count=step_stat.get('step_count'),
+                    unconfirm_count=step_stat.get('unconfirm_count'),
+                    confirm_count=step_stat.get('confirm_count'),
+                    unconfirm_sum=step_stat.get('unconfirm_sum'),
+                    confirm_sum=step_stat.get('confirm_sum'),
+                    count_rk=step_stat.get('rk_count'),
+                    rk_sum=step_stat.get('rk_sum'),
+                )
+                current_day_stat = stat_dict.get(step_date)
+                current_day_stat[step_name] = current_step
+            return stat_dict
+
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'all_day', all_day)
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'step1', step1)
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'step2', step2)
+        days_stat_dict = fill_stat_dict(days_stat_dict, 'step3', step3)
+        return days_stat_dict
+    except Exception as err:
+        logger.error(err)
+        err_log.error(err, exc_info=True)
+
+
 def day_reports_birpay_confirm(days=30) -> dict:
     """
     Формирует статистику по дням
@@ -375,6 +473,7 @@ def get_img_for_day_graph():
     bad_incomings_query = bad_incomings()
     all_incomings = Incoming.objects.filter(pay__gt=0).all()
     result_incomings = all_incomings.exclude(pk__in=bad_incomings_query).all()
+    print(result_incomings.count())
     df = pd.DataFrame(list(result_incomings.values()))
     print(df)
     df['response_date'] = df['response_date'].dt.tz_convert("Europe/Moscow")
