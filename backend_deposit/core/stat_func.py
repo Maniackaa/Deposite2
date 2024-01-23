@@ -16,6 +16,7 @@ from deposit.models import Incoming, CreditCard
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')
 
+
 def bad_incomings():
     """
     Функция аходит id которые не надо учитывать:
@@ -45,7 +46,10 @@ def bad_incomings():
 def cards_report() -> dict:
     # Возвращает словарь со статистикой по картам
     credit_cards = CreditCard.objects.all()
-    cards = Incoming.objects.filter(pay__gt=0).all().values('recipient').annotate(
+    cards = Incoming.objects.filter(
+        pay__gt=0,
+        recipient__iregex=r'\*\d\d\d\d'
+    ).all().values('recipient').annotate(
         count=Count('pk'),
         sum=Sum('pay'),
         last_date=Max('response_date'),
