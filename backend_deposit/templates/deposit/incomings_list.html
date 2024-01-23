@@ -27,6 +27,7 @@
        </form>
       </div>
       <p id="last_id" hidden>{{ last_id }}</p>
+      <p id="last_bad_id" hidden>{{ last_bad_id }}</p>
       <p id="filter" hidden>{{ filter }}</p>
       {% if view_name == 'deposit:incomings' or view_name == 'deposit:incomings_filter' %}
        <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
@@ -108,29 +109,45 @@
 {% endblock %}
 
 {% block javascript %}
-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<script>
-            function getPosts() {
-        $.ajax({
-            url: '/get_posts/',
-            type: 'get',
-            dataType: 'json',
-            data: {'filter': $('#filter').text() },
-            success: function(response) {
-                    var last_id = $('#last_id').text().replace(/\D/g, '')
-                    console.log(last_id)
-                    var num = response[0].id
-                    var count = num - last_id
-                    var div = $('#warnings')
-                    div.html(`Новых платежей: ${count}`);
-                    if (count >= 1) {
-                        div.addClass("alert alert-warning")
-                    }
-            }
-        });
-    }
-    // Вызываем функцию для получения списка постов
-    getPosts();
-    setInterval(getPosts, 5000)
-</script>
+  {% with request.resolver_match.view_name as view_name %}
+  {% if view_name != 'deposit:incomings_empty' %}
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+                function getPosts() {
+            $.ajax({
+                url: '/get_posts/',
+                type: 'get',
+                dataType: 'json',
+                data: {'filter': $('#filter').text() },
+                success: function(response) {
+                        var last_id = $('#last_id').text().replace(/\D/g, '')
+                        var num = response[0].id
+
+                        var count = num - last_id
+                        var div = $('#warnings')
+                        div.html(`Новых платежей: ${count}`);
+                        if (count >= 1) {
+                            div.addClass("alert alert-warning")
+                        }
+
+                        var current_bad_id = response[0].last_bad_id
+                        var last_bad_id = $('#last_bad_id').text().replace(/\D/g, '')
+                        var count_bad_screen = current_bad_id - last_bad_id
+                        console.log(current_bad_id)
+                        console.log(last_bad_id)
+                        console.log(count_bad_screen)
+                        if (count_bad_screen > 0) {
+                            alert('Есть новые плохие скрины');
+                            document.getElementById("last_bad_id").textContent=current_bad_id.toString();
+                        }
+
+                }
+            });
+        }
+        // Вызываем функцию для получения списка постов
+        getPosts();
+        setInterval(getPosts, 5000)
+    </script>
+    {% endif %}
+    {% endwith %}
 {% endblock %}

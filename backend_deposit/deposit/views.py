@@ -490,8 +490,11 @@ def incoming_list(request):
     last_id = Incoming.objects.order_by('id').last()
     if last_id:
         last_id = last_id.id
+    last_bad = BadScreen.objects.order_by('-id').first()
+    last_bad_id = last_bad.id if last_bad else last_bad
     context = {'page_obj': make_page_obj(request, incoming_q),
-               'last_id': last_id}
+               'last_id': last_id,
+               'last_bad_id': last_bad_id}
     return render(request, template, context)
 
 
@@ -541,8 +544,12 @@ def incoming_list2(request):
     last_id = Incoming.objects.order_by('id').last()
     if last_id:
         last_id = last_id.id
+    last_bad = BadScreen.objects.order_by('-id').first()
+    last_bad_id = last_bad.id if last_bad else last_bad
     context = {'page_obj': make_page_obj(request, incoming_q),
-               'last_id': last_id}
+               'last_id': last_id,
+               'last_bad_id': last_bad_id
+               }
     return render(request, template, context)
 
 
@@ -604,6 +611,9 @@ class IncomingFiltered(ListView):
             last_filtered_id = last_filtered.id
         context['last_id'] = last_filtered_id
         context['filter'] = json.dumps(user_filter)
+        last_bad = BadScreen.objects.order_by('-id').first()
+        last_bad_id = last_bad.id if last_bad else last_bad
+        context['last_bad_id'] = last_bad_id
         return context
 
 
@@ -787,15 +797,20 @@ def get_last(request):
         last_id = all_incomings.last()
     if last_id:
         last_id = last_id.id
+    last_bad = BadScreen.objects.order_by('-id').first()
+    last_bad_id = last_bad.id if last_bad else last_bad
+
     data = list()
     data.append({
         'id': str(last_id),
+        'last_bad_id': str(last_bad_id)
     })
     return JsonResponse(data, safe=False)
 
 
 @staff_member_required(login_url='users:login')
 def get_stats(request):
+    # Статистика по времени поступления платежа
 
     template = 'deposit/stats.html'
     page_obj = bad_incomings()
@@ -807,6 +822,7 @@ def get_stats(request):
 
 @staff_member_required(login_url='users:login')
 def get_stats2(request):
+    # Статистика по времени подтверждения платежа
     template = 'deposit/stats2.html'
     page_obj = bad_incomings()
     cards = cards_report()
