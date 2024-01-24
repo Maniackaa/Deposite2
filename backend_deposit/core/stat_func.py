@@ -215,7 +215,7 @@ def day_reports(days=30) -> dict:
                     count_rk=step_stat.count_rk,
                     rk_sum=step_stat.rk_sum,
                 )
-                current_day_stat = stat_dict.get(step_date)
+                current_day_stat = stat_dict.get('step_date')
                 current_day_stat[step_name] = current_step
             return stat_dict
 
@@ -236,7 +236,7 @@ def day_reports_orm(days=30) -> dict:
     :return: {'2023-10-27': {'step1': StepStat(), 'step2': StepStat(), 'step3': StepStat(), 'all_day': StepStat()},...}
     """
     try:
-        end_period = datetime.datetime.now().date()
+        end_period = datetime.datetime.now(tz=TZ).date()
         start_period = (end_period - datetime.timedelta(days=days))
         bad_incomings_query = bad_incomings()
         filtered_incoming = Incoming.objects.filter(pay__gt=0).exclude(pk__in=bad_incomings_query)
@@ -302,6 +302,8 @@ def day_reports_orm(days=30) -> dict:
             for step_stat in step_queryset:
                 # print(step_stat)
                 step_date = step_stat.get('date1')
+                if step_date is None:
+                    continue
                 current_step = StepStat(
                     step_sum=step_stat.get('step_sum'),
                     count=step_stat.get('step_count'),
@@ -396,7 +398,6 @@ def day_reports_birpay_confirm(days=30) -> dict:
 
         def fill_stat_dict(stat_dict, step_name, step_queryset):
             for step_stat in step_queryset:
-                print(step_stat)
                 step_date = step_stat.get('date1')
                 current_step = StepStat(
                     step_sum=step_stat.get('step_sum'),
