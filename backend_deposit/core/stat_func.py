@@ -315,7 +315,8 @@ def day_reports_orm(days=30) -> dict:
                     rk_sum=step_stat.get('rk_sum'),
                 )
                 current_day_stat = stat_dict.get(step_date)
-                current_day_stat[step_name] = current_step
+                if current_day_stat:
+                    current_day_stat[step_name] = current_step
             return stat_dict
 
         days_stat_dict = fill_stat_dict(days_stat_dict, 'all_day', all_day)
