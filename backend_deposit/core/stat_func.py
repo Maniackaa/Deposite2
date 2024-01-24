@@ -215,7 +215,7 @@ def day_reports(days=30) -> dict:
                     count_rk=step_stat.count_rk,
                     rk_sum=step_stat.rk_sum,
                 )
-                current_day_stat = stat_dict.get('step_date')
+                current_day_stat = stat_dict.get(step_date)
                 current_day_stat[step_name] = current_step
             return stat_dict
 
