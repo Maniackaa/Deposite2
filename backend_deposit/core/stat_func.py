@@ -13,7 +13,7 @@ from io import BytesIO
 import base64
 
 from backend_deposit.settings import TZ
-from deposit.models import Incoming, CreditCard
+from deposit.models import Incoming, CreditCard, Message
 
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')
@@ -249,7 +249,7 @@ def day_reports_orm(days=30) -> dict:
             .annotate(step_sum=Window(expression=Sum('pay'), partition_by=[TruncDate('response_date', tzinfo=TZ)]))
             .annotate(step_count=Window(expression=Count('pay'), partition_by=[TruncDate('response_date', tzinfo=TZ)]))
             .annotate(confirm_sum=Window(expression=Sum('pay', filter=~Q(birpay_id='') & ~Q(birpay_id__isnull=True)),
-                                         partition_by=[Cast('response_date', DateField())]))
+                                         partition_by=[TruncDate('response_date', tzinfo=TZ)]))
             .annotate(
                 confirm_count=Window(expression=Count('pay', filter=~Q(birpay_id='') & ~Q(birpay_id__isnull=True)),
                                      partition_by=[TruncDate('response_date', tzinfo=TZ)])

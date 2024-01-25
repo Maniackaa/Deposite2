@@ -1,8 +1,9 @@
 {% load static %}
 {% with request.resolver_match.view_name as view_name %}
 {% with request.resolver_match.app_name as app_name %}
-<nav class="navbar navbar-expand-lg bg-body-tertiary">
-  <div class="container">
+<div class="container">
+  <nav class="navbar navbar-expand-md bg-body-tertiary">
+
     <a class="navbar-brand" href="{% url 'deposit:deposits' %}">
       <img src="{% static 'img/logo.png' %}" width="30" height="30" class="d-inline-block align-top" alt="">
       <span style="color:red">asu-payme</span>.com
@@ -37,32 +38,47 @@
 
 
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-      {% if user.is_authenticated %}
+        {% if user.is_authenticated %}
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'users:logout' %}">Пользователь: {{ user.username }}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'users:logout' %}">Выйти</a>
+          </li>
 
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'users:logout' %}">Пользователь: {{ user.username }}</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'users:logout' %}">Выйти</a>
-      </li>
-      {% else %}
-      <li class="nav-item">
-        <a class="nav-link {% if view_name  == 'users:login' %}
-            active
-          {% endif %}" href="{% url 'users:login' %}">Войти</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link link-light
-          {% if view_name  == 'users:signup' %}
-            active
-          {% endif %}
-          "href="{% url 'users:signup' %}">Регистрация</a>
-      </li>
-      {% endif %}
+        {% else %}
+          <li class="nav-item">
+            <a class="nav-link {% if view_name  == 'users:login' %}
+                active
+              {% endif %}" href="{% url 'users:login' %}">Войти</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link link-light
+              {% if view_name  == 'users:signup' %}
+                active
+              {% endif %}
+              "href="{% url 'users:signup' %}">Регистрация</a>
+          </li>
+        {% endif %}
       </ul>
 
     </div>
-  </div>
-</nav>
+  </nav>
+    {% load mathfilters %}
+    {% with user.profile.all_message_count|sub:user.profile.read_message_count as message_count %}
+      <div class="container">
+        <div class="row justify-content-start align-items-center">
+            <div class="col-md-3">
+              <a class="btn{% if user.profile.read_message_count != user.profile.all_message_count %} btn-danger{% else %} btn-light{% endif %}"
+                href="{% url 'deposit:messages' %}">Сообщения {{ message_count }}</a>
+            </div>
+        </div>
+      </div>
+    {% endwith %}
+
+
+
+
+</div>
 {% endwith %}
 {% endwith %}

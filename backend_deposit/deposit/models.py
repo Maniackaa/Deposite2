@@ -12,12 +12,13 @@ from django.db.models.signals import post_delete, post_save
 from django.utils.html import format_html
 from colorfield.fields import ColorField
 
+from backend_deposit import settings
 from backend_deposit.settings import TZ
 
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')
 
-User = get_user_model()
+# User = get_user_model()
 
 
 class TrashIncoming(models.Model):
@@ -68,7 +69,7 @@ class Incoming(models.Model):
 class IncomingChange(models.Model):
     time = models.DateTimeField(auto_now_add=True)
     incoming = models.ForeignKey(Incoming, on_delete=models.CASCADE, related_name='history')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incoming_changes')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='incoming_changes')
     val_name = models.CharField('Имя поля')
     new_val = models.CharField('Новое значение', null=True)
 
@@ -153,6 +154,31 @@ class CreditCard(models.Model):
     text = models.CharField(max_length=100, default='', blank=True)
 
 
+class Message(models.Model):
+    MESSAGE_TYPES = (
+        ('admin', 'От админа'),
+        ('to_all', 'Для всех')
+
+    )
+    type = models.CharField(choices=MESSAGE_TYPES, default='to_all')
+    title = models.CharField(max_length=100, null=True, blank=True)
+    text = models.TextField()
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='messages')
+    created = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Message {self.id} от {self.author}: {self.title}'
+
+
+class MessageRead(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='reads')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='messages_read')
+    time_read = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.id}. {self.message.id} прочитано {self.user}'
+
+
 @receiver(post_delete, sender=BadScreen)
 def bad_screen_image_delete(sender, instance, **kwargs):
     if instance.image.name:
@@ -163,8 +189,8 @@ def bad_screen_image_delete(sender, instance, **kwargs):
 def screen_image_delete(sender, instance, **kwargs):
     if instance.image.name:
         instance.image.delete(False)
-#
-#
+
+
 # @receiver(post_save, sender=Incoming)
 # def after_save_incoming(sender, instance: Incoming, **kwargs):
 #     try:

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Сообщения{% endblock %}
+
+{% block content %}
+      <div class="col-md-6 mx-auto">
+          <div class="card">
+          <div class="card-header"  {% if not message.is_read %}style="font-weight: 700" {% endif %}>
+              <span>{{ message.is_read }}{{ message.id }}. {{ message.created }}<br>{{ message.title }}</span>
+          </div>
+
+          <div class="card-body">
+                <div>{{ message.text }}</div>
+
+              {% if not message.is_read %}
+                <form action="{% url 'deposit:message_view' message.id %}" method="post">{% csrf_token %}
+                 <button type="submit" class="btn btn-warning btn-sm">Отметить прочитанным</button>
+                </form>
+              {% endif %}
+          </div>
+            <div class="card-footer">
+              Автор: {{ message.author }}
+            </div>
+        <a href="{% url 'deposit:messages' %}" class="btn btn-info btn-sm">К списку сообщений</a>
+          </div><hr>
+      </div>
+{{ form }}
+{% endblock %}

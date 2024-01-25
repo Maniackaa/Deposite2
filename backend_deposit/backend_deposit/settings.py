@@ -22,6 +22,7 @@ MY_APPS = [
     'crispy_bootstrap4',
     'rangefilter',
     'spurl',
+    'mathfilters',
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 

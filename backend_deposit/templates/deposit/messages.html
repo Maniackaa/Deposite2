@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Сообщения{% endblock %}
+
+{% block content %}
+    {% include 'includes/operator_menu.html' %}
+{% include 'includes/switcher2.html' %}
+      <div class="col-md-4 mx-auto">
+      <div><a href="{% url 'deposit:messages' %}?read_all" class="btn btn-warning">Отметить все прочитанными</a></div>
+        {% for message in page_obj %}
+          <div class="card">
+          <div class="card-header"  {% if not message.is_read %}style="font-weight: 700" {% endif %}>
+              <span>{{ message.id }}. {{ message.created }}<br>{{ message.title }}</span>
+          </div>
+          <div class="card-body">
+                <div>{{ message.text }}</div>
+              <a href="{% url 'deposit:message_view' message.id %}" class="btn btn-primary">Открыть</a>
+          </div>
+            <div class="card-footer">
+              Автор: {{ message.author }}
+            </div>
+        </div><hr>
+      {% endfor %}
+      </div>
+
+{% endblock %}

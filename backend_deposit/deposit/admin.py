@@ -3,7 +3,8 @@ from django.contrib.admin import DateFieldListFilter
 from rangefilter.filters import DateRangeFilterBuilder, DateRangeQuickSelectListFilterBuilder, \
     NumericRangeFilterBuilder, DateTimeRangeFilterBuilder
 
-from deposit.models import Incoming, BadScreen, Deposit, ColorBank, TrashIncoming, IncomingChange, CreditCard
+from deposit.models import Incoming, BadScreen, Deposit, ColorBank, TrashIncoming, IncomingChange, CreditCard, Message, \
+    MessageRead
 
 
 class TrashIncomingAdmin(admin.ModelAdmin):
@@ -58,6 +59,13 @@ class CreditCardAdmin(admin.ModelAdmin):
     list_display_links = ('id', 'name', 'number')
 
 
+class MessageAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'author', 'title', 'created'
+    )
+    list_display_links = ('id', 'created', 'title', )
+
+
 admin.site.register(Incoming, IncomingAdmin)
 admin.site.register(TrashIncoming, TrashIncomingAdmin)
 admin.site.register(BadScreen, BadScreenAdmin)
@@ -65,4 +73,5 @@ admin.site.register(Deposit, DepositAdmin)
 admin.site.register(ColorBank, ColorBankAdmin)
 admin.site.register(IncomingChange, IncomingChangeAdmin)
 admin.site.register(CreditCard, CreditCardAdmin)
-
+admin.site.register(Message, MessageAdmin)
+admin.site.register(MessageRead)

@@ -8,6 +8,7 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from deposit.models import Message
 from users.managers import UserManager
 
 
@@ -110,10 +111,16 @@ class Profile(models.Model):
     my_filter = models.JSONField('Фильтр по получателю', default=list, blank=True)
     view_bad_warning = models.BooleanField(default=False)
 
+    @staticmethod
+    def all_message_count():
+        return Message.objects.count()
+
+    def read_message_count(self):
+        return self.user.messages_read.count()
+
     def __str__(self):
         return f'{self.user.username}'
 
     class Meta:
         verbose_name = "Профиль пользователя"
         verbose_name_plural = "Профили пользователей"
-

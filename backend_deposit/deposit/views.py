@@ -19,8 +19,8 @@ from django.contrib.auth.views import redirect_to_login
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db import transaction
-from django.db.models import F, Q, Subquery, Value, OuterRef, Window
+from django.db import transaction, models
+from django.db.models import F, Q, Subquery, Value, OuterRef, Window, Exists
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -37,7 +37,8 @@ from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
 from deposit.func import (img_path_to_str, make_after_incoming_save,
                           make_after_save_deposit, send_message_tg)
-from deposit.models import BadScreen, ColorBank, Deposit, Incoming, TrashIncoming, IncomingChange, CreditCard
+from deposit.models import BadScreen, ColorBank, Deposit, Incoming, TrashIncoming, IncomingChange, CreditCard, Message, \
+    MessageRead
 from deposit.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
 from deposit.text_response_func import (response_sms1, response_sms2,
@@ -840,3 +841,52 @@ def day_graph(request):
     encoded_file = get_img_for_day_graph()
     context = {'fig1': encoded_file}
     return render(request, template, context)
+
+
+class MessageView(DetailView):
+    """Подробный просмотр сообщения"""
+    model = Message
+    template_name = 'deposit/message_view.html'
+    paginate_by = settings.PAGINATE
+
+    def post(self, *args, **kwargs):
+        object = self.get_object()
+        MessageRead.objects.get_or_create(message=object, user=self.request.user)
+        return super().get(self, *args, **kwargs)
+    
+    def get_object(self, queryset=None):
+        message = super().get_object()
+        is_read = MessageRead.objects.filter(message=message, user=self.request.user).exists()
+        message.is_read = is_read
+        return message
+
+
+class MessageListView(ListView):
+    """Просмотр сообщений"""
+    model = Message
+    template_name = 'deposit/messages.html'
+    paginate_by = settings.PAGINATE
+
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_staff:
+            raise PermissionDenied('Недостаточно прав')
+        messages = Message.objects.select_related('author').annotate(
+            is_read=Exists(MessageRead.objects.filter(message=OuterRef('pk')))
+        ).order_by('-id').all()
+        return messages
+
+    def get(self, request, *args, **kwargs):
+        if 'read_all' in request.GET:
+            # Отметим как прочитанное непрочитанное
+            readed_message_ids = request.user.messages_read.all().values('message')
+            unread_messages = Message.objects.exclude(id__in=readed_message_ids).all()
+            new_reads = []
+            for unread_message in unread_messages:
+                new_read = MessageRead(user=request.user, message=unread_message)
+                new_reads.append(new_read)
+            new = MessageRead.objects.bulk_create(new_reads)
+        return super().get(request, *args, **kwargs)
+
+    def post(self, *args):
+        print('post', self, args)
+        return super().get(*args)
