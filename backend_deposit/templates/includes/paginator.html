@@ -3,10 +3,10 @@
   <ul class="pagination">
     {% load spurl %}
     {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="{% spurl query=request.GET set_query='page=1'%}">Первая</a></li>
+      <li class="page-item"><a class="page-link" href="{% spurl query=request.GET set_query='page=1'%}"><<</a></li>
       <li class="page-item">
         <a class="page-link" href="{% spurl query=request.GET set_query='page={{ page_obj.previous_page_number }}'%}">
-          Предыдущая
+          <
         </a>
       </li>
 
@@ -14,12 +14,12 @@
 
           <li class="page-item">
         <a class="page-link" href="">
-          --------
+          --
         </a>
       </li>
       <li class="page-item">
         <a class="page-link" href="">
-          ---------------
+          -
         </a>
       </li>
 
@@ -36,7 +36,18 @@
             <a class="page-link" href="{% spurl query=request.GET set_query='page={{ i }}'%}">{{ i }}</a>
           </li>
 
-        {% elif i == page_obj.number|add:-15 or i == page_obj.number|add:15  %}
+        {% elif i == page_obj.number|add:-10 or i == page_obj.number|add:10  %}
+          <li class="page-item">
+            <a class="page-link" href="{% spurl query=request.GET set_query='page={{ i }}'%}">{{ i }}</a>
+        {% elif i == page_obj.number|add:-50 or i == page_obj.number|add:50  %}
+          <li class="page-item">
+            <a class="page-link" href="{% spurl query=request.GET set_query='page={{ i }}'%}">{{ i }}</a>
+          </li>
+        {% elif i == page_obj.number|add:-100 or i == page_obj.number|add:100  %}
+          <li class="page-item">
+            <a class="page-link" href="{% spurl query=request.GET set_query='page={{ i }}'%}">{{ i }}</a>
+          </li>
+        {% elif i == page_obj.number|add:-500 or i == page_obj.number|add:500  %}
           <li class="page-item">
             <a class="page-link" href="{% spurl query=request.GET set_query='page={{ i }}'%}">{{ i }}</a>
           </li>
@@ -46,24 +57,24 @@
       <li class="page-item">
 
         <a class="page-link" href="{% spurl query=request.GET set_query='page={{ page_obj.next_page_number }}'%}">
-          Следующая
+          >
         </a>
       </li>
       <li class="page-item">
         <a class="page-link" href="{% spurl query=request.GET set_query='page={{ page_obj.paginator.num_pages }}'%}">
-          Последняя
+          >>
         </a>
       </li>
     {% else %}
 
           <li class="page-item">
         <a class="page-link" href="">
-          -------------
+          -
         </a>
       </li>
       <li class="page-item">
         <a class="page-link" href="">
-          -----------
+          --
         </a>
       </li>
 

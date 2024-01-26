@@ -3,12 +3,14 @@ import logging
 import cv2
 import numpy as np
 import pytesseract
+import pytz
 import requests
+from django.conf.global_settings import TIME_ZONE
 
 from backend_deposit import settings
-from deposit.models import Deposit, Incoming
+from deposit.models import Deposit, Incoming, SITE_VAR
 
-TZ = settings.TZ
+TZ = pytz.timezone(TIME_ZONE)
 logger = logging.getLogger(__name__)
 
 

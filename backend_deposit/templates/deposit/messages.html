@@ -13,10 +13,9 @@
           </div>
           <div class="card-body">
                 <div>{{ message.text }}</div>
-              <a href="{% url 'deposit:message_view' message.id %}" class="btn btn-primary">Открыть</a>
           </div>
             <div class="card-footer">
-              Автор: {{ message.author }}
+                Автор: {{ message.author }}&emsp;&emsp;&emsp;<a href="{% url 'deposit:message_view' message.id %}" class="">Открыть</a>
             </div>
         </div><hr>
       {% endfor %}

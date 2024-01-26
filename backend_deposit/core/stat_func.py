@@ -2,6 +2,8 @@ import datetime
 import logging
 from dataclasses import dataclass
 
+import pytz
+from django.conf.global_settings import TIME_ZONE
 from django.db.models import Sum, Count, Max, Q, F, Avg, Value, Subquery, OuterRef, Window, DateField
 import seaborn as sns
 import pandas as pd
@@ -12,11 +14,12 @@ matplotlib.use('AGG')
 from io import BytesIO
 import base64
 
-from backend_deposit.settings import TZ
 from deposit.models import Incoming, CreditCard, Message
 
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')
+
+TZ = pytz.timezone(TIME_ZONE)
 
 
 def bad_incomings():

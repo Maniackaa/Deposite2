@@ -13,7 +13,6 @@ from django.utils.html import format_html
 from colorfield.fields import ColorField
 
 from backend_deposit import settings
-from backend_deposit.settings import TZ
 
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')
@@ -30,6 +29,20 @@ class TrashIncoming(models.Model):
     def __str__(self):
         string = f'Мусор {self.id} {self.register_date} {self.text[:20]}'
         return string
+
+
+SITE_VAR = {
+    'last_message_time': datetime.datetime.now(),
+    'last_good_screen_time': datetime.datetime.now(),
+}
+
+
+class Setting(models.Model):
+    name = models.CharField('Наименование параметра', unique=True)
+    value = models.CharField('Значение параметра', default='')
+
+    def __str__(self):
+        return f'Setting({self.name} = {self.value})'
 
 
 class Incoming(models.Model):
@@ -157,9 +170,10 @@ class CreditCard(models.Model):
 class Message(models.Model):
     MESSAGE_TYPES = (
         ('admin', 'От админа'),
-        ('to_all', 'Для всех')
-
+        ('to_all', 'Для всех'),
+        ('macros', 'Работа макроса')
     )
+
     type = models.CharField(choices=MESSAGE_TYPES, default='to_all')
     title = models.CharField(max_length=100, null=True, blank=True)
     text = models.TextField()

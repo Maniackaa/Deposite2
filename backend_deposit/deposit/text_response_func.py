@@ -1,11 +1,13 @@
 import datetime
 import logging
 
+import pytz
 from django.conf import settings
+from django.conf.global_settings import TIME_ZONE
 
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger(__name__)
-tz = settings.TZ
+tz = pytz.timezone(TIME_ZONE)
 
 
 def get_unrecognized_field_error_text(response_fields, result):

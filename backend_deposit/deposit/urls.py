@@ -2,7 +2,7 @@ from django.conf.urls.static import static
 from django.urls import path, include
 
 from backend_deposit import settings
-from . import views
+from . import views, views_api
 
 app_name = 'deposit'
 
@@ -22,8 +22,8 @@ urlpatterns = [
     path('deposits_pending/', views.deposits_list_pending, name='deposits_pending'),
     path('deposits/<int:pk>/', views.deposit_edit, name='deposit_edit'),
 
-    path('screen/', views.screen, name='screen'),
-    path('sms/', views.sms, name='sms'),
+    path('screen/', views_api.screen, name='screen'),
+    path('sms/', views_api.sms, name='sms'),
 
     path('incomings/', views.incoming_list, name='incomings'),
     path('incomings2/', views.incoming_list2, name='incomings2'),

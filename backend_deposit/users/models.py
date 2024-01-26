@@ -113,10 +113,11 @@ class Profile(models.Model):
 
     @staticmethod
     def all_message_count():
-        return Message.objects.count()
+        return Message.objects.exclude(type='macros').count()
 
     def read_message_count(self):
-        return self.user.messages_read.count()
+        res = self.user.messages_read.all().exclude(message__type='macros').count()
+        return res
 
     def __str__(self):
         return f'{self.user.username}'

@@ -14,8 +14,6 @@
        <a class="changelink" href="{% url 'deposit:my_filter' %}">Изменить</a>
     {% endif %}
 
-
-
     <span class="row justify-content-start">
       <div class="col-6">
         <form method="GET">
@@ -105,11 +103,12 @@
    {% include 'includes/paginator.html' %}
   {% endwith %}
 </div>
+
 {% endblock %}
 
 {% block javascript %}
   {% with request.resolver_match.view_name as view_name %}
-  {% if view_name != 'deposit:incomings_empty' %}
+  {% if view_name != 'deposit:incomings_empty' and view_name != 'deposit:incomings_search'%}
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script>
                 function getPosts() {
@@ -136,7 +135,7 @@
                             console.log(last_bad_id)
                             console.log(count_bad_screen)
                             if (count_bad_screen > 0) {
-                                alert('Есть новые плохие скрины');
+                                alert('Проблема с работой макроса!');
                                 document.getElementById("last_bad_id").textContent=current_bad_id.toString();
                             }
                         {% endif %}

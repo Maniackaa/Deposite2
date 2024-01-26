@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import pytz
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,6 +24,7 @@ MY_APPS = [
     'rangefilter',
     'spurl',
     'mathfilters',
+    'celery'
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
@@ -112,7 +114,7 @@ LANGUAGE_CODE = 'ru-RU'
 
 # TIME_ZONE = 'UTC'
 TIME_ZONE = os.getenv('TIMEZONE')
-TZ = pytz.timezone(TIME_ZONE)
+# TZ = pytz.timezone(TIME_ZONE)
 
 USE_I18N = True
 
@@ -247,3 +249,16 @@ ADMIN_IDS = os.getenv('ADMIN_IDS').split(',')
 ALARM_IDS = os.getenv('ALARM_IDS').split(',')
 PAGINATE = 100
 USE_THOUSAND_SEPARATOR = True
+
+# Celery settings
+# REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
+# REDIS_URL = 'redis://redis:6739/0'
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "check_macros": {
+        "task": "deposit.tasks.check_macros",
+        "schedule": crontab(minute="*/1"),
+    },
+}
