@@ -46,17 +46,9 @@ services:
     container_name: redis_deposit
     image: redis:latest
     restart: always
-    environment:
-      - REDIS_PASSWORD=$REDIS_PASSWORD
-      - REDIS_PORT=$REDIS_PORT
-      - REDIS_DATABASES=16
-    entrypoint: redis-server --appendonly yes --requirepass $REDIS_PASSWORD --maxmemory 512mb --maxmemory-policy allkeys-lru
-    networks:
-      - default
     ports:
       - "6379:6379"
     volumes:
-#      - ./redis/data:/data
       - ./redis/etc/redis.conf:/usr/local/etc/redis/redis.conf
       - redis_data:/data
 
@@ -74,6 +66,22 @@ services:
       - ./backend_deposit:/app
     entrypoint: bash /app/entrypoint.sh
 
+  celery:
+    build: ./backend_deposit
+    restart: always
+    command: celery -A backend_deposit worker -l info
+    env_file: .env
+    depends_on:
+      - redis
+      - backend
+
+  celery-beat:
+    build: ./backend_deposit
+    command: celery -A backend_deposit beat -l info
+    env_file: .env
+    depends_on:
+      - redis
+      - backend
 
   nginx:
     image: nginx:1.19.3
@@ -96,14 +104,3 @@ services:
     volumes:
       - ./certbot/www/:/var/www/certbot/:rw
       - ./certbot/conf/:/etc/letsencrypt/:rw
-
-#  table1-writer:
-#    restart: always
-#    build: ./google_writer
-#    command: python3 table1_writer.py
-#    env_file: .env
-#    depends_on:
-#      - redis
-#      - db_postgres
-#    volumes:
-#      - ./logs/Table1:/app/logs
