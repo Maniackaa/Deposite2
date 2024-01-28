@@ -59,6 +59,8 @@ services:
     env_file: .env
     depends_on:
       - db_postgres
+      - redis
+      - celery
     volumes:
       - static:/app/collected_static/
       - media:/app/media/
@@ -73,15 +75,13 @@ services:
     env_file: .env
     depends_on:
       - redis
-      - backend
 
   celery-beat:
     build: ./backend_deposit
     command: celery -A backend_deposit beat -l info
     env_file: .env
     depends_on:
-      - redis
-      - backend
+      - celery
 
   nginx:
     image: nginx:1.19.3

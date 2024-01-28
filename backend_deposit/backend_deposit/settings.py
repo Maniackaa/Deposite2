@@ -18,13 +18,11 @@ CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS').split(',')
 MY_APPS = [
     'users.apps.UsersConfig',
     'deposit.apps.DepositConfig',
-    # 'api.apps.ApiConfig',
-    # 'crispy_forms',
     'crispy_bootstrap4',
     'rangefilter',
     'spurl',
     'mathfilters',
-    'celery'
+    'celery',
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
@@ -253,12 +251,13 @@ USE_THOUSAND_SEPARATOR = True
 # Celery settings
 # REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
 # REDIS_URL = 'redis://redis:6739/0'
-CELERY_BROKER_URL = 'redis://redis:6379/0'
-CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_BROKER_URL = 'redis://redis:6379'
+CELERY_RESULT_BACKEND = 'redis://redis:6379'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
     "check_macros": {
         "task": "deposit.tasks.check_macros",
-        "schedule": crontab(minute="*/1"),
+        # "schedule": crontab(minute="*/1"),
+        "schedule": 10,
     },
 }

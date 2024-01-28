@@ -1,9 +1,12 @@
 import datetime
+import time
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
+from deposit.func import send_message_tg
 from deposit.models import SITE_VAR, Message, Setting
 
 User = get_user_model()
@@ -24,6 +27,7 @@ def do_if_macros_broken():
                            text=f'Макрос не активен',
                            type='macros',
                            author=User.objects.get(username='Admin'))
+    send_message_tg('Макрос не активен более 10 секунд', settings.ALARM_IDS)
 
 
 @shared_task
