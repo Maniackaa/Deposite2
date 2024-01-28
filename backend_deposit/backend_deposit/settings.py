@@ -23,6 +23,7 @@ MY_APPS = [
     'spurl',
     'mathfilters',
     'celery',
+    'django_celery_beat',
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
@@ -254,10 +255,10 @@ USE_THOUSAND_SEPARATOR = True
 CELERY_BROKER_URL = 'redis://redis:6379'
 CELERY_RESULT_BACKEND = 'redis://redis:6379'
 CELERY_TIMEZONE = TIME_ZONE
-CELERY_BEAT_SCHEDULE = {
-    "check_macros": {
-        "task": "deposit.tasks.check_macros",
-        # "schedule": crontab(minute="*/1"),
-        "schedule": 10,
-    },
-}
+# CELERY_BEAT_SCHEDULE = {
+#     "check_macros": {
+#         "task": "deposit.tasks.check_macros",
+#         # "schedule": crontab(minute="*/1"),
+#         "schedule": 10,
+#     },
+# }

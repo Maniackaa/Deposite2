@@ -87,7 +87,7 @@ services:
 
   celery-beat:
     build: ./backend_deposit
-    command: celery -A backend_deposit.celery:app beat -l info
+    command: celery -A backend_deposit.celery:app beat -l info  -S django
 #    volumes:
 #     - ./backend_deposit:/app
     env_file: .env
