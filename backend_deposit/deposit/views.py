@@ -427,7 +427,7 @@ class IncomingSearch(ListView):
         tz = pytz.timezone(settings.TIME_ZONE)
         start_time = ''
         if pk:
-            return Incoming.objects.filter(pk=pk)
+            return Incoming.objects.filter(birpay_id__contains=pk)
         if sort_by_sms_time:
             all_incoming = Incoming.objects.order_by('-response_date').all()
         else:
