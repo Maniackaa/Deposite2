@@ -3,12 +3,14 @@ import logging
 from dataclasses import dataclass
 
 import pytz
-from django.conf.global_settings import TIME_ZONE
+
 from django.db.models import Sum, Count, Max, Q, F, Avg, Value, Subquery, OuterRef, Window, DateField
 import seaborn as sns
 import pandas as pd
 import matplotlib
 from django.db.models.functions import TruncDate, ExtractHour, Cast, Coalesce
+
+from backend_deposit.settings import TIME_ZONE
 
 matplotlib.use('AGG')
 from io import BytesIO

@@ -81,9 +81,7 @@ services:
 #     - ./backend_deposit:/app
     env_file: .env
     depends_on:
-      - db_postgres
       - redis
-      - backend
 
   celery-beat:
     build: ./backend_deposit

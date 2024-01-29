@@ -5,7 +5,7 @@ import numpy as np
 import pytesseract
 import pytz
 import requests
-from django.conf.global_settings import TIME_ZONE
+from backend_deposit.settings import TIME_ZONE
 
 from backend_deposit import settings
 from deposit.models import Deposit, Incoming, SITE_VAR

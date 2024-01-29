@@ -2,8 +2,8 @@ import datetime
 import logging
 
 import pytz
-from django.conf import settings
-from django.conf.global_settings import TIME_ZONE
+
+from backend_deposit.settings import TIME_ZONE
 
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger(__name__)
