@@ -66,7 +66,8 @@ def screen(request: Request):
             new_screen = BadScreen.objects.create(name=name, worker=worker, image=image)
             logger.debug(f'BadScreen сохранен')
             logger.debug(f'Возвращаем статус 200: not recognize')
-            path = f'{host}{MEDIA_ROOT}{new_screen.image.url}'
+            # path = f'{host}{MEDIA_ROOT}{new_screen.image.url}'
+            path = f'{host}{new_screen.image.url}'
             msg = f'Пришел хреновый скрин с {worker}: {name}\n{path}'
             send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
             return HttpResponse(status=status.HTTP_200_OK,
