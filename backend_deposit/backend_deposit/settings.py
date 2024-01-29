@@ -13,7 +13,6 @@ DEBUG = (os.getenv('DEBUG', 'False').lower() == 'true')
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS').split(',')
-#CSRF_TRUSTED_ORIGINS = ['https://*.mydomain.com','https://*.127.0.0.1','http://194.87.252.190','https://194.87.252.190']
 
 MY_APPS = [
     'users.apps.UsersConfig',

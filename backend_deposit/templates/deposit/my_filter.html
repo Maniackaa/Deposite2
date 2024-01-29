@@ -3,24 +3,56 @@
 
 
 {% block content %}
-      <div class="col-md-2 ">
-        <div class="card ">
+<div class="container col-md-12 ">
 
-              {% if form.errors %}
-                  Есть ошибки
+    <form method="post">
+       {% csrf_token %}
+       <div class="row justify-content-start">
+       {% for field in form %}
+          <div class="col-3 card">
+              <div class="form-group row my-3 "
+                {% if field.field.required %}
+                  aria-required="true"
+                {% else %}
+                  aria-required="false"
+                {% endif %}>
+                {% for error in field.errors %}
+                    <div class="alert alert-danger">
+                      {{ error|escape }}
+                    </div>
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                  <div class="alert alert-danger">
+                      {{ error|escape }}
+                  </div>
+                {% endfor %}
+                {% if not field.is_hidden %}
+                <label for="{{ field.id_for_label }}">
+                  {{ field.label }}
+                    {% if field.field.required %}
+                      <span class="required text-danger">*</span>
+                    {% endif %}
+                  {% endif %}
+                </label>
+                {{ field }}
+                <div>
+              {% if field.help_text %}
+                <small id="{{ field.id_for_label }}-help" class="form-text text-muted">
+                  {{ field.help_text|safe }}
+                </small>
               {% endif %}
-            <form method="post">
-               {% csrf_token %}
-               {% include 'includes/form_fields.html' %}
-
+            </div>
+          </div>
+          </div>
+        {% endfor %}
+</div>
                     <button type="submit" class="btn btn-primary">
                          Сохранить
                     </button>
 
             </form>
           </div>
-        </div>
-      </div>
+
 
 
 {% endblock %}
