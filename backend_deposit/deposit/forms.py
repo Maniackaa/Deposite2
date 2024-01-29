@@ -1,4 +1,5 @@
 import logging
+import re
 
 import colorfield.fields
 from colorfield.fields import ColorField
@@ -110,8 +111,9 @@ def get_choice():
             # distinct_recipients = Incoming.objects.filter(
             #     pk__in=Subquery(q)).order_by('-register_date').all()
             distinct_recipients = Incoming.objects.filter(
-                pk__in=Subquery(q)).values('recipient')
-            for incoming in distinct_recipients:
+                pk__in=Subquery(q)).values('recipient').order_by('register_date')
+            distinct_recipients = (x for x in distinct_recipients)
+            for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
                 result.append((incoming['recipient'], incoming['recipient']))
     return result
 

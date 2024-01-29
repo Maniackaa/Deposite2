@@ -501,7 +501,7 @@ class IncomingTrashList(ListView):
 
 @staff_member_required(login_url='users:login')
 def my_filter(request):
-    # Изменение фильтра по получателю
+    # Изменение фильтра по получателю для платежей по фильтру
     context = {}
     user = request.user
     form = MyFilterForm(request.POST or None, initial={'my_filter': user.profile.my_filter})
@@ -566,7 +566,7 @@ class ColorBankCreate(CreateView):
 
 
 def get_last(request):
-    """Функция поиска последнего id для javascript"""
+    """Функция поиска последнего id Incoming и последнего id Message/macros для javascript"""
     all_incomings = Incoming.objects.order_by('id').all()
     user_filter = request.GET.get('filter')
     # print('user_filter:', user_filter)
