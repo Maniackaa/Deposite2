@@ -360,12 +360,8 @@ class IncomingFiltered(ListView):
         if not self.request.user.is_staff:
             raise PermissionDenied('Недостаточно прав')
         user_filter = self.request.user.profile.my_filter
-        # filtered_incoming = Incoming.objects.raw(
-        #     "with t1 as (SELECT * FROM deposit_colorbank)"
-        #     " SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
-        #     " WHERE deposit_incoming.recipient = ANY(%s)"
-        #     " ORDER BY deposit_incoming.id DESC;", [user_filter])
-
+        user_filter2 = self.request.user.profile.my_filter2
+        user_filter.extend(user_filter2)
         filtered_incoming = Incoming.objects.raw(
         """
         SELECT *,
@@ -504,14 +500,16 @@ def my_filter(request):
     # Изменение фильтра по получателю для платежей по фильтру
     context = {}
     user = request.user
-    form = MyFilterForm(request.POST or None, initial={'my_filter': user.profile.my_filter})
+    form = MyFilterForm(request.POST or None, initial={'my_filter': user.profile.my_filter, 'my_filter2': user.profile.my_filter2})
     template = 'deposit/my_filter.html'
     context['form'] = form
 
     if request.POST:
         if form.is_valid():
             user_filter = form.cleaned_data.get("my_filter")
+            user_filter2 = form.cleaned_data.get("my_filter2")
             user.profile.my_filter = user_filter
+            user.profile.my_filter2 = user_filter2
             user.profile.save()
             return redirect('deposit:incomings_filter')
     return render(request, template, context)

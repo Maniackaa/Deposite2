@@ -96,7 +96,7 @@ class DepositTransactionForm(forms.ModelForm):
         labels = {'pay_screen': '', 'input_transaction': 'Номер тарнзакции'}
 
 
-def get_choice():
+def get_choice(recepient_type='non_card'):
     """Функция которая ищет получателя для фильтра в форме"""
     tables = connection.creation.connection.introspection.get_table_list(connection.cursor())
     if not tables:
@@ -112,7 +112,12 @@ def get_choice():
             #     pk__in=Subquery(q)).order_by('-register_date').all()
             distinct_recipients = Incoming.objects.filter(
                 pk__in=Subquery(q)).values('recipient').order_by('register_date')
+            if recepient_type == 'non_card':
+                distinct_recipients = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
+            else:
+                distinct_recipients = distinct_recipients.exclude(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
             distinct_recipients = (x for x in distinct_recipients)
+
             for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
                 result.append((incoming['recipient'], incoming['recipient']))
     return result
@@ -125,7 +130,8 @@ class MyFilterForm(forms.Form):
         if self.fields.get('my_filter'):
             self.fields['my_filter'].choices = get_choice()
 
-    my_filter = forms.MultipleChoiceField(choices=get_choice(), widget=forms.CheckboxSelectMultiple, required=False)
+    my_filter = forms.MultipleChoiceField(choices=get_choice('non_card'), widget=forms.CheckboxSelectMultiple, required=False)
+    my_filter2 = forms.MultipleChoiceField(choices=get_choice('card'), widget=forms.CheckboxSelectMultiple, required=False)
 
 
 class ColorBankForm(forms.ModelForm):
