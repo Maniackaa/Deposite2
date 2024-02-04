@@ -2,7 +2,7 @@ import logging
 import re
 
 
-from deposit.func import response_m10, response_m10_short
+from ocr.ocr_func import response_m10, response_m10_short
 
 logger = logging.getLogger(__name__)
 

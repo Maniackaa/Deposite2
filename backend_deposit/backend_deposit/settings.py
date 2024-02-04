@@ -17,6 +17,7 @@ CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS').split(',')
 MY_APPS = [
     'users.apps.UsersConfig',
     'deposit.apps.DepositConfig',
+    'ocr.apps.OcrConfig',
     'crispy_bootstrap4',
     'rangefilter',
     'spurl',
@@ -254,6 +255,8 @@ USE_THOUSAND_SEPARATOR = True
 CELERY_BROKER_URL = 'redis://redis:6379'
 CELERY_RESULT_BACKEND = 'redis://redis:6379'
 CELERY_TIMEZONE = TIME_ZONE
+CELERYD_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_work.log")
+CELERYBEAT_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_beat.log")
 # CELERY_BEAT_SCHEDULE = {
 #     "check_macros": {
 #         "task": "deposit.tasks.check_macros",

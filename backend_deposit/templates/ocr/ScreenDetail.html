@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Подробно о скрине{% endblock %}
+
+
+{% block content %}
+
+  <div class="container">
+    <div class="row justify-content-start ">
+      <div class="col col-md-3">
+        <form method="post" enctype="multipart/form-data" >
+            {% csrf_token %}
+            {% include 'includes/form_fields.html' %}
+            <button type="submit" class="btn btn-primary">
+              Сохранить
+            </button>
+        </form>
+      </div>
+
+      <div class="col col-md-3">
+          {% if screenresponse.image %}
+            <img class="img" style="object-fit: cover; object-position: 0 0" src="/media/{{screenresponse.image}}" width="450" height="600">
+          {% endif %}
+      </div>
+    </div>
+  </div>
+
+
+ <div class="container">
+     <div>Распознано: {{ screenresponse.parts.count }}</div>
+    <div class="row justify-content-start ">
+      <div class="col col-md-auto">
+          <p>Время</p>
+        {% for response_date in response_dates  %}
+          {{ response_date.response_date|stringformat:'s'  }} ({{ response_date.count }})<br>
+        {% endfor %}
+      </div>
+      <div class="col col-md-auto">
+        <p>Получатель</p>
+        {% for recipient in recipients  %}
+          {{ recipient.recipient|stringformat:'s'  }} ({{ recipient.count }})<br>
+        {% endfor %}
+      </div>
+      <div class="col col-md-auto">
+        <p>Отравитель</p>
+        {% for sender in senders  %}
+          {{ sender.sender|stringformat:'s'  }} ({{ sender.count }})<br>
+        {% endfor %}
+      </div>
+      <div class="col col-md-auto">
+        <p>Транзакция</p>
+        {% for transaction in transactions  %}
+          {{ transaction.transaction|stringformat:'d'  }} ({{ transaction.count }})<br>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+    {{ screenresponse.parts.count }}<br>
+    {% for part in screenresponse.parts.all %}
+        {% if part.sender == screenresponse.sample_sender and part.recipient == screenresponse.sample_recipient and part.pay == screenresponse.sample_pay and part.transaction == screenresponse.sample_transaction %}
+        {{ part.black }} - {{ part.white }}<br>
+        {% endif %}
+    {% endfor %}
+{% endblock %}

@@ -14,6 +14,7 @@ from .models import Deposit, Incoming, ColorBank
 from .widgets import MinimalSplitDateTimeMultiWidget
 
 logger = logging.getLogger(__name__)
+err_log = logging.getLogger('error_log')
 
 
 class DepositForm(forms.ModelForm):
@@ -98,29 +99,34 @@ class DepositTransactionForm(forms.ModelForm):
 
 def get_choice(recepient_type='non_card'):
     """Функция которая ищет получателя для фильтра в форме"""
-    tables = connection.creation.connection.introspection.get_table_list(connection.cursor())
-    if not tables:
-        return []
-    result = []
-    for table in tables:
-        if 'deposit_incoming' == table.name:
-            q = Incoming.objects.exclude(
-                recipient__iregex=r'\d\d\d\d \d\d.*\d\d\d\d').exclude(
-                type__in=('m10', 'm10_short'), sender__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d'
-            ).distinct('recipient').values('pk')
-            # distinct_recipients = Incoming.objects.filter(
-            #     pk__in=Subquery(q)).order_by('-register_date').all()
-            distinct_recipients = Incoming.objects.filter(
-                pk__in=Subquery(q)).values('recipient').order_by('register_date')
-            if recepient_type == 'non_card':
-                distinct_recipients = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
-            else:
-                distinct_recipients = distinct_recipients.exclude(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
-            distinct_recipients = (x for x in distinct_recipients)
+    try:
 
-            for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
-                result.append((incoming['recipient'], incoming['recipient']))
-    return result
+        tables = connection.creation.connection.introspection.get_table_list(connection.cursor())
+        if not tables:
+            return []
+        result = []
+        for table in tables:
+            if 'deposit_incoming' == table.name:
+                q = Incoming.objects.exclude(
+                    recipient__iregex=r'\d\d\d\d \d\d.*\d\d\d\d').exclude(
+                    type__in=('m10', 'm10_short'), sender__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d'
+                ).distinct('recipient').values('pk')
+                # distinct_recipients = Incoming.objects.filter(
+                #     pk__in=Subquery(q)).order_by('-register_date').all()
+                distinct_recipients = Incoming.objects.filter(
+                    pk__in=Subquery(q), recipient__isnull=False).values('recipient').order_by('register_date')
+                if recepient_type == 'non_card':
+                    distinct_recipients = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
+                else:
+                    distinct_recipients = distinct_recipients.exclude(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
+                distinct_recipients = [x for x in distinct_recipients]
+                for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
+                    result.append((incoming['recipient'], incoming['recipient']))
+        return result
+    except Exception as err:
+        logger.error(err)
+        err_log.error(err, exc_info=True)
+        return []
 
 
 class MyFilterForm(forms.Form):
@@ -128,7 +134,8 @@ class MyFilterForm(forms.Form):
         # print('**********__init__ MyFilterForm')
         super(MyFilterForm, self).__init__(*args, **kwargs)
         if self.fields.get('my_filter'):
-            self.fields['my_filter'].choices = get_choice()
+            self.fields['my_filter'].choices = get_choice('non_card')
+            self.fields['my_filter2'].choices = get_choice('card')
 
     my_filter = forms.MultipleChoiceField(choices=get_choice('non_card'), widget=forms.CheckboxSelectMultiple, required=False)
     my_filter2 = forms.MultipleChoiceField(choices=get_choice('card'), widget=forms.CheckboxSelectMultiple, required=False)

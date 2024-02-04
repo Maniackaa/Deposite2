@@ -63,12 +63,12 @@ services:
     depends_on:
       - db_postgres
 #      - redis
-#      - celery
+      - celery
     volumes:
       - static:/app/collected_static/
       - media:/app/media/
       - ./logs/backend_deposit:/app/logs
-      - ./backend_deposit:/app
+#      - ./backend_deposit:/app
     entrypoint: bash /app/entrypoint.sh
 
 
@@ -76,8 +76,9 @@ services:
     container_name: celery
     build: ./backend_deposit
     restart: always
-    command: celery -A backend_deposit.celery:app worker -l info -n myworker
-#    volumes:
+    command: celery -A backend_deposit.celery:app worker -l info -n myworker --concurrency=2
+    volumes:
+      - media:/app/media/
 #     - ./backend_deposit:/app
     env_file: .env
     depends_on:

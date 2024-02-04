@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-import re
 import uuid
 from types import NoneType
 
@@ -9,42 +8,23 @@ import pytz
 from django.db.models.functions import Lag
 
 from django.conf import settings
-from django.conf.global_settings import MEDIA_ROOT
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.auth.mixins import (AccessMixin, LoginRequiredMixin,
-                                        PermissionRequiredMixin)
-from django.contrib.auth.views import redirect_to_login
-from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db import transaction, models
-from django.db.models import F, Q, Subquery, Value, OuterRef, Window, Exists
-from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.db.models import F, Q, OuterRef, Window, Exists
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse, reverse_lazy
-from django.utils.http import urlencode
+from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
-from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.request import Request
 
-from core.stat_func import cards_report, day_reports, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
+from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm)
-from deposit.func import (img_path_to_str, make_after_incoming_save,
-                          make_after_save_deposit, send_message_tg)
-from deposit.models import BadScreen, ColorBank, Deposit, Incoming, TrashIncoming, IncomingChange, CreditCard, Message, \
-    MessageRead, SITE_VAR
-from deposit.screen_response import screen_text_to_pay
-from deposit.serializers import IncomingSerializer
-from deposit.tasks import find_time_between_good_screen
-from deposit.text_response_func import (response_sms1, response_sms2,
-                                        response_sms3, response_sms4,
-                                        response_sms5, response_sms6,
-                                        response_sms7)
+from ocr.ocr_func import (make_after_save_deposit)
+from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
+    MessageRead
 
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')

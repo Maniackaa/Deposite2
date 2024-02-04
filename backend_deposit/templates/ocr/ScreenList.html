@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Список распознанных чеков{% endblock %}
+
+
+{% block content %}
+
+     {% include 'includes/paginator.html' %}
+
+    {% for screen_response in page_obj %}
+
+            {{ screen_response.id }} {{ screen_response.name }} {{ screen_response.image }}<a href="{% url 'ocr:screen_detail' screen_response.id %}">Ссыль</a><br>
+{#             {% for screen_part in screen_response.parts.all %}<br>#}
+{#             {{ screen_part }}#}
+{#             {% endfor %}#}
+         {% endfor %}
+
+   {% include 'includes/paginator.html' %}
+
+
+
+{% endblock %}

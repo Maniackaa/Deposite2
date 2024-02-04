@@ -8,12 +8,12 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
-from backend_deposit.settings import MEDIA_ROOT
-from deposit.func import img_path_to_str, send_message_tg, make_after_incoming_save
-from deposit.models import BadScreen, Incoming, TrashIncoming, SITE_VAR, Setting
-from deposit.screen_response import screen_text_to_pay
+from core.global_func import send_message_tg
+from ocr.ocr_func import img_path_to_str, make_after_incoming_save
+from deposit.models import BadScreen, Incoming, TrashIncoming, Setting
+from ocr.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
-from deposit.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
+from ocr.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
     response_sms6, response_sms7
 
 logger = logging.getLogger(__name__)
