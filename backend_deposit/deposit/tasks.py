@@ -114,6 +114,6 @@ def create_response_part(screen_id, black, white) -> str:
         new_response_part, status = ScreenResponsePart.objects.get_or_create(screen=screen, black=black, white=white, **cut_pay)
         return f'Создан  ScreenResponsePart {new_response_part.id} для скрина {screen_id} с параметрами ({black}, {white})'
     except Exception as err:
-        logger.error(f'Ошибка при создании ScreenResponsePart: {err}')
+        logger.warning(f'Ошибка при создании ScreenResponsePart: {err}')
         new_response_part, status = ScreenResponsePart.objects.get_or_create(screen=screen, black=black, white=white)
         return f'Создан пустой ScreenResponsePart с параметрами ({black}, {white})'
