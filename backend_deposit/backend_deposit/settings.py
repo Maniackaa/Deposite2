@@ -200,6 +200,15 @@ LOGGING = {
             'encoding': 'UTF-8',
             'formatter': 'default_formatter',
         },
+        'celery': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/celery_rotate.log',
+            'backupCount': 10,
+            'maxBytes': 100 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'default_formatter',
+        },
         'errors': {
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': 'logs/errors.log',
@@ -230,6 +239,10 @@ LOGGING = {
             'handlers': ['console', 'ocr_rotate', 'errors'],
             'level': 'DEBUG',
             'propagate': True
+        },
+        'celery': {
+            'handlers': ['celery', 'console'],
+            'level': 'DEBUG',
         },
     }
 }

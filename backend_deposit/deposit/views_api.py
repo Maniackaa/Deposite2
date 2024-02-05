@@ -17,7 +17,6 @@ from ocr.text_response_func import response_sms1, response_sms2, response_sms3, 
     response_sms6, response_sms7
 
 logger = logging.getLogger(__name__)
-err_log = logging.getLogger('error_log')
 
 
 @api_view(['POST'])
@@ -62,7 +61,7 @@ def screen(request: Request):
 
         if not sms_type:
             # Действие если скрин не по известному шаблону
-            logger.debug('скрин не по известному шаблону')
+            logger.info('скрин не по известному шаблону')
             new_screen = BadScreen.objects.create(name=name, worker=worker, image=image)
             logger.debug(f'BadScreen сохранен')
             logger.debug(f'Возвращаем статус 200: not recognize')
@@ -84,24 +83,24 @@ def screen(request: Request):
             incoming_duplicate = Incoming.objects.filter(transaction=transaction_m10).all()
             # Если дубликат:
             if incoming_duplicate:
-                logger.debug(f'Найден дубликат {incoming_duplicate}')
+                logger.info(f'Найден дубликат {incoming_duplicate}')
                 return HttpResponse(status=status.HTTP_200_OK,
                                     reason='Incoming duplicate',
                                     charset='utf-8')
             # Если статус отличается от 'успешно'
             if pay_status.lower() != 'успешно':
-                logger.debug(f'fПлохой статус: {pay}.')
+                logger.warning(f'fПлохой статус: {pay}.')
                 # Проверяем на дубликат в BadScreen
                 is_duplicate = BadScreen.objects.filter(transaction=transaction_m10).exists()
                 if not is_duplicate:
-                    logger.debug('Сохраняем в BadScreen')
+                    logger.info('Сохраняем в BadScreen')
                     BadScreen.objects.create(name=name, worker=worker, image=image,
                                              transaction=transaction_m10, type=sms_type)
                     return HttpResponse(status=status.HTTP_200_OK,
                                         reason='New BadScreen',
                                         charset='utf-8')
                 else:
-                    logger.debug('Дубликат в BadScreen')
+                    logger.info('Дубликат в BadScreen')
                     return HttpResponse(status=status.HTTP_200_OK,
                                         reason='duplicate in BadScreen',
                                         charset='utf-8')
@@ -110,7 +109,7 @@ def screen(request: Request):
             serializer = IncomingSerializer(data=pay)
             if serializer.is_valid():
                 # Сохраянем Incoming
-                logger.debug(f'Incoming serializer valid. Сохраняем транзакцию {transaction_m10}')
+                logger.info(f'Incoming serializer valid. Сохраняем транзакцию {transaction_m10}')
                 new_incoming = serializer.save(worker=worker, image=image)
 
                 # Логика после сохранения
@@ -125,15 +124,15 @@ def screen(request: Request):
                                     charset='utf-8')
             else:
                 # Если не сохранилось в Incoming
-                logger.debug('Incoming serializer invalid')
-                logger.debug(f'serializer errors: {serializer.errors}')
+                logger.error('Incoming serializer invalid')
+                logger.error(f'serializer errors: {serializer.errors}')
                 transaction_error = serializer.errors.get('transaction')
 
                 # Если просто дубликат:
                 if transaction_error:
                     transaction_error_code = transaction_error[0].code
                     if transaction_error_code == 'unique':
-                        # Такая транзакция уже есть. Дупликат.
+                        logger.info('Такая транзакция уже есть. Дупликат.')
                         return HttpResponse(status=status.HTTP_201_CREATED,
                                             reason='Incoming duplicate',
                                             charset='utf-8')
@@ -151,7 +150,7 @@ def screen(request: Request):
 
     # Ошибка при обработке
     except Exception as err:
-        logger.debug(f'Ошибка при обработке скрина: {err}')
+        logger.info(f'Ошибка при обработке скрина: {err}')
         logger.error(err, exc_info=True)
         logger.debug(f'{request.data}')
         return HttpResponse(status=status.HTTP_400_BAD_REQUEST,
@@ -239,8 +238,8 @@ def sms(request: Request):
         return HttpResponse(sms_id)
 
     except Exception as err:
-        logger.error(f'Неизвестная ошибка при распознавании сообщения: {err}\n', exc_info=False)
-        err_log.error(f'Неизвестная ошибка при распознавании сообщения: {err}\n', exc_info=True)
+        logger.info(f'Неизвестная ошибка при распознавании сообщения: {err}')
+        logger.error(f'Неизвестная ошибка при распознавании сообщения: {err}\n', exc_info=True)
         raise err
     finally:
         if errors:

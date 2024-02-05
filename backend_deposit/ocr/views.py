@@ -61,7 +61,6 @@ class ScreenListDetail(UpdateView, DetailView):
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
-        # perform your action here
         self.object.save()
         screen = self.object
         blacks = screen.parts.values('black', 'white')
@@ -69,7 +68,6 @@ class ScreenListDetail(UpdateView, DetailView):
         all_values = range(0, 256)
         comb = set(itertools.permutations(all_values, 2))
         logger.info(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
-        logger.error('Тест ошибка')
         num = 0
         if self.request.POST.get('response_button'):
             empty_pairs = []
