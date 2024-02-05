@@ -480,7 +480,7 @@ def my_filter(request):
     # Изменение фильтра по получателю для платежей по фильтру
     context = {}
     user = request.user
-    form = MyFilterForm(request.POST or None, initial={'my_filter': user.profile.my_filter, 'my_filter2': user.profile.my_filter2})
+    form = MyFilterForm(request.POST or None, initial={'my_filter': user.profile.my_filter, 'my_filter2': user.profile.my_filter2, 'my_filter3': user.profile.my_filter3})
     template = 'deposit/my_filter.html'
     context['form'] = form
 
@@ -488,8 +488,11 @@ def my_filter(request):
         if form.is_valid():
             user_filter = form.cleaned_data.get("my_filter")
             user_filter2 = form.cleaned_data.get("my_filter2")
+            user_filter3 = form.cleaned_data.get("my_filter3")
             user.profile.my_filter = user_filter
             user.profile.my_filter2 = user_filter2
+            user.profile.my_filter3 = user_filter3
+
             user.profile.save()
             return redirect('deposit:incomings_filter')
     return render(request, template, context)

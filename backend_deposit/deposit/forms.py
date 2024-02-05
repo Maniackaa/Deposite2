@@ -97,7 +97,7 @@ class DepositTransactionForm(forms.ModelForm):
         labels = {'pay_screen': '', 'input_transaction': 'Номер тарнзакции'}
 
 
-def get_choice(recepient_type='non_card'):
+def get_choice(recepient_type='phone'):
     """Функция которая ищет получателя для фильтра в форме"""
     try:
 
@@ -115,10 +115,14 @@ def get_choice(recepient_type='non_card'):
                 #     pk__in=Subquery(q)).order_by('-register_date').all()
                 distinct_recipients = Incoming.objects.filter(
                     pk__in=Subquery(q), recipient__isnull=False).values('recipient').order_by('register_date')
-                if recepient_type == 'non_card':
-                    distinct_recipients = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
+                phone_recipents = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
+                stars_recipents = distinct_recipients.filter(recipient__iregex=r'^\*\*\*')
+                if recepient_type == 'phone':
+                    distinct_recipients = phone_recipents
+                elif recepient_type == 'stars':
+                    distinct_recipients = stars_recipents
                 else:
-                    distinct_recipients = distinct_recipients.exclude(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
+                    distinct_recipients = distinct_recipients.exclude(pk__in=phone_recipents.values('id')).exclude(pk__in=stars_recipents.values('id'))
                 distinct_recipients = [x for x in distinct_recipients]
                 for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
                     result.append((incoming['recipient'], incoming['recipient']))
@@ -134,11 +138,14 @@ class MyFilterForm(forms.Form):
         # print('**********__init__ MyFilterForm')
         super(MyFilterForm, self).__init__(*args, **kwargs)
         if self.fields.get('my_filter'):
-            self.fields['my_filter'].choices = get_choice('non_card')
+            self.fields['my_filter'].choices = get_choice('phone')
             self.fields['my_filter2'].choices = get_choice('card')
+            self.fields['my_filter3'].choices = get_choice('stars')
 
-    my_filter = forms.MultipleChoiceField(choices=get_choice('non_card'), widget=forms.CheckboxSelectMultiple, required=False)
+    my_filter = forms.MultipleChoiceField(choices=get_choice('phone'), widget=forms.CheckboxSelectMultiple, required=False)
     my_filter2 = forms.MultipleChoiceField(choices=get_choice('card'), widget=forms.CheckboxSelectMultiple, required=False)
+    my_filter3 = forms.MultipleChoiceField(choices=get_choice('stars'), widget=forms.CheckboxSelectMultiple,
+                                           required=False)
 
 
 class ColorBankForm(forms.ModelForm):
