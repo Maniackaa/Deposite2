@@ -78,6 +78,15 @@ class Incoming(models.Model):
         string = f'Платеж {self.id}. Сумма: {self.pay}. {self.transaction}.  Депозит: {self.confirmed_deposit.id if self.confirmed_deposit else "-"}'
         return string
 
+    def phone_serial(self):
+        """Достает серийные номер из пути изображения"""
+        if not self.image:
+            return
+        from_part = self.image.name.split('_from_')
+        if len(from_part) == 2:
+            return from_part[1][:-4]
+        return 'unknown'
+
 
 class IncomingChange(models.Model):
     time = models.DateTimeField(auto_now_add=True)

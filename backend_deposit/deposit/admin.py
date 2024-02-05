@@ -13,7 +13,7 @@ class TrashIncomingAdmin(admin.ModelAdmin):
 
 class IncomingAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'register_date', 'response_date', 'recipient', 'sender', 'pay', 'transaction', 'confirmed_deposit', 'type', 'image', 'worker'
+        'id', 'register_date', 'response_date', 'recipient', 'sender', 'pay', 'transaction', 'confirmed_deposit', 'type', 'image', 'phone_serial', 'worker'
     )
     list_filter = ('register_date', 'response_date',
                    ("register_date", DateRangeFilterBuilder()),
