@@ -76,10 +76,9 @@ services:
     container_name: celery
     build: ./backend_deposit
     restart: always
-    command: celery -A backend_deposit.celery:app worker -l info -n myworker --concurrency=2
+    command: celery -A backend_deposit.celery:app worker -l info -n myworker --concurrency=3
     volumes:
       - media:/app/media/
-#     - ./backend_deposit:/app
     env_file: .env
     depends_on:
       - redis
@@ -91,18 +90,18 @@ services:
     depends_on:
       - celery
 
-#  flower:
-#    container_name: flower
-#    image: mher/flower
-#    build: ./backend_deposit
-#    command: celery -A backend_deposit.celery flower --port=5555
-#    ports:
-#      - 5556:5555
-#    env_file: .env
-#    depends_on:
-#      - backend
-#      - redis
-#      - celery
+  flower:
+    container_name: flower
+    image: mher/flower
+    build: ./backend_deposit
+    command: celery -A backend_deposit.celery flower --port=5555
+    ports:
+      - 5556:5555
+    env_file: .env
+    depends_on:
+      - backend
+      - redis
+      - celery
 
   nginx:
     image: nginx:1.19.3

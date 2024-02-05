@@ -175,49 +175,44 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'default_formatter': {
-            # 'format': "%(asctime)s - %(levelname)s - %(funcName)s: %(lineno)d - %(message)s"
             'format': '[%(asctime)s] #%(levelname)-8s %(filename)s:%(lineno)d %(module)s/%(funcName)s\n%(message)s',
         },
     },
     'handlers': {
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/log.log',
-            'formatter': 'default_formatter',
-
-        },
-        'django_file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/django.log',
-            'formatter': 'default_formatter',
-
-        },
-        'error_file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/error.log',
-            'formatter': 'default_formatter',
-
-        },
+        # 'file': {
+        #     'level': 'DEBUG',
+        #     'class': 'logging.FileHandler',
+        #     'filename': 'logs/log.log',
+        #     'formatter': 'default_formatter',
+        #
+        # },
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'default_formatter',
         },
-        'rotating_file_handler': {
+        'rotate': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/rotate_file.log',
+            'filename': 'logs/deposite_rotate.log',
             'backupCount': 10,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
             'encoding': 'UTF-8',
             'formatter': 'default_formatter',
         },
-        'rotating_file_handler_django': {
+        'errors': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/rotate_django.log',
+            'filename': 'logs/errors.log',
+            'backupCount': 10,
+            'maxBytes': 10 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'default_formatter',
+            'level': 'ERROR',
+        },
+        'ocr_rotate': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/ocr_rotate.log',
             'backupCount': 10,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
@@ -227,18 +222,14 @@ LOGGING = {
     },
     'loggers': {
         'deposit': {
-            'handlers': ['console', 'file', 'rotating_file_handler'],
+            'handlers': ['console', 'rotate', 'errors'],
             'level': 'DEBUG',
             'propagate': True
         },
-        'error_log': {
-            'handlers': ['console', 'error_file'],
+        'ocr': {
+            'handlers': ['console', 'ocr_rotate', 'errors'],
             'level': 'DEBUG',
             'propagate': True
-        },
-        'django': {
-            'handlers': ['console', 'django_file', 'rotating_file_handler_django'],
-            'level': 'WARNING',
         },
     }
 }

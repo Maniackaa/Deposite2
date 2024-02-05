@@ -68,7 +68,8 @@ class ScreenListDetail(UpdateView, DetailView):
         ready_pairs = set((x['black'], x['white']) for x in blacks)
         all_values = range(0, 256)
         comb = set(itertools.permutations(all_values, 2))
-        print(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
+        logger.info(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
+        logger.error('Тест ошибка')
         num = 0
         if self.request.POST.get('response_button'):
             empty_pairs = []
