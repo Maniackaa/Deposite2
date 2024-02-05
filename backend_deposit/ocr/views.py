@@ -64,8 +64,8 @@ class ScreenListDetail(UpdateView, DetailView):
         self.object = form.save(commit=False)
         self.object.save()
         screen = self.object
-        blacks = screen.parts.values('black', 'white')
-        ready_pairs = set((x['black'], x['white']) for x in blacks)
+        pairs = screen.parts.values('black', 'white')
+        ready_pairs = set((x['black'], x['white']) for x in pairs)
         all_values = range(0, 256)
         comb = set(itertools.permutations(all_values, 2))
         logger.info(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
@@ -76,6 +76,7 @@ class ScreenListDetail(UpdateView, DetailView):
                 if pair in ready_pairs:
                     continue
                 empty_pairs.append(pair)
+            logger.info(f'Добавляем в очередь нераспозанных пар: {len(empty_pairs)} шт.')
             add_response_part_to_queue.delay(screen.id, empty_pairs)
             # num += 1
             # if num >= 100:
