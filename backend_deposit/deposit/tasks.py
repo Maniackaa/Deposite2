@@ -8,18 +8,20 @@ import cv2
 import numpy as np
 import pytesseract
 from celery import shared_task, group
-# from celery.utils.log import get_task_logger
+from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
+from backend_deposit.settings import LOGGING
 from core.global_func import send_message_tg
 from deposit.models import Message, Setting
 from ocr.models import ScreenResponse, ScreenResponsePart
 from ocr.screen_response import screen_text_to_pay
 
 User = get_user_model()
-# logger = get_task_logger(__name__)
-logger = logging.getLogger(__name__)
+logger = get_task_logger(__name__)
+
+# logger = logging.getLogger('celery')
 
 
 def find_time_between_good_screen(last_good_screen_time) -> int:

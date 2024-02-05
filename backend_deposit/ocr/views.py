@@ -69,7 +69,7 @@ class ScreenListDetail(UpdateView, DetailView):
         comb = set(itertools.permutations(all_values, 2))
         logger.info(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
         num = 0
-        if self.request.POST.get('response_button'):
+        if 'response_button' in self.request.POST:
             empty_pairs = []
             for pair in comb:
                 if pair in ready_pairs:
@@ -84,10 +84,8 @@ class ScreenListDetail(UpdateView, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        print('get_context_data', self, kwargs)
         # screen = ScreenResponse.objects.get(id=55)
         screen = self.object
-        print(screen.parts.count())
         senders = screen.parts.values('sender').annotate(count=Count('sender')).order_by('-count')
         transactions = screen.parts.values('transaction').annotate(count=Count('transaction')).order_by('-count')
         recipients = screen.parts.values('recipient').annotate(count=Count('recipient')).order_by('-count')
