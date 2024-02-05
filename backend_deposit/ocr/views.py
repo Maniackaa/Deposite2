@@ -70,16 +70,16 @@ class ScreenListDetail(UpdateView, DetailView):
         comb = set(itertools.permutations(all_values, 2))
         print(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
         num = 0
-        empty_pairs = []
-        for pair in comb:
-            if pair in ready_pairs:
-                continue
-            empty_pairs.append(pair)
-        add_response_part_to_queue.delay(screen.id, empty_pairs)
+        if self.request.POST.get('response_button'):
+            empty_pairs = []
+            for pair in comb:
+                if pair in ready_pairs:
+                    continue
+                empty_pairs.append(pair)
+            add_response_part_to_queue.delay(screen.id, empty_pairs)
             # num += 1
             # if num >= 100:
             #     break
-
 
         return super().form_valid(form)
 
@@ -93,9 +93,6 @@ class ScreenListDetail(UpdateView, DetailView):
         transactions = screen.parts.values('transaction').annotate(count=Count('transaction')).order_by('-count')
         recipients = screen.parts.values('recipient').annotate(count=Count('recipient')).order_by('-count')
         response_dates = screen.parts.values('response_date').annotate(count=Count('response_date')).order_by('-count')
-        print(senders)
-        print(transactions)
-        print(recipients)
         context['transactions'] = transactions
         context['recipients'] = recipients
         context['senders'] = senders

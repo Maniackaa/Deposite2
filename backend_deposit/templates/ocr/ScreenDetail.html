@@ -13,6 +13,9 @@
             <button type="submit" class="btn btn-primary">
               Сохранить
             </button>
+            <button name="response_button" type="submit" class="btn btn-primary">
+              Начать распознавание
+            </button>
         </form>
       </div>
 
@@ -55,10 +58,10 @@
     </div>
   </div>
 
-    {{ screenresponse.parts.count }}<br>
+    Хорошие пары: {{ screenresponse.parts.count }}<br>
     {% for part in screenresponse.parts.all %}
         {% if part.sender == screenresponse.sample_sender and part.recipient == screenresponse.sample_recipient and part.pay == screenresponse.sample_pay and part.transaction == screenresponse.sample_transaction %}
-        {{ part.black }} - {{ part.white }}<br>
+        ({{ part.black }} - {{ part.white }}),
         {% endif %}
     {% endfor %}
 {% endblock %}

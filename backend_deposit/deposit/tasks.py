@@ -6,7 +6,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pytesseract
-from celery import shared_task
+from celery import shared_task, group
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -37,7 +37,7 @@ def do_if_macros_broken():
     send_message_tg('Макрос не активен более 10 секунд', settings.ALARM_IDS)
 
 
-@shared_task
+@shared_task(priority=1)
 def check_macros():
     """Функция проверки работоспособности макроса"""
     logger.info('Проверка макроса')
@@ -64,16 +64,24 @@ def check_macros():
         return True
 
 
-@shared_task
+# @shared_task
+# def add_response_part_to_queue(screen_id: int, pairs: list):
+#     """Задача для отправки пар в очередь на распознавание"""
+#     logger.info(f'add_response_part_to_queue {screen_id}')
+#     for pair in pairs:
+#         create_response_part.delay(screen_id, pair[0], pair[1])
+#     logger.info(f'add_response_part_to_queue END')
+
+
+@shared_task(priority=2)
 def add_response_part_to_queue(screen_id: int, pairs: list):
     """Задача для отправки пар в очередь на распознавание"""
     logger.info(f'add_response_part_to_queue {screen_id}')
-    for pair in pairs:
-        create_response_part.delay(screen_id, pair[0], pair[1])
+    parts_group = group([create_response_part.s(screen_id, pair[0], pair[1]) for pair in pairs]).apply_async()
     logger.info(f'add_response_part_to_queue END')
 
 
-@shared_task
+@shared_task(priority=3)
 def create_response_part(screen_id, black, white) -> str:
     """Создает новое распознавание скрина с заданными параметрами"""
     logger.info(f'Создана задача распознавания скрина {screen_id} с параметрами ({black}, {white})')
@@ -82,8 +90,8 @@ def create_response_part(screen_id, black, white) -> str:
     if part_is_exist:
         return f'Cкрин {screen_id} с параметрами ({black}, {white}) уже есть'
     # pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
-    # img = cv2.imdecode(np.fromfile(screen.image.path, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
-    img = cv2.imdecode(np.fromfile(screen.image.path, dtype=np.uint8), cv2.COLOR_RGB2GRAY)
+    img = cv2.imdecode(np.fromfile(screen.image.path, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
+    # img = cv2.imdecode(np.fromfile(screen.image.path, dtype=np.uint8), cv2.COLOR_RGB2GRAY)
     # img = cv2.imdecode(np.frombuffer(screen.image.file.read(), dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
     _, binary = cv2.threshold(img, black, white, cv2.THRESH_BINARY)
     path = Path(screen.image.path)
