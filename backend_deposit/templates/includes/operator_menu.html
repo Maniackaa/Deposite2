@@ -20,10 +20,29 @@
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="{% url 'deposit:stats_card' %}">Статистика по картам</a></li>
             <li><a class="dropdown-item" href="{% url 'deposit:stats_day' %}">Статистика по дням</a></li>
-              <li><a class="dropdown-item" href="{% url 'deposit:stats' %}">Карты + дни</a></li>
+            <li><a class="dropdown-item" href="{% url 'deposit:stats' %}">Карты + дни</a></li>
+            <li><a class="dropdown-item" href="{% url 'deposit:graph' %}">График</a></li>
           </ul>
         </li>
       </ul>
+    </div>
+
+    {% if user.is_superuser %}
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item dropdown ">
+          <a class="nav-link dropdown-toggle {% if app_name == 'posts' %}link-danger{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            OCR
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'ocr:screen_list' %}">Список OCR</a></li>
+            <li><a class="dropdown-item" href="{% url 'ocr:screen_create' %}">Создать новый OCR</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+    {% endif %}
+
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 {#          <li class="nav-item">#}
 {#          <a class="nav-link"href="{% url 'deposit:deposits_pending' %}">Депозиты</a>#}
@@ -62,7 +81,7 @@
         {% endif %}
       </ul>
 
-    </div>
+
   </nav>
     {% load mathfilters %}
     {% with user.profile.all_message_count|sub:user.profile.read_message_count as message_count %}

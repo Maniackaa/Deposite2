@@ -3,18 +3,34 @@
 
 
 {% block content %}
+{% include 'includes/operator_menu.html' %}
+{% include 'includes/paginator.html' %}
 
-     {% include 'includes/paginator.html' %}
+<div id="table" class="col-md-6">
+    <table class="table table-bordered table-hover table-sm">
+    <thead>
+      <tr>
+        <th>id</th>
+        <th>name</th>
+        <th>image</th>
+        <th>Открыть</th>
+      </tr>
+    </thead>
+    <tbody style="text-align: left" >
 
-    {% for screen_response in page_obj %}
+        {% for screen_response in page_obj %}
+        <tr>
+          <td>{{ screen_response.id }}</td>
+          <td>{{ screen_response.name }}</td>
+          <td>{{ screen_response.image }}</td>
+          <td><a href="{% url 'ocr:screen_detail' screen_response.id %}">Ссыль</a></td>
+        </tr>
 
-            {{ screen_response.id }} {{ screen_response.name }} {{ screen_response.image }}<a href="{% url 'ocr:screen_detail' screen_response.id %}">Ссыль</a><br>
-{#             {% for screen_part in screen_response.parts.all %}<br>#}
-{#             {{ screen_part }}#}
-{#             {% endfor %}#}
-         {% endfor %}
-
-   {% include 'includes/paginator.html' %}
+        {% endfor %}
+    </tbody>
+    </table>
+</div>
+{% include 'includes/paginator.html' %}
 
 
 

@@ -81,7 +81,7 @@ class Incoming(models.Model):
     def phone_serial(self):
         """Достает серийные номер из пути изображения"""
         if not self.image:
-            return
+            return None
         from_part = self.image.name.split('_from_')
         if len(from_part) == 2:
             return from_part[1][:-4]

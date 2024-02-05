@@ -3,7 +3,7 @@
 
 
 {% block content %}
-
+{% include 'includes/operator_menu.html' %}
   <div class="container">
     <div class="row justify-content-start ">
       <div class="col col-md-3">
@@ -13,9 +13,11 @@
             <button type="submit" class="btn btn-primary">
               Сохранить
             </button>
+            {% if user.is_superuser %}
             <button name="response_button" type="submit" class="btn btn-primary">
               Начать распознавание
             </button>
+            {% endif %}
         </form>
       </div>
 

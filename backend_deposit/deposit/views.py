@@ -341,7 +341,9 @@ class IncomingFiltered(ListView):
             raise PermissionDenied('Недостаточно прав')
         user_filter = self.request.user.profile.my_filter
         user_filter2 = self.request.user.profile.my_filter2
+        user_filter3 = self.request.user.profile.my_filter3
         user_filter.extend(user_filter2)
+        user_filter.extend(user_filter3)
         filtered_incoming = Incoming.objects.raw(
         """
         SELECT *,

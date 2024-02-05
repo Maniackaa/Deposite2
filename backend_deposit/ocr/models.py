@@ -1,11 +1,14 @@
 from django.db import models
 
+phones = [('jjeyzlhiz9ljeiso', 'Phone 1 ["jjeyzlhiz9ljeiso"]'), ('unknown', 'unknown')]
+
 
 class ScreenResponse(models.Model):
     register_date = models.DateTimeField('Время добавления в базу', auto_now_add=True)
     name = models.CharField(unique=True)
     image = models.ImageField(upload_to='responsed_screen', verbose_name='Распознанный скрин')
-    source = models.CharField(default='unknown')
+    # source = models.CharField(default='unknown')
+    source = models.CharField(choices=phones, default='unknown')
     sample_response_date = models.DateTimeField('Распознанное время', null=True, blank=True)
     sample_recipient = models.CharField('Получатель', max_length=50, null=True, blank=True)
     sample_sender = models.CharField('Отравитель/карта', max_length=50, null=True, blank=True)

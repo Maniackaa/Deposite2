@@ -16,8 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 class ScreenForm(forms.ModelForm):
+    phones = [('jjeyzlhiz9ljeiso', 'Phone 1 ["jjeyzlhiz9ljeiso"]'), ('unknown', 'unknown')]
+    source = forms.ChoiceField(choices=phones, required=True)
 
     class Meta:
         model = ScreenResponse
         fields = '__all__'
+        # fields = ('source', )
 
