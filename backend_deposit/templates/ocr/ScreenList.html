@@ -13,6 +13,7 @@
         <th>id</th>
         <th>name</th>
         <th>image</th>
+        <th>Распознано</th>
         <th>Открыть</th>
       </tr>
     </thead>
@@ -23,6 +24,7 @@
           <td>{{ screen_response.id }}</td>
           <td>{{ screen_response.name }}</td>
           <td>{{ screen_response.image }}</td>
+          <td>{{ screen_response.parts.all|length }}</td>
           <td><a href="{% url 'ocr:screen_detail' screen_response.id %}">Ссыль</a></td>
         </tr>
 

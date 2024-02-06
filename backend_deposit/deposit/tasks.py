@@ -81,7 +81,7 @@ def check_macros():
 def add_response_part_to_queue(screen_id: int, pairs: list):
     """Задача для отправки пар в очередь на распознавание"""
     logger.info(f'Для добавления в очередь передано {len(pairs)} пар для скрина {screen_id}')
-    parts_group = group([create_response_part.s(screen_id, pair[0], pair[1]) for pair in pairs]).apply()
+    parts_group = group([create_response_part.s(screen_id, pair[0], pair[1]) for pair in pairs]).delay()
     logger.info(f'add_response_part_to_queue END')
     logger.debug(str(parts_group))
 

@@ -84,7 +84,7 @@ services:
     container_name: flower
     image: mher/flower
     build: ./backend_deposit
-    command: celery -A backend_deposit.celery flower --port=5555
+    command: celery -A backend_deposit.celery flower --port=5555 --basic-auth=Maniac:password1
     ports:
       - 5556:5555
     env_file: .env
