@@ -22,12 +22,13 @@ from ocr.screen_response import screen_text_to_pay
 User = get_user_model()
 logger = get_task_logger(__name__)
 
-ENDPOINT = 'http://45.67.228.39/ocr/create_screen/'
+
 
 
 @shared_task(priority=2)
 def add_response_part_to_queue(screen_id: int, pairs: list):
     """Задача для отправки пар в очередь на распознавание"""
+    ENDPOINT = 'http://45.67.228.39/ocr/create_screen/'
     logger.info(f'Для добавления в очередь передано {len(pairs)} пар для скрина {screen_id}')
     # Передадим имя, изображение и создадим его на удаленном сервере если его нет. Получим id ScreenResponse
     screen, _ = ScreenResponse.objects.get_or_create(id=screen_id)
@@ -41,7 +42,7 @@ def add_response_part_to_queue(screen_id: int, pairs: list):
     remote_screen_id = data.get('id')
     # Создадим задачи для распознавания
     for i, pair in enumerate(pairs):
-        remote_response_pair.delay(screen_id, pair)
+        remote_response_pair.delay(remote_screen_id, pair)
         logger.debug(f'Отправлено {pair}')
         if i > 10:
             break
