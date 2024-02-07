@@ -72,7 +72,7 @@ services:
   celery:
     build: ./backend_deposit
     restart: always
-    command: celery -A backend_deposit worker -l info -n myworker1  --concurrency=8  --logfile logs/celery_file.log
+    command: celery -A backend_deposit worker -l info -n myworker1  --concurrency=3  --logfile logs/celery_file.log
     env_file: .env
     volumes:
       - media:/app/media/
