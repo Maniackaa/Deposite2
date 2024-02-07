@@ -7,7 +7,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pytesseract
-from celery import shared_task, group
+from celery import shared_task, group, chunks
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -81,9 +81,13 @@ def check_macros():
 def add_response_part_to_queue(screen_id: int, pairs: list):
     """Задача для отправки пар в очередь на распознавание"""
     logger.info(f'Для добавления в очередь передано {len(pairs)} пар для скрина {screen_id}')
-    parts_group = group([create_response_part.s(screen_id, pair[0], pair[1]) for pair in pairs]).delay()
+    # parts_group = create_response_part.chunks(
+    #     ((screen_id, pair[0], pair[1]) for pair in pairs), 1000
+    # ).apply_async()
+    # parts_group = group([create_response_part.s(screen_id, pair[0], pair[1]) for pair in pairs]).delay()
+    create_response_part.chunks(((screen_id, pair[0], pair[1]) for pair in pairs), 7500)()
     logger.info(f'add_response_part_to_queue END')
-    logger.debug(str(parts_group))
+    # logger.debug(str(parts_group))
 
 
 @shared_task(priority=3)
@@ -115,6 +119,6 @@ def create_response_part(screen_id, black, white) -> str:
         new_response_part, status = ScreenResponsePart.objects.get_or_create(screen=screen, black=black, white=white, **cut_pay)
         return f'Создан  ScreenResponsePart {new_response_part.id} для скрина {screen_id} с параметрами ({black}, {white})'
     except Exception as err:
-        logger.warning(f'Ошибка при создании ScreenResponsePart: {err}')
-        new_response_part, status = ScreenResponsePart.objects.get_or_create(screen=screen, black=black, white=white)
-        return f'Создан пустой ScreenResponsePart с параметрами ({black}, {white})'
+        logger.error(f'Ошибка при создании ScreenResponsePart: {err}')
+        # new_response_part, status = ScreenResponsePart.objects.get_or_create(screen=screen, black=black, white=white)
+        # return f'Создан пустой ScreenResponsePart с параметрами ({black}, {white})'

@@ -5,15 +5,16 @@
 {% block content %}
 {% include 'includes/operator_menu.html' %}
 {% include 'includes/paginator.html' %}
-
 <div id="table" class="col-md-6">
     <table class="table table-bordered table-hover table-sm">
     <thead>
       <tr>
         <th>id</th>
+        <th>device</th>
         <th>name</th>
         <th>image</th>
         <th>Распознано</th>
+        <th>Хороших</th>
         <th>Открыть</th>
       </tr>
     </thead>
@@ -22,9 +23,11 @@
         {% for screen_response in page_obj %}
         <tr>
           <td>{{ screen_response.id }}</td>
+          <td>{{ screen_response.source }}</td>
           <td>{{ screen_response.name }}</td>
           <td>{{ screen_response.image }}</td>
           <td>{{ screen_response.parts.all|length }}</td>
+          <td>{{ screen_response.good_pairs.count }}</td>
           <td><a href="{% url 'ocr:screen_detail' screen_response.id %}">Ссыль</a></td>
         </tr>
 
@@ -32,8 +35,11 @@
     </tbody>
     </table>
 </div>
+    Общие пары: {{ intersect|length }}
+    <div>{% for pair in intersect %}
+         {{ pair }}<br>
+         {% endfor %}
+    </div>
 {% include 'includes/paginator.html' %}
-
-
 
 {% endblock %}

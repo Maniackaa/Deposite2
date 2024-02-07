@@ -23,6 +23,23 @@ class ScreenListView(ListView):
     paginate_by = 10
     ordering = ('-id',)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        screens = ScreenResponse.objects.all()
+        all_values = range(0, 256)
+        # Итоговое множество общих хороших пар (black, white)
+        intersect = set(itertools.permutations(all_values, 2))
+
+        for screen in screens:
+            good_pairs = screen.good_pairs()
+            screen_good_pairs = set()
+            for good_pair in good_pairs:
+                pair = (good_pair.black, good_pair.white)
+                screen_good_pairs.add(pair)
+            intersect = intersect & screen_good_pairs
+        context['intersect'] = sorted(list(intersect))
+        return context
+
 
 class ScreenCreateView(CreateView):
 

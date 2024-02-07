@@ -19,6 +19,14 @@ class ScreenResponse(models.Model):
     def __str__(self):
         return f'{self.id}. {self.image}'
 
+    def good_pairs(self):
+        good_pairs = self.parts.filter(response_date=self.sample_response_date,
+                          recipient=self.sample_recipient,
+                          sender=self.sample_sender,
+                          pay=self.sample_pay,
+                          transaction=self.sample_transaction)
+        return good_pairs
+
 
 class ScreenResponsePart(models.Model):
     screen = models.ForeignKey(ScreenResponse, related_name='parts', on_delete=models.CASCADE)
