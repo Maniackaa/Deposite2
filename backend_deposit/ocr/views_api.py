@@ -26,40 +26,22 @@ def create_screen(request: Request):
     return JsonResponse(data={'id': screen.id})
 
 
-
-
 @api_view(['POST'])
 def response_screen(request: Request):
     """
-    Прием скриншота
+    Прием данных
+    id, black, white
     """
     try:
-        host = request.META["HTTP_HOST"]  # получаем адрес сервера
-        user_agent = request.META.get("HTTP_USER_AGENT")  # получаем данные бразера
-        forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-        path = request.path
-        logger.debug(f'request.data: {request.data},'
-                     f' host: {host},'
-                     f' user_agent: {user_agent},'
-                     f' path: {path},'
-                     f' forwarded: {forwarded}')
-
-        # params_example {'name': '/DCIM/Screen.jpg', 'worker': 'Station 1}
-        image = request.data.get('image')
-        worker = request.data.get('worker')
-        name = request.data.get('name')
-
-        if not image or not image.file:
-            logger.info(f'Запрос без изображения')
-            return HttpResponse(status=status.HTTP_400_BAD_REQUEST,
-                                reason='no screen',
-                                charset='utf-8')
-
-        file_bytes = image.file.read()
+        # params_example {{'id': screen_id, 'black': 100, 'white': 100}
+        screen_id = request.data.get('id')
+        screen, _ = ScreenResponse.objects.get(id=screen_id)
+        file_bytes = screen.image.file.read()
         text = img_path_to_str(file_bytes)
         logger.debug(f'Распознан текст: {text}')
         pay = screen_text_to_pay(text)
         logger.debug(f'Распознан pay: {pay}')
+        return JsonResponse(data=pay)
 
 
     # Ошибка при обработке
