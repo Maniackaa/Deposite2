@@ -199,6 +199,7 @@ LOGGING = {
             'mode': 'a',
             'encoding': 'UTF-8',
             'formatter': 'default_formatter',
+            'level': 'DEBUG',
         },
         # 'celery': {
         #     'class': 'logging.handlers.RotatingFileHandler',
@@ -227,6 +228,7 @@ LOGGING = {
             'mode': 'a',
             'encoding': 'UTF-8',
             'formatter': 'default_formatter',
+            'level': 'DEBUG',
         },
     },
     'loggers': {

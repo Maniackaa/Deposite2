@@ -30,7 +30,7 @@ def add_response_part_to_queue(screen_id: int, pairs: list):
     # Передадим имя, изображение и создадим его на удаленном сервере если его нет. Получим id ScreenResponse
     screen, _ = ScreenResponse.objects.get_or_create(id=screen_id)
     logger.debug(screen)
-    ENDPOINT = 'http://loclahost/ocr/screen_create/'
+    ENDPOINT = 'http://45.67.228.39/ocr/create_screen/'
     image = screen.image.read()
     files = {'image': image}
     logger.debug(f'Отправляем запрос {screen.name} {screen.source}')
