@@ -14,7 +14,7 @@ class ScreenResponse(models.Model):
     sample_sender = models.CharField('Отравитель/карта', max_length=50, null=True, blank=True)
     sample_pay = models.FloatField('Платеж', null=True, blank=True)
     # sample_balance = models.FloatField('Баланс', null=True, blank=True)
-    sample_transaction = models.IntegerField('Транзакция', null=True, blank=True)
+    sample_transaction = models.BigIntegerField('Транзакция', null=True, blank=True)
 
     def __str__(self):
         return f'{self.id}. {self.image}'
@@ -37,7 +37,7 @@ class ScreenResponsePart(models.Model):
     sender = models.CharField('Отравитель/карта', max_length=50, null=True, blank=True)
     pay = models.FloatField('Платеж', null=True, blank=True)
     # balance = models.FloatField('Баланс', null=True, blank=True)
-    transaction = models.IntegerField('Транзакция', null=True, blank=True)
+    transaction = models.BigIntegerField('Транзакция', null=True, blank=True)
 
     def __str__(self):
         return f'{self.id}. ({self.black} | {self.white}) {self.response_date} | {self.recipient} | {self.sender} | {self.pay} | {self.transaction}'

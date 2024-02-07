@@ -53,7 +53,7 @@ class Incoming(models.Model):
     sender = models.CharField('Отравитель/карта', max_length=50, null=True, blank=True)
     pay = models.FloatField('Платеж')
     balance = models.FloatField('Баланс', null=True, blank=True)
-    transaction = models.IntegerField('Транзакция', null=True, unique=True, blank=True)
+    transaction = models.BigIntegerField('Транзакция', null=True, unique=True, blank=True)
     type = models.CharField(max_length=20, default='unknown')
     worker = models.CharField(max_length=50, null=True, default='manual')
     image = models.ImageField(upload_to='screens/',
@@ -125,7 +125,7 @@ class Deposit(models.Model):
     change_time = models.DateTimeField('Время изменения в базе', auto_now=True)
     phone = models.CharField('Телефон отправителя')
     pay_sum = models.IntegerField('Сумма платежа', validators=[MinValueValidator(5)])
-    input_transaction = models.IntegerField('Введенная транзакция с чека',
+    input_transaction = models.BigIntegerField('Введенная транзакция с чека',
                                             null=True, blank=True, help_text='Введите транзакцию из чека',
                                             validators=[MinValueValidator(50000000), MaxValueValidator(99999999)])
     status = models.CharField('Статус депозита',
@@ -149,7 +149,7 @@ class BadScreen(models.Model):
                               verbose_name='скрин')
     incoming_time = models.DateTimeField('Время добавления в базу', auto_now_add=True)
     worker = models.CharField(max_length=50, null=True)
-    transaction = models.IntegerField('Транзакция', null=True, unique=True, blank=True)
+    transaction = models.BigIntegerField('Транзакция', null=True, unique=True, blank=True)
     type = models.CharField(max_length=20, default='unknown')
 
     def size(self):
