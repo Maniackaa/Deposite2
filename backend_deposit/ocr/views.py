@@ -8,10 +8,10 @@ from django.shortcuts import render
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, DetailView, UpdateView
 
-from deposit.tasks import create_response_part, add_response_part_to_queue
+
 from ocr.forms import ScreenForm
 from ocr.models import ScreenResponse
-
+from ocr.tasks import add_response_part_to_queue
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +29,18 @@ class ScreenListView(ListView):
         all_values = range(0, 256)
         # Итоговое множество общих хороших пар (black, white)
         intersect = set(itertools.permutations(all_values, 2))
-
+        start = time.perf_counter()
         for screen in screens:
             good_pairs = screen.good_pairs()
             screen_good_pairs = set()
             for good_pair in good_pairs:
                 pair = (good_pair.black, good_pair.white)
                 screen_good_pairs.add(pair)
+            print(time.perf_counter() - start)
             intersect = intersect & screen_good_pairs
+            print(time.perf_counter() - start)
+        print()
+        print(time.perf_counter() - start)
         context['intersect'] = sorted(list(intersect))
         return context
 
@@ -84,7 +88,7 @@ class ScreenListDetail(UpdateView, DetailView):
         pairs = screen.parts.values('black', 'white')
         ready_pairs = set((x['black'], x['white']) for x in pairs)
         all_values = range(0, 256)
-        comb = set(itertools.permutations(all_values, 2))
+        comb = list(itertools.permutations(all_values, 2))
         logger.info(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
         num = 0
         if 'response_button' in self.request.POST:
@@ -95,6 +99,7 @@ class ScreenListDetail(UpdateView, DetailView):
                 empty_pairs.append(pair)
             logger.info(f'Добавляем в очередь нераспозанных пар: {len(empty_pairs)} шт.')
             add_response_part_to_queue.delay(screen.id, empty_pairs)
+            logger.debug(f'Очередь отправлена')
             # num += 1
             # if num >= 100:
             #     break

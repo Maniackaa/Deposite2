@@ -76,7 +76,7 @@ services:
     container_name: celery
     build: ./backend_deposit
     restart: always
-    command: celery -A backend_deposit.celery:app worker -l info -n myworker --concurrency=3 --logfile logs/celery_file.log
+    command: celery -A backend_deposit.celery:app worker -l debug -n myworker --concurrency=3 --logfile logs/celery_file.log
     volumes:
       - media:/app/media/
       - ./logs/celery:/app/logs

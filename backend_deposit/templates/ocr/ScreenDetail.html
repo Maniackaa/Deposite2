@@ -61,9 +61,9 @@
   </div>
 
     Хорошие пары: {{ screenresponse.parts.count }}<br>
-    {% for part in screenresponse.parts.all %}
-        {% if part.sender == screenresponse.sample_sender and part.recipient == screenresponse.sample_recipient and part.pay == screenresponse.sample_pay and part.transaction == screenresponse.sample_transaction %}
-        ({{ part.black }} - {{ part.white }}),
-        {% endif %}
-    {% endfor %}
+{#    {% for part in screenresponse.parts.all %}#}
+{#        {% if part.sender == screenresponse.sample_sender and part.recipient == screenresponse.sample_recipient and part.pay == screenresponse.sample_pay and part.transaction == screenresponse.sample_transaction %}#}
+{#        ({{ part.black }} - {{ part.white }}),#}
+{#        {% endif %}#}
+{#    {% endfor %}#}
 {% endblock %}

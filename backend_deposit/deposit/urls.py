@@ -22,7 +22,7 @@ urlpatterns = [
     path('deposits_pending/', views.deposits_list_pending, name='deposits_pending'),
     path('deposits/<int:pk>/', views.deposit_edit, name='deposit_edit'),
 
-    path('screen/', views_api.screen, name='screen'),
+
     path('sms/', views_api.sms, name='sms'),
 
     path('incomings/', views.incoming_list, name='incomings'),
