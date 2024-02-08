@@ -12,6 +12,7 @@ from celery import shared_task, group, chunks
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from rest_framework import status
 
 from backend_deposit.settings import LOGGING
 from core.global_func import send_message_tg
@@ -21,8 +22,6 @@ from ocr.screen_response import screen_text_to_pay
 
 User = get_user_model()
 logger = get_task_logger(__name__)
-
-
 
 
 @shared_task(priority=2)
@@ -36,7 +35,7 @@ def response_parts(screen_id: int, remote_screen_id: int, pairs: list):
     for i, pair in enumerate(pairs):
         remote_response_pair.delay(screen_id, remote_screen_id, pair)
         logger.info(f'Отправлено {pair}')
-        if i > 10:
+        if i > 100:
             break
 
 
@@ -46,8 +45,11 @@ def remote_response_pair(screen_id: int, remote_screen_id: int, pair):
     logger.info(f'Отправляем на {ENDPOINT} {screen_id} {pair}')
     response = requests.post(ENDPOINT, data={'id': remote_screen_id, 'black': pair[0], 'white': pair[1]}, timeout=10)
     logger.info(f'response: {response}')
-    data = response.json()
-    logger.info(f'data: {data}')
+    if response.status_code == status.HTTP_200_OK:
+        responsed_pay = response.json()
+        logger.info(f'data: {responsed_pay} {type(responsed_pay)}')
+        print(responsed_pay, type(responsed_pay))
+
 
 
 # @shared_task(priority=3)
