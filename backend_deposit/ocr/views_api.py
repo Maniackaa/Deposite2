@@ -35,7 +35,7 @@ def create_screen(request: Request):
             screen.save()
         return JsonResponse(data={'id': screen.id})
     except Exception as err:
-        logger.error(err)
+        logger.error(err, exc_info=True)
 
 
 @api_view(['POST'])
