@@ -59,7 +59,6 @@ class ScreenListDetail(UpdateView, DetailView):
     model = ScreenResponse
     template_name = 'ocr/ScreenDetail.html'
     fields = '__all__'
-    # form_class = ScreenForm
     success_url = reverse_lazy('ocr:screen_list')
 
     def form_valid(self, form):
