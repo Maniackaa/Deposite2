@@ -23,22 +23,38 @@ from ocr.screen_response import screen_text_to_pay
 User = get_user_model()
 logger = get_task_logger(__name__)
 
+REMOTE_SERVER = 'http://45.67.228.39'
 
 @shared_task(priority=2)
-def response_parts(screen_id: int, remote_screen_id: int, pairs: list):
+def response_parts(screen_id: int, pairs: list):
     """Задача для отправки пар в очередь на распознавание"""
     try:
         ENDPOINT = 'http://45.67.228.39/ocr/reponse_screen/'
         logger.info(f'Для добавления в очередь передано {len(pairs)} пар для скрина {screen_id}')
         # Передадим имя, изображение и создадим его на удаленном сервере если его нет. Получим id ScreenResponse
-        screen, _ = ScreenResponse.objects.get_or_create(id=screen_id)
+
+        # Создание или получение скрина распознавания на удаленном сервере
+        screen = ScreenResponse.objects.get(id=screen_id)
+        image = screen.image.read()
+        files = {'image': image}
+        logger.info(f'Отправляем запрос Имя {screen.name}, источник {screen.source} картинка {screen.image}')
+        response = requests.post(REMOTE_SERVER + '/ocr/create_screen/',
+                                 data={'name': screen.name, 'source': screen.source},
+                                 files=files,
+                                 timeout=10)
+        logger.info(response.status_code)
+        data = response.json()
+        logger.info(f'response data: {data}')
+        remote_screen_id = data.get('id')
+        logger.info(f'Удаленный screen_id: {remote_screen_id}')
+
         # Создадим задачи для распознавания
         for i, pair in enumerate(pairs):
             remote_response_pair.delay(screen_id, remote_screen_id, pair)
 
             # if i > 1000:
             #     break
-        logger.info(f'Отправлено i пар в очередь')
+        logger.info(f'Отправлено {i} пар в очередь')
     except Exception as err:
         logger.error(err)
 
@@ -52,7 +68,7 @@ def remote_response_pair(screen_id: int, remote_screen_id: int, pair):
         part = ScreenResponsePart.objects.filter(screen=screen, black=black, white=white).exists()
         if part:
             return f'pair {pair} is present'
-        ENDPOINT = 'http://45.67.228.39/ocr/reponse_screen/'
+        ENDPOINT = REMOTE_SERVER + '/ocr/reponse_screen/'
 
         logger.info(f'Отправляем на {ENDPOINT} {screen_id} {pair}')
         response = requests.post(ENDPOINT, data={'id': remote_screen_id, 'black': black, 'white': white}, timeout=10)

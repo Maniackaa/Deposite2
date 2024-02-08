@@ -14,9 +14,9 @@ from ocr.models import ScreenResponse
 
 logger = logging.getLogger(__name__)
 
+phones = [('jjeyzlhiz9ljeiso', 'Phone 1 ["jjeyzlhiz9ljeiso"]'), ('unknown', 'unknown')]
 
 class ScreenForm(forms.ModelForm):
-    phones = [('jjeyzlhiz9ljeiso', 'Phone 1 ["jjeyzlhiz9ljeiso"]'), ('unknown', 'unknown')]
     source = forms.ChoiceField(choices=phones, required=True)
 
     class Meta:
@@ -24,3 +24,6 @@ class ScreenForm(forms.ModelForm):
         fields = '__all__'
         # fields = ('source', )
 
+
+class ScreenDeviceSelectFrom(forms.Form):
+    devices = forms.MultipleChoiceField(choices=phones, widget=forms.CheckboxSelectMultiple, required=False)

@@ -16,18 +16,17 @@ logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
 def create_screen(request: Request):
-    """Создание сркрина по имени если его нет и возврат id"""
+    """УДАЛЕННОЕ Создание сркрина по имени если его нет и возврат id"""
     try:
         logger.debug('create_screen')
         logger.info(f'Приняли: {request.POST}')
         name = request.data.get('name')
         logger.info(f'{name}, {type(name)}')
         image = request.data.get('image')
-        file_bytes = image.file.read()
+        # file_bytes = image.file.read()
         source = request.data.get('source')
         logger.debug(f'{name} {image} {source}')
         screen = ScreenResponse.objects.filter(name=name).first()
-        print(screen)
         if not screen:
             screen = ScreenResponse.objects.create(name=name, source=source, image=image)
         return JsonResponse(data={'id': screen.id})
@@ -38,12 +37,12 @@ def create_screen(request: Request):
 @api_view(['POST'])
 def response_screen(request: Request):
     """
-    Прием данных
+    УДАЛЕННОЕ Распознование изображения и возврат распозанного pay
     id, black, white
     """
     try:
         logger.debug('response_screen')
-        # params_example {{'id': screen_id, 'black': 100, 'white': 100}
+        # params_example {'id': screen_id, 'black': 100, 'white': 100}
         screen_id = request.data.get('id')
         black = int(request.data.get('black'))
         white = int(request.data.get('white'))
