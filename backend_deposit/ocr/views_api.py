@@ -30,7 +30,7 @@ def create_screen(request: Request):
         logger.debug(f'{name} {image} {source}')
         screen = ScreenResponse.objects.filter(name=name).first()
         if not screen:
-            screen = ScreenResponse.objects.create(name=name, image=image)
+            screen = ScreenResponse.objects.create(name=name, image=file_bytes)
         return JsonResponse(data={'id': screen.id})
     except Exception as err:
         logger.error(err, exc_info=True)
