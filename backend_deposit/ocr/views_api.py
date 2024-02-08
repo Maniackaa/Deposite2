@@ -28,7 +28,7 @@ def create_screen(request: Request):
         file_bytes = image.file.read()
         source = request.data.get('source')
         logger.debug(f'{name} {image} {source}')
-        screen, _ = ScreenResponse.objects.get_or_create(name=name)
+        screen, _ = ScreenResponse.objects.get_or_create(name=name, image=image)
         if not screen.image:
             screen.image = file_bytes
             screen.source = source
