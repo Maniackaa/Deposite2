@@ -27,7 +27,7 @@ def create_screen(request: Request):
         screen = ScreenResponse.objects.filter(name=name).first()
         if not screen:
             screen = ScreenResponse(name=name, source=source)
-            screen.image.save(name=f'{name}.jpg', content=image.file.read(), save=False)
+            screen.image.save(name=f'{name}.jpg', content=image.file, save=False)
             # screen = ScreenResponse.objects.create(name=name, source=source, image=image)
             screen.save()
         return JsonResponse(data={'id': screen.id})

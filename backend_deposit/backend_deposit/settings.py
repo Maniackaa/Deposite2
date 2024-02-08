@@ -193,7 +193,7 @@ LOGGING = {
         },
         'rotate': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/deposite_rotate.log',
+            'filename':'logs/deposite_rotate.log',
             'backupCount': 10,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
@@ -203,13 +203,13 @@ LOGGING = {
         },
         'celery_handler': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/celery_tasks.log',
+            'filename':  'logs/celery_tasks.log',
             'backupCount': 10,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
             'encoding': 'UTF-8',
             'formatter': 'default_formatter',
-            'level': 'WARNING',
+            'level': 'DEBUG',
         },
         'errors': {
             'class': 'logging.handlers.RotatingFileHandler',
@@ -250,7 +250,7 @@ LOGGING = {
         },
         'celery': {
             'handlers': ['celery_handler', 'console'],
-            'level': 'WARNING',
+            'level': 'DEBUG',
             'propagate': True,
         },
     }

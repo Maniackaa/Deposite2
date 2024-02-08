@@ -1,3 +1,5 @@
+import logging
+
 import requests
 from celery import shared_task, group, chunks
 from celery.utils.log import get_task_logger
@@ -8,7 +10,8 @@ from ocr.models import ScreenResponse, ScreenResponsePart
 
 
 User = get_user_model()
-logger = get_task_logger(__name__)
+# logger = get_task_logger('celery')
+logger = logging.getLogger('celery')
 
 
 @shared_task(priority=2)

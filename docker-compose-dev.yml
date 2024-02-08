@@ -76,7 +76,7 @@ services:
     container_name: celery
     build: ./backend_deposit
     restart: always
-    command: celery -A backend_deposit.celery:app worker -l warning -n myworker --concurrency=4
+    command: celery -A backend_deposit.celery:app worker -l warning -n myworker --concurrency=4 --logfile=logs/celery.log
     volumes:
       - media:/app/media/
       - ./logs/celery:/app/logs

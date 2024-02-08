@@ -1,11 +1,13 @@
 import itertools
 import logging
+
+import requests
 from django.db.models import Count
 
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, DetailView, UpdateView
 
-
+from backend_deposit.settings import REMOTE_SERVER
 from ocr.forms import ScreenForm, ScreenDeviceSelectFrom
 from ocr.models import ScreenResponse
 from ocr.tasks import response_parts
@@ -76,10 +78,21 @@ class ScreenListDetail(UpdateView, DetailView):
                 if pair in ready_pairs:
                     continue
                 empty_pairs.append(pair)
-            logger.info(f'Добавляем в очередь нераспозанных пар: {len(empty_pairs)} шт.')
-            # Создание таски по распознаванию
-            response_parts.delay(screen.id, empty_pairs)
-            logger.debug(f'Очередь отправлена')
+
+            image = screen.image.read()
+            files = {'image': image}
+            response = requests.post(REMOTE_SERVER + '/ocr/create_screen/',
+                                     data={'name': screen.name, 'source': screen.source},
+                                     files=files,
+                                     timeout=10)
+            logger.info(response)
+            logger.info(response.json())
+
+            #
+            # logger.info(f'Добавляем в очередь нераспозанных пар: {len(empty_pairs)} шт.')
+            # # Создание таски по распознаванию
+            # response_parts.delay(screen.id, empty_pairs)
+            # logger.debug(f'Очередь отправлена')
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
