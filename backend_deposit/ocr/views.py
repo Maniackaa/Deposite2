@@ -30,20 +30,20 @@ class ScreenListView(ListView):
         context = super().get_context_data(**kwargs)
         context['form'] = ScreenDeviceSelectFrom(self.request.GET)
         screens = self.get_queryset()
-        print(screens)
         # if not screens:
         #     return context
         all_values = range(0, 256)
-        # Итоговое множество общих хороших пар (black, white)
-        intersect = set(itertools.permutations(all_values, 2))
-        for screen in screens:
-            good_pairs = screen.good_pairs()
-            screen_good_pairs = set()
-            for good_pair in good_pairs:
-                pair = (good_pair.black, good_pair.white)
-                screen_good_pairs.add(pair)
-            intersect = intersect & screen_good_pairs
-        context['intersect'] = sorted(list(intersect))
+        if 'button1' in self.request.GET:
+            # Итоговое множество общих хороших пар (black, white)
+            intersect = set(itertools.permutations(all_values, 2))
+            for screen in screens:
+                good_pairs = screen.good_pairs()
+                screen_good_pairs = set()
+                for good_pair in good_pairs:
+                    pair = (good_pair.black, good_pair.white)
+                    screen_good_pairs.add(pair)
+                intersect = intersect & screen_good_pairs
+            context['intersect'] = sorted(list(intersect))
         return context
 
 
@@ -71,7 +71,6 @@ class ScreenListDetail(UpdateView, DetailView):
         all_values = range(0, 256)
         comb = list(itertools.permutations(all_values, 2))
         logger.info(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
-        num = 0
         if 'response_button' in self.request.POST:
             empty_pairs = []
             for pair in comb:
@@ -82,10 +81,6 @@ class ScreenListDetail(UpdateView, DetailView):
             # Создание таски по распознаванию
             response_parts.delay(screen.id, empty_pairs)
             logger.debug(f'Очередь отправлена')
-            # num += 1
-            # if num >= 100:
-            #     break
-
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
