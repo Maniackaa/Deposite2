@@ -41,19 +41,29 @@ def response_parts(screen_id: int, remote_screen_id: int, pairs: list):
 
 @shared_task(priority=3)
 def remote_response_pair(screen_id: int, remote_screen_id: int, pair):
-    ENDPOINT = 'http://45.67.228.39/ocr/reponse_screen/'
     black = pair[0]
     white = pair[1]
+    screen = ScreenResponse.objects.get(id=screen_id)
+    part = ScreenResponsePart.objects.filter(screen=screen, black=black, white=white).exists()
+    if part:
+        return f'pair {pair} is present'
+    ENDPOINT = 'http://45.67.228.39/ocr/reponse_screen/'
+
     logger.info(f'Отправляем на {ENDPOINT} {screen_id} {pair}')
     response = requests.post(ENDPOINT, data={'id': remote_screen_id, 'black': black, 'white': white}, timeout=10)
     logger.info(f'response: {response}')
     data = response.json()
     if data:
-        part, _ = ScreenResponsePart.objects.get_or_create(screen=screen_id, black=black, white=white)
-        part.update(**data)
+
+        part, _ = ScreenResponsePart.objects.get_or_create(screen=screen, black=black, white=white)
+        for name, values in data.items():
+            try:
+                setattr(part, name, values)
+            except KeyError:
+                pass
         part.save()
         print(part)
-        return part
+        return f'pair  {pair}  or screen {screen_id} created'
 
 
 # @shared_task(priority=3)
