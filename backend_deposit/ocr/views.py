@@ -102,8 +102,9 @@ class ScreenListDetail(UpdateView, DetailView):
             # Создание или получение скрина распознавания на удаленном сервере
             image = screen.image.read()
             files = {'image': image}
-            logger.info(f'Отправляем запрос {screen.name} {screen.source}')
+            logger.info(f'Отправляем запрос Имя {screen.name}, источник {screen.source} картинка {screen.image}')
             REMOTE_CREATE_RESPONSE_ENDPOINT = 'http://45.67.228.39/ocr/create_screen/'
+            # REMOTE_CREATE_RESPONSE_ENDPOINT = 'http://localhost/ocr/create_screen/'
             response = requests.post(REMOTE_CREATE_RESPONSE_ENDPOINT,
                                      data={'name': screen.name, 'source': screen.source},
                                      files=files,

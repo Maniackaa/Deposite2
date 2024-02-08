@@ -19,6 +19,7 @@ def create_screen(request: Request):
     """Создание сркрина по имени если его нет и возврат id"""
     try:
         logger.debug('create_screen')
+        logger.info(f'Приняли: {request.POST}')
         name = request.data.get('name')
         image = request.data.get('image')
         file_bytes = image.file.read()
