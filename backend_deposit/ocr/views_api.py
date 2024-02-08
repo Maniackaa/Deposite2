@@ -45,8 +45,8 @@ def response_screen(request: Request):
         logger.debug('response_screen')
         # params_example {{'id': screen_id, 'black': 100, 'white': 100}
         screen_id = request.data.get('id')
-        black = request.data.get('black')
-        white = request.data.get('white')
+        black = int(request.data.get('black'))
+        white = int(request.data.get('white'))
         logger.debug(f'Передан screen_id: {screen_id}')
         screen = ScreenResponse.objects.get(id=screen_id)
         file_bytes = screen.image.file.read()
