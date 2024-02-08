@@ -12,7 +12,7 @@ from django.views.generic import ListView, CreateView, DetailView, UpdateView
 
 from ocr.forms import ScreenForm
 from ocr.models import ScreenResponse
-from ocr.tasks import add_response_part_to_queue
+from ocr.tasks import response_parts
 
 logger = logging.getLogger(__name__)
 
@@ -113,8 +113,8 @@ class ScreenListDetail(UpdateView, DetailView):
             logger.info(f'response data: {data}')
             remote_screen_id = data.get('id')
             logger.info(remote_screen_id)
-            # add_response_part_to_queue.delay(screen.id, empty_pairs)
-            # logger.debug(f'Очередь отправлена')
+            response_parts.delay(screen.id, remote_screen_id, empty_pairs)
+            logger.debug(f'Очередь отправлена')
             # num += 1
             # if num >= 100:
             #     break

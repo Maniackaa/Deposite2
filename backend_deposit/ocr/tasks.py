@@ -26,37 +26,28 @@ logger = get_task_logger(__name__)
 
 
 @shared_task(priority=2)
-def add_response_part_to_queue(screen_id: int, pairs: list):
+def response_parts(screen_id: int, remote_screen_id: int, pairs: list):
     """Задача для отправки пар в очередь на распознавание"""
-    ENDPOINT = 'http://45.67.228.39/ocr/create_screen/'
+    ENDPOINT = 'http://45.67.228.39/ocr/reponse_screen/'
     logger.info(f'Для добавления в очередь передано {len(pairs)} пар для скрина {screen_id}')
     # Передадим имя, изображение и создадим его на удаленном сервере если его нет. Получим id ScreenResponse
     screen, _ = ScreenResponse.objects.get_or_create(id=screen_id)
-    logger.debug(screen)
-    image = screen.image.read()
-    files = {'image': image}
-    logger.debug(f'Отправляем запрос {screen.name} {screen.source}')
-    response = requests.post(ENDPOINT, data={'name': screen.name, 'source': screen.source}, files=files, timeout=10)
-    data = response.json()
-    logger.debug(f'response: {data}')
-    remote_screen_id = data.get('id')
     # Создадим задачи для распознавания
     for i, pair in enumerate(pairs):
-        remote_response_pair.delay(remote_screen_id, pair)
-        logger.debug(f'Отправлено {pair}')
+        remote_response_pair.delay(screen_id, remote_screen_id, pair)
+        logger.info(f'Отправлено {pair}')
         if i > 10:
             break
 
 
 @shared_task(priority=3)
-def remote_response_pair(screen_id: int, pair):
+def remote_response_pair(screen_id: int, remote_screen_id: int, pair):
     ENDPOINT = 'http://45.67.228.39/ocr/reponse_screen/'
-    logger.debug(f'Отправляем на {ENDPOINT} {screen_id} {pair}')
-
-    response = requests.post(ENDPOINT, data={'id': screen_id, 'black': pair[0], 'white': pair[1]}, timeout=10)
-    logger.debug(f'reaponse: {response}')
+    logger.info(f'Отправляем на {ENDPOINT} {screen_id} {pair}')
+    response = requests.post(ENDPOINT, data={'id': remote_screen_id, 'black': pair[0], 'white': pair[1]}, timeout=10)
+    logger.info(f'response: {response}')
     data = response.json()
-    logger.debug(f'data: {data}')
+    logger.info(f'data: {data}')
 
 
 # @shared_task(priority=3)
