@@ -2,6 +2,7 @@ import itertools
 import logging
 import time
 
+import requests
 from django.conf import settings
 from django.db.models import Count, Window, OuterRef, Q, F
 from django.shortcuts import render
@@ -98,8 +99,22 @@ class ScreenListDetail(UpdateView, DetailView):
                     continue
                 empty_pairs.append(pair)
             logger.info(f'Добавляем в очередь нераспозанных пар: {len(empty_pairs)} шт.')
-            add_response_part_to_queue.delay(screen.id, empty_pairs)
-            logger.debug(f'Очередь отправлена')
+            # Создание или получение скрина распознавания на удаленном сервере
+            image = screen.image.read()
+            files = {'image': image}
+            logger.info(f'Отправляем запрос {screen.name} {screen.source}')
+            REMOTE_CREATE_RESPONSE_ENDPOINT = 'http://45.67.228.39/ocr/create_screen/'
+            response = requests.post(REMOTE_CREATE_RESPONSE_ENDPOINT,
+                                     data={'name': screen.name, 'source': screen.source},
+                                     files=files,
+                                     timeout=10)
+            logger.info(response.status_code)
+            data = response.json()
+            logger.info(f'response data: {data}')
+            remote_screen_id = data.get('id')
+            logger.info(remote_screen_id)
+            # add_response_part_to_queue.delay(screen.id, empty_pairs)
+            # logger.debug(f'Очередь отправлена')
             # num += 1
             # if num >= 100:
             #     break

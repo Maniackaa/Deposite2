@@ -16,15 +16,22 @@ logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
 def create_screen(request: Request):
-    """Создание сркрина пл имени если его нет и возврат id"""
-    logger.debug('create_screen')
-    name = request.data.get('name')
-    image = request.data.get('image')
-    source = request.data.get('source')
-    logger.debug(f'{name} {image} {source}')
-    screen, _ = ScreenResponse.objects.get_or_create(name=name, image=image, source=source)
-    return JsonResponse(data={'id': screen.id})
-
+    """Создание сркрина по имени если его нет и возврат id"""
+    try:
+        logger.debug('create_screen')
+        name = request.data.get('name')
+        image = request.data.get('image')
+        file_bytes = image.file.read()
+        source = request.data.get('source')
+        logger.debug(f'{name} {image} {source}')
+        screen, _ = ScreenResponse.objects.get_or_create(name=name)
+        if not screen.image:
+            screen.image = file_bytes
+            screen.source = source
+            screen.save()
+        return JsonResponse(data={'id': screen.id})
+    except Exception as err:
+        logger.error(err)
 
 @api_view(['POST'])
 def response_screen(request: Request):

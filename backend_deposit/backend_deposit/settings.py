@@ -232,6 +232,11 @@ LOGGING = {
         },
     },
     'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': True
+        },
         'deposit': {
             'handlers': ['console', 'rotate', 'errors'],
             'level': 'DEBUG',
