@@ -21,16 +21,15 @@ def create_screen(request: Request):
         logger.debug('create_screen')
         logger.info(f'Приняли: {request.POST}')
         name = request.data.get('name')
-        print(name)
-        print(type(name))
         logger.info(f'{name}, {type(name)}')
         image = request.data.get('image')
         file_bytes = image.file.read()
         source = request.data.get('source')
         logger.debug(f'{name} {image} {source}')
         screen = ScreenResponse.objects.filter(name=name).first()
+        print(screen)
         if not screen:
-            screen = ScreenResponse.objects.create(name=name, source=source, image=file_bytes)
+            screen = ScreenResponse.objects.create(name=name, source=source, image=image)
         return JsonResponse(data={'id': screen.id})
     except Exception as err:
         logger.error(err, exc_info=True)
