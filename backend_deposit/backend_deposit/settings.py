@@ -201,15 +201,16 @@ LOGGING = {
             'formatter': 'default_formatter',
             'level': 'DEBUG',
         },
-        # 'celery': {
-        #     'class': 'logging.handlers.RotatingFileHandler',
-        #     'filename': 'logs/celery_task.log',
-        #     'backupCount': 10,
-        #     'maxBytes': 100 * 1024 * 1024,
-        #     'mode': 'a',
-        #     'encoding': 'UTF-8',
-        #     'formatter': 'default_formatter',
-        # },
+        'celery_handler': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/celery_tasks.log',
+            'backupCount': 10,
+            'maxBytes': 100 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'default_formatter',
+            'level': 'WARNING',
+        },
         'errors': {
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': 'logs/errors.log',
@@ -247,11 +248,11 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True
         },
-        # 'task_logger': {
-        #     'handlers': ['celery', 'console'],
-        #     'level': 'DEBUG',
-        #     'propagate': True,
-        # },
+        'celery': {
+            'handlers': ['celery_handler', 'console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
     }
 }
 
@@ -269,7 +270,7 @@ CELERY_RESULT_BACKEND = 'redis://redis:6379'
 CELERY_TIMEZONE = TIME_ZONE
 CELERYD_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_work.log")
 CELERYBEAT_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_beat.log")
-CELERYD_HIJACK_ROOT_LOGGER = True
+CELERYD_HIJACK_ROOT_LOGGER = False
 # CELERY_BEAT_SCHEDULE = {
 #     "check_macros": {
 #         "task": "deposit.tasks.check_macros",

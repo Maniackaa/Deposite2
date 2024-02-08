@@ -59,13 +59,10 @@ def response_screen(request: Request):
         else:
             return JsonResponse(data={})
 
-
     # Ошибка при обработке
     except Exception as err:
         logger.info(f'Ошибка при обработке скрина: {err}')
         logger.error(err, exc_info=True)
         logger.debug(f'{request.data}')
-        return HttpResponse(status=status.HTTP_400_BAD_REQUEST,
-                            reason=f'{err}',
-                            charset='utf-8')
+        return JsonResponse(data={'error': err})
 
