@@ -28,11 +28,9 @@ def create_screen(request: Request):
         file_bytes = image.file.read()
         source = request.data.get('source')
         logger.debug(f'{name} {image} {source}')
-        screen, _ = ScreenResponse.objects.get_or_create(name=name, image=image)
-        if not screen.image:
-            screen.image = file_bytes
-            screen.source = source
-            screen.save()
+        screen = ScreenResponse.objects.filter(name=name).first()
+        if not screen:
+            screen = ScreenResponse.objects.create(name=name, image=image)
         return JsonResponse(data={'id': screen.id})
     except Exception as err:
         logger.error(err, exc_info=True)
