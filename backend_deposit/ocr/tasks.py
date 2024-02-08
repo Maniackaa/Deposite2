@@ -35,21 +35,25 @@ def response_parts(screen_id: int, remote_screen_id: int, pairs: list):
     for i, pair in enumerate(pairs):
         remote_response_pair.delay(screen_id, remote_screen_id, pair)
         logger.info(f'Отправлено {pair}')
-        if i > 100:
+        if i > 1000:
             break
 
 
 @shared_task(priority=3)
 def remote_response_pair(screen_id: int, remote_screen_id: int, pair):
     ENDPOINT = 'http://45.67.228.39/ocr/reponse_screen/'
+    black = pair[0]
+    white = pair[1]
     logger.info(f'Отправляем на {ENDPOINT} {screen_id} {pair}')
-    response = requests.post(ENDPOINT, data={'id': remote_screen_id, 'black': pair[0], 'white': pair[1]}, timeout=10)
+    response = requests.post(ENDPOINT, data={'id': remote_screen_id, 'black': black, 'white': white}, timeout=10)
     logger.info(f'response: {response}')
     data = response.json()
     if data:
-        logger.info(f'data: {data} {type(data)}')
-        print(data, type(data))
-
+        part, _ = ScreenResponsePart.objects.get_or_create(screen=screen_id, black=black, white=white)
+        part.update(**data)
+        part.save()
+        print(part)
+        return part
 
 
 # @shared_task(priority=3)
