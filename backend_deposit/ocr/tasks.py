@@ -45,9 +45,10 @@ def remote_response_pair(screen_id: int, remote_screen_id: int, pair):
     logger.info(f'Отправляем на {ENDPOINT} {screen_id} {pair}')
     response = requests.post(ENDPOINT, data={'id': remote_screen_id, 'black': pair[0], 'white': pair[1]}, timeout=10)
     logger.info(f'response: {response}')
-    responsed_pay = response.json()
-    logger.info(f'data: {responsed_pay} {type(responsed_pay)}')
-    print(responsed_pay, type(responsed_pay))
+    data = response.json()
+    if data:
+        logger.info(f'data: {data} {type(data)}')
+        print(data, type(data))
 
 
 

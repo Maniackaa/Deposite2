@@ -51,10 +51,13 @@ def response_screen(request: Request):
         screen = ScreenResponse.objects.get(id=screen_id)
         file_bytes = screen.image.file.read()
         text = img_path_to_str(file_bytes, black=black, white=white)
-        logger.debug(f'Распознан текст: {text}')
-        pay = screen_text_to_pay(text)
-        logger.debug(f'Распознан pay: {pay}')
-        return JsonResponse(data=pay)
+        if text:
+            logger.debug(f'Распознан текст: {text}')
+            pay = screen_text_to_pay(text)
+            logger.debug(f'Распознан pay: {pay}')
+            return JsonResponse(data=pay)
+        else:
+            return JsonResponse(data={})
 
 
     # Ошибка при обработке
