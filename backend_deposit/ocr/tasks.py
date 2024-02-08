@@ -1,29 +1,15 @@
-import datetime
-import logging
-import time
-from copy import copy
-from pathlib import Path
-
-import cv2
-import numpy as np
-import pytesseract
 import requests
 from celery import shared_task, group, chunks
 from celery.utils.log import get_task_logger
-from django.conf import settings
 from django.contrib.auth import get_user_model
-from rest_framework import status
 
-from backend_deposit.settings import LOGGING
-from core.global_func import send_message_tg
-from deposit.models import Message, Setting
+from backend_deposit.settings import REMOTE_SERVER
 from ocr.models import ScreenResponse, ScreenResponsePart
-from ocr.screen_response import screen_text_to_pay
+
 
 User = get_user_model()
 logger = get_task_logger(__name__)
 
-REMOTE_SERVER = 'http://45.67.228.39'
 
 @shared_task(priority=2)
 def response_parts(screen_id: int, pairs: list):
@@ -69,7 +55,6 @@ def remote_response_pair(screen_id: int, remote_screen_id: int, pair):
         if part:
             return f'pair {pair} is present'
         ENDPOINT = REMOTE_SERVER + '/ocr/reponse_screen/'
-
         logger.info(f'Отправляем на {ENDPOINT} {screen_id} {pair}')
         response = requests.post(ENDPOINT, data={'id': remote_screen_id, 'black': black, 'white': white}, timeout=10)
         logger.info(f'response: {response}')

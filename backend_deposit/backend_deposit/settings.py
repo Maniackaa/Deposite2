@@ -278,3 +278,4 @@ CELERYD_HIJACK_ROOT_LOGGER = False
 #         "schedule": 10,
 #     },
 # }
+REMOTE_SERVER = os.getenv('REMOTE_SERVER')
