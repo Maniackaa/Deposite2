@@ -46,7 +46,7 @@ def response_screen(request: Request):
         # params_example {{'id': screen_id, 'black': 100, 'white': 100}
         screen_id = request.data.get('id')
         logger.debug(f'Передан screen_id: {screen_id}')
-        screen, _ = ScreenResponse.objects.get(id=screen_id)
+        screen = ScreenResponse.objects.get(id=screen_id)
         file_bytes = screen.image.file.read()
         text = img_path_to_str(file_bytes)
         logger.debug(f'Распознан текст: {text}')

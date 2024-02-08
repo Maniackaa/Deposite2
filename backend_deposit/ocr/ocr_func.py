@@ -46,11 +46,11 @@ def response_operations(fields: list[str], groups: tuple[str], response_fields, 
     return result
 
 
-def img_path_to_str(file_bytes):
+def img_path_to_str(file_bytes, black=47, white=242):
     try:
         nparr = np.frombuffer(file_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.COLOR_RGB2GRAY)
-        _, binary = cv2.threshold(img, 47, 242, cv2.THRESH_BINARY)
+        _, binary = cv2.threshold(img, black, white, cv2.THRESH_BINARY)
         string = pytesseract.image_to_string(binary, lang='rus')
         string = string.replace('\n', ' ')
         return string
