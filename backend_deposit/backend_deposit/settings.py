@@ -231,10 +231,20 @@ LOGGING = {
             'formatter': 'default_formatter',
             'level': 'DEBUG',
         },
+        'django_rotate': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/django_rotate.log',
+            'backupCount': 10,
+            'maxBytes': 100 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'default_formatter',
+            'level': 'WARNING',
+        }
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'django_rotate'],
             'level': 'WARNING',
             'propagate': True
         },

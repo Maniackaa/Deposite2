@@ -79,20 +79,19 @@ class ScreenListDetail(UpdateView, DetailView):
                     continue
                 empty_pairs.append(pair)
 
-            image = screen.image.read()
-            files = {'image': image}
-            response = requests.post(REMOTE_SERVER + '/ocr/create_screen/',
-                                     data={'name': screen.name, 'source': screen.source},
-                                     files=files,
-                                     timeout=10)
-            logger.info(response)
-            logger.info(response.json())
+            # image = screen.image.read()
+            # files = {'image': image}
+            # response = requests.post(REMOTE_SERVER + '/ocr/create_screen/',
+            #                          data={'name': screen.name, 'source': screen.source},
+            #                          files=files,
+            #                          timeout=10)
+            # logger.info(response)
+            # logger.info(response.json())
 
-            #
-            # logger.info(f'Добавляем в очередь нераспозанных пар: {len(empty_pairs)} шт.')
-            # # Создание таски по распознаванию
-            # response_parts.delay(screen.id, empty_pairs)
-            # logger.debug(f'Очередь отправлена')
+            logger.info(f'Добавляем в очередь нераспозанных пар: {len(empty_pairs)} шт.')
+            # Создание таски по распознаванию
+            response_parts.delay(screen.id, empty_pairs)
+            logger.debug(f'Очередь отправлена')
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
