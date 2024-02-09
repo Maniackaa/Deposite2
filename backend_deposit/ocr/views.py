@@ -2,6 +2,8 @@ import itertools
 import logging
 
 import requests
+from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count
 
 from django.urls import reverse_lazy
@@ -15,12 +17,13 @@ from ocr.tasks import response_parts
 logger = logging.getLogger(__name__)
 
 
-class ScreenListView(ListView):
+class ScreenListView(ListView, PermissionRequiredMixin):
 
     model = ScreenResponse
     template_name = 'ocr/ScreenList.html'
     paginate_by = 10
     ordering = ('-id',)
+    permission_required = ['ocr.screen_response.view']
 
     def get_queryset(self):
         form = ScreenDeviceSelectFrom(self.request.GET)
@@ -49,19 +52,21 @@ class ScreenListView(ListView):
         return context
 
 
-class ScreenCreateView(CreateView):
+class ScreenCreateView(PermissionRequiredMixin, CreateView):
 
     model = ScreenResponse
     template_name = 'ocr/ScreenCreate.html'
     form_class = ScreenForm
     success_url = reverse_lazy('ocr:screen_list')
+    permission_required = ['ocr.screen_response.view']
 
 
-class ScreenListDetail(UpdateView, DetailView):
+class ScreenListDetail(PermissionRequiredMixin, UpdateView, DetailView):
     model = ScreenResponse
     template_name = 'ocr/ScreenDetail.html'
     fields = '__all__'
     success_url = reverse_lazy('ocr:screen_list')
+    permission_required = ['ocr.screen_response.view']
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
