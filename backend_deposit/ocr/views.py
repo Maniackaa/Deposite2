@@ -72,10 +72,16 @@ class ScreenListDetail(UpdateView, DetailView):
         all_values = range(0, 256)
         comb = list(itertools.permutations(all_values, 2))
         logger.info(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
+        bad_pairs = []
+        black_range = range(0, 29)
+        white_range = range(0, 256)
+        for black in black_range:
+            for white in white_range:
+                bad_pairs.append((black, white))
         if 'response_button' in self.request.POST:
             empty_pairs = []
             for pair in comb:
-                if pair in ready_pairs:
+                if pair in ready_pairs or pair in bad_pairs:
                     continue
                 empty_pairs.append(pair)
 

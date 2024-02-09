@@ -1,4 +1,5 @@
 import logging
+import time
 
 import requests
 from celery import shared_task, group, chunks
@@ -18,8 +19,8 @@ logger = logging.getLogger('celery')
 def response_parts(screen_id: int, pairs: list):
     """Задача для отправки пар в очередь на распознавание"""
     try:
-        ENDPOINT = 'http://45.67.228.39/ocr/reponse_screen/'
         logger.info(f'Для добавления в очередь передано {len(pairs)} пар для скрина {screen_id}')
+        start = time.perf_counter()
         # Передадим имя, изображение и создадим его на удаленном сервере если его нет. Получим id ScreenResponse
 
         # Создание или получение скрина распознавания на удаленном сервере
@@ -40,10 +41,11 @@ def response_parts(screen_id: int, pairs: list):
         # Создадим задачи для распознавания
         for i, pair in enumerate(pairs):
             remote_response_pair.delay(screen_id, remote_screen_id, pair)
+            time.sleep(0.01)
 
             # if i > 1000:
             #     break
-        logger.info(f'Отправлено {i} пар в очередь')
+        logger.info(f'Отправлено {i} пар в очередь за {time.perf_counter() - start}')
     except Exception as err:
         logger.error(err)
 
