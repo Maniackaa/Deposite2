@@ -36,10 +36,10 @@
     </table>
 </div>
     Общие пары: {{ intersect|length }}
-{#    <div>{% for pair in intersect %}#}
-{#         {{ pair }}<br>#}
-{#         {% endfor %}#}
-{#    </div>#}
+    <div>{% for pair in intersect %}
+         {{ pair }}<br>
+         {% endfor %}
+    </div>
 {% include 'includes/paginator.html' %}
 <div class="col-md-3">
     <form method="get" enctype="multipart/form-data" action="{% url 'ocr:screen_list' %}">
