@@ -76,13 +76,13 @@ class ScreenListDetail(PermissionRequiredMixin, UpdateView, DetailView):
         ready_pairs = set((x['black'], x['white']) for x in pairs)
         all_values = range(0, 256)
         comb = list(itertools.permutations(all_values, 2))
-        logger.info(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
         bad_pairs = []
         black_range = range(0, 29)
         white_range = range(0, 256)
         for black in black_range:
             for white in white_range:
                 bad_pairs.append((black, white))
+        logger.info(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb) - len(bad_pairs)}')
         if 'response_button' in self.request.POST:
             empty_pairs = []
             for pair in comb:

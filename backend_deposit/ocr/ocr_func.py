@@ -46,7 +46,7 @@ def response_operations(fields: list[str], groups: tuple[str], response_fields, 
     return result
 
 
-def img_path_to_str(file_bytes, black=242, white=4):
+def img_path_to_str(file_bytes, black=251, white=2):
     try:
         nparr = np.frombuffer(file_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.COLOR_RGB2GRAY)
