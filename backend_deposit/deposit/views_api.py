@@ -9,7 +9,7 @@ from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
 from core.global_func import send_message_tg
-from ocr.ocr_func import img_path_to_str, make_after_incoming_save
+from ocr.ocr_func import bytes_to_str, make_after_incoming_save
 from deposit.models import BadScreen, Incoming, TrashIncoming, Setting
 from ocr.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
@@ -39,6 +39,7 @@ def screen(request: Request):
         image = request.data.get('image')
         worker = request.data.get('worker')
         name = request.data.get('name')
+        lang = request.data.get('lang', 'rus')
 
         if not image or not image.file:
             logger.info(f'Запрос без изображения')
@@ -47,7 +48,7 @@ def screen(request: Request):
                                 charset='utf-8')
 
         file_bytes = image.file.read()
-        text = img_path_to_str(file_bytes)
+        text = bytes_to_str(file_bytes, lang=lang)
         logger.debug(f'Распознан текст: {text}')
         pay = screen_text_to_pay(text)
         logger.debug(f'Распознан pay: {pay}')
@@ -183,7 +184,8 @@ def sms(request: Request):
         imei = post.get('imei')
         patterns = {
             'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
-            'sms2': r'.*Mebleg:(.+) AZN.*\nKart:(.*)\nTarix:(.*)\nMerchant:(.*)\nBalans:(.*) .*',
+            # 'sms2': r'.*Mebleg:(.+) AZN.*\nKart:(.*)\nTarix:(.*)\nMerchant:(.*)\nBalans:(.*) .*',
+            'sms2': r'.*Mebleg:(.+) AZN.*\n*Kart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
             'sms3': r'^.+[medaxil|mexaric] (.+?) AZN (.*)(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+Balance: (.+?) AZN.*',
             'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
             'sms5': r'.*Mebleg:(.+) AZN.*\n.*(\*\*\*.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',

@@ -13,6 +13,7 @@ urlpatterns = [
     path('screen_list/', views.ScreenListView.as_view(), name='screen_list'),
     path('create_screen/', views_api.create_screen, name='create_screen'),
     path('reponse_screen/', views_api.response_screen, name='response_screen'),
+    path('response_screen_atb/', views_api.response_screen_atb, name='response_screen_atb'),
     # path('', views.home, name='index'),
     ]
 

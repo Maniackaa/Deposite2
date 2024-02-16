@@ -1,13 +1,14 @@
-
+import json
 import logging
 
 from django.http import HttpResponse, JsonResponse
 from rest_framework import status
+
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
 from ocr.models import ScreenResponse
-from ocr.ocr_func import img_path_to_str
+from ocr.ocr_func import bytes_to_str
 
 from ocr.screen_response import screen_text_to_pay
 
@@ -50,7 +51,7 @@ def response_screen(request: Request):
         logger.debug(f'Передан screen_id: {screen_id}')
         screen = ScreenResponse.objects.get(id=screen_id)
         file_bytes = screen.image.file.read()
-        text = img_path_to_str(file_bytes, black=black, white=white)
+        text = bytes_to_str(file_bytes, black=black, white=white)
         if text:
             logger.debug(f'Распознан текст: {text}')
             pay = screen_text_to_pay(text)
@@ -66,3 +67,32 @@ def response_screen(request: Request):
         logger.debug(f'{request.data}')
         return JsonResponse(data={'error': err})
 
+
+@api_view(['POST'])
+def response_screen_atb(request: Request):
+    """
+    Распознавание байтов картинки с параметрами
+    black, white
+    """
+    try:
+        logger.debug('response_screen')
+        # params_example {'id': screen_id, 'black': 100, 'white': 100}
+        screen_id = request.data.get('id')
+        black = int(request.data.get('black'))
+        white = int(request.data.get('white'))
+        lang = request.data.get('lang', 'rus')
+        # logger.debug(f'Передан screen_id: {screen_id}')
+        # screen = ScreenResponse.objects.get(id=screen_id)
+        # file_bytes = screen.image.file.read()
+        image = request.data.get('image')
+        print(image)
+        text = bytes_to_str(image.read(), black=black, white=white, lang=lang)
+        print(text)
+        return JsonResponse(data=json.dumps(text, ensure_ascii=False), safe=False)
+
+    # Ошибка при обработке
+    except Exception as err:
+        logger.info(f'Ошибка при обработке response_screen_atb: {err}')
+        logger.error(err, exc_info=True)
+        logger.debug(f'{request.data}')
+        return JsonResponse(data={'error': err})

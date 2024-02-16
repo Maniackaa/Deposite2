@@ -46,12 +46,14 @@ def response_operations(fields: list[str], groups: tuple[str], response_fields, 
     return result
 
 
-def img_path_to_str(file_bytes, black=251, white=4):
+def bytes_to_str(file_bytes, black=251, white=4, lang='rus'):
     try:
+        # pytesseract.pytesseract.tesseract_cmd = r'/usr/local/bin/pytesseract'
         nparr = np.frombuffer(file_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.COLOR_RGB2GRAY)
         _, binary = cv2.threshold(img, black, white, cv2.THRESH_BINARY)
-        string = pytesseract.image_to_string(binary, lang='rus')
+        # string = pytesseract.image_to_string(binary, lang=lang, config='--psm 7 --oem 0')
+        string = pytesseract.image_to_string(binary, lang=lang)
         string = string.replace('\n', ' ')
         return string
     except Exception as err:

@@ -8,5 +8,7 @@ RUN pip install -r requirements.txt
 COPY . .
 COPY rus.traineddata /usr/share/tesseract-ocr/5/tessdata/
 COPY rus.traineddata /usr/share/tesseract-ocr/4.00/tessdata/
+COPY rus.traineddata /usr/local/share/tessdata/
+COPY rus.traineddata /usr/local/share/tessdata/
 RUN ["chmod", "u+x", "/app/entrypoint.sh"]
 #ENTRYPOINT ["/app/entrypoint.sh"]
