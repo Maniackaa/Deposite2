@@ -44,7 +44,7 @@ async def create_response_part(bytes, black, white) -> str:
     ENDPOINT = 'http://127.0.0.1/ocr/response_screen_atb/'
     remote_screen_id = 1
     async with aiohttp.ClientSession() as session:
-        async with session.post(ENDPOINT, data={'id': str(remote_screen_id), 'black': str(black), 'white': str(white), 'lang': 'rus', 'image': bytes}) as resp:
+        async with session.post(ENDPOINT, data={'id': str(remote_screen_id), 'black': str(black), 'white': str(white), 'lang': 'eng', 'image': bytes}) as resp:
             status = resp.status
             text = await resp.json()
     return text
@@ -69,7 +69,7 @@ async def create_response_part(bytes, black, white) -> str:
 
 
 async def main():
-    path = BASE_DIR / 'test' / 'ocr_test' / 'atb6.jpg'
+    path = BASE_DIR / 'test' / 'ocr_test' / 'atb2.jpg'
     # screen, _ = ScreenResponse.objects.get_or_create(name=path.name)
     # if not screen.image:
     #     screen.image.save(content=file, name=f'{path.name}', save=False)
