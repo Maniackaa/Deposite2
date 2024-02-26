@@ -1,5 +1,7 @@
 import datetime
 import logging
+from pathlib import Path
+
 import cv2
 import numpy as np
 import pytesseract
@@ -46,7 +48,7 @@ def response_operations(fields: list[str], groups: tuple[str], response_fields, 
     return result
 
 
-def bytes_to_str(file_bytes, black=251, white=4, lang='rus'):
+def bytes_to_str(file_bytes, black=175, white=255, lang='rus'):
     try:
         # pytesseract.pytesseract.tesseract_cmd = r'/usr/local/bin/pytesseract'
         nparr = np.frombuffer(file_bytes, np.uint8)
@@ -195,3 +197,42 @@ def make_after_save_deposit(instance):
     except Exception as err:
         logger.error(err, exc_info=True)
 
+
+def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, black=90, white=250, lang='eng',
+                             oem=0, psm=6, char_whitelist=None) -> str:
+    """
+    Функция распознает переданный файл (байты) или путь.
+    Parameters
+    ----------
+    source: картинка (байты или путь)
+    y_start: Начало по вертикали в %
+    y_end: Конец по вертикали в %
+    black
+    white
+    lang
+    oem: движок
+    psm
+
+    Returns
+    -------
+
+    """
+    # tespatch = Path('C:/') / 'Program Files' / 'Tesseract-OCR' / 'tesseract.exe'
+    # pytesseract.pytesseract.tesseract_cmd = tespatch.as_posix()
+    if isinstance(source, Path):
+        img = cv2.imdecode(np.fromfile(source, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
+    else:
+        img = cv2.imdecode(np.frombuffer(source, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
+    height, widht = img.shape
+    if y_start and y_end:
+        img = img[int(y_start / 100 * height):int(y_end / 100 * height), :]
+    _, binary = cv2.threshold(img, black, white, cv2.THRESH_BINARY)
+    # cv2.imwrite('preview.jpg', binary)
+    # cv2.imshow('imname', img)
+    # cv2.waitKey(0)
+    config = f'--psm {psm} --oem {oem}'
+    if char_whitelist:
+        config += f'-c tessedit_char_whitelist="{char_whitelist}"'
+    response_text = (pytesseract.image_to_string(img, lang=lang, config=config)).strip()
+    logger.info(response_text)
+    return response_text

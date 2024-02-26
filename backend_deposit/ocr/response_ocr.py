@@ -1,5 +1,6 @@
 import asyncio
 import itertools
+import re
 import time
 from copy import copy
 from io import BytesIO
@@ -49,6 +50,14 @@ async def create_response_part(bytes, black, white) -> str:
             text = await resp.json()
     return text
 
+async def create_atb_from_part(bytes, black, white, oem='0', psm='6') -> str:
+    ENDPOINT = 'http://localhost/ocr/response_screen_atb/'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(ENDPOINT,
+                                data={'black': str(black), 'white': str(white), 'lang': 'eng', 'oem': oem, 'psm': psm, 'image': bytes}) as resp:
+            status = resp.status
+            text = resp.reason
+    return text
 
 
     # response = requests.post(ENDPOINT, data={'id': remote_screen_id, 'black': black, 'white': white}, files=screen, timeout=10)
@@ -69,7 +78,18 @@ async def create_response_part(bytes, black, white) -> str:
 
 
 async def main():
-    path = BASE_DIR / 'test' / 'ocr_test' / 'atb2.jpg'
+    path = BASE_DIR / 'test' / 'ocr_test' / 'atb6.jpg'
+    print(path)
+    ready_pairs = []
+    if Path(f'{path.name}.txt').exists():
+        with open(f'{path.name}.txt', 'r', encoding='utf-8') as file:
+            for line in file.readlines():
+                print(line)
+                finded_pair = re.findall(r'(\d{1,3})-(\d{1,3})', line)
+                print(finded_pair)
+                if finded_pair:
+                    ready_pairs.append((int(finded_pair[0][0]), int(finded_pair[0][1])))
+        print(ready_pairs)
     # screen, _ = ScreenResponse.objects.get_or_create(name=path.name)
     # if not screen.image:
     #     screen.image.save(content=file, name=f'{path.name}', save=False)
@@ -77,18 +97,21 @@ async def main():
 
     # blacks = screen.parts.values('black', 'white')
     # ready_pairs = set((x['black'], x['white']) for x in blacks)
-    all_values = range(0, 256)
-    comb = list(itertools.permutations(all_values, 2))
+    # all_values = range(0, 256)
+    # comb = list(itertools.permutations(all_values, 2))
+    comb = []
+    for i in range(0, 256):
+        comb.append((i, 255))
     print(len(comb))
     # for x in comb:
     #     print(x)
     # print(f'Распознанных частей для {screen}: {len(ready_pairs)} из {len(comb)}')
     unready_pairs = []
     for num, pair in enumerate(comb):
-        # if pair in ready_pairs:
-        #     continue
+        if pair in ready_pairs:
+            continue
         unready_pairs.append(pair)
-
+    print(len(unready_pairs))
         # break
     chank = 10
     for i in range(0, len(unready_pairs), chank):
@@ -97,7 +120,9 @@ async def main():
         with open(path, "rb") as binary:
             binary = binary.read()
             for i in range(0, chank):
-                task = create_response_part(binary, black=pairs[i][0], white=pairs[i][1])
+                # task = create_response_part(binary, black=pairs[i][0], white=pairs[i][1])
+                task = create_atb_from_part(binary, black=pairs[i][0], white=pairs[i][1])
+                # create_atb_from_part
                 tasks.append(task)
             result = await asyncio.gather(*tasks)
             print(result)
@@ -111,7 +136,24 @@ async def main():
     # create_response_part(screen.id, black=251, white=4)
 
 
+async def main2():
+    for i in range(1, 8):
+        path = BASE_DIR / 'test' / 'ocr_test' / f'atb{i}.jpg'
+        with open(path, "rb") as binary:
+            binary = binary.read()
+            text = await create_atb_from_part(binary, 127, 255)
+            print(i, text)
+            try:
+                with open(f'result.txt', 'a', encoding='utf-8',) as file:
+                    file.write(f'{i} {str(text)}\n')
+            except Exception as err:
+                print('err:', err)
+
+    # create_response_part(screen.id, black=251, white=4)
+
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    # asyncio.run(main())
+    asyncio.run(main2())
     pass
 
