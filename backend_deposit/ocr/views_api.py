@@ -148,6 +148,7 @@ def receive_pay(request: Request):
         response_date = pay_dict.get('response_date')
         response_date = datetime.datetime.fromtimestamp(response_date)
         worker = request.data.get('worker')
+        sms_type = request.data.get('type')
         phone_name = request.data.get('phone_name')
         logger.info(f'Принят pay: {pay_dict} от телефона {phone_name} со станции {worker}')
         if pay > 0:
@@ -157,6 +158,8 @@ def receive_pay(request: Request):
                 pay=pay,
                 balance=balance,
                 recipient=phone_name,
+                type=sms_type,
+                worker=worker,
             )
             logger.info(f'{status} {new_pay}')
         elif pay < 0:
@@ -166,6 +169,8 @@ def receive_pay(request: Request):
                 pay=pay,
                 balance=balance,
                 recipient=bank_card,
+                type=sms_type,
+                worker=worker,
             )
             logger.info(f'{status} {new_pay}')
         return HttpResponse(status=HTTPStatus.OK)
