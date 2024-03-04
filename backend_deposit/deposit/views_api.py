@@ -89,7 +89,7 @@ def screen(request: Request):
                                     reason='Incoming duplicate',
                                     charset='utf-8')
             # Если статус отличается от 'успешно'
-            if pay_status.lower() != 'успешно':
+            if pay_status.lower().replace(' ', '') != 'успешно':
                 logger.warning(f'fПлохой статус: {pay}.')
                 # Проверяем на дубликат в BadScreen
                 is_duplicate = BadScreen.objects.filter(transaction=transaction_m10).exists()
