@@ -134,6 +134,41 @@ def response_screen_atb(request: Request):
         return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=err, charset='utf-8')
 
 
+
+@api_view(['POST'])
+def response_screen_m10(request: Request):
+    """
+    Новое Тестовое Распознавание байтов картинки m10 с параметрами
+    black, white
+    """
+    try:
+        black = int(request.data.get('black', 175))
+        white = int(request.data.get('white', 255))
+        logger.info(request.data.get('lang'))
+        lang = request.data.get('lang', 'eng')
+        oem = int(request.data.get('oem', 0))
+        psm = int(request.data.get('psm', 6))
+        image = request.data.get('image')
+        image_bytes = image.file.read()
+        logger.info(f'Параметры response_screen_m10: {black}-{white} {lang} {oem} {psm} {len(image_bytes)}b')
+        char_whitelist = '+- :;*0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+        responsed_text = response_text_from_image(image_bytes, black=black, white=white,
+                                                  oem=oem, psm=psm, lang=lang, char_whitelist=char_whitelist).strip()
+        text = f'({black}-{white}) {responsed_text}'
+        logger.info(f'Распозанано со скрина:\n{text}')
+        result = {
+            'text': responsed_text
+        }
+        # return HttpResponse(status=HTTPStatus.OK, reason=json.dumps(result, ensure_ascii=False), charset='utf-8')
+        return JsonResponse(data=result)
+
+    # Ошибка при обработке
+    except Exception as err:
+        logger.info(f'Ошибка при обработке response_screen_atb: {err}')
+        logger.error(err, exc_info=True)
+        return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=err, charset='utf-8')
+
+
 @api_view(['POST'])
 def receive_pay(request: Request):
     """Прием распознанного платежа
