@@ -13,7 +13,7 @@ from rest_framework.request import Request
 
 from deposit.models import Incoming
 from ocr.models import ScreenResponse
-from ocr.ocr_func import bytes_to_str, response_text_from_image
+from ocr.ocr_func import bytes_to_str, response_text_from_image, date_m10_response
 
 from ocr.screen_response import screen_text_to_pay
 
@@ -134,12 +134,10 @@ def response_screen_atb(request: Request):
         return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=err, charset='utf-8')
 
 
-
 @api_view(['POST'])
-def response_screen_m10(request: Request):
+def response_bank1(request: Request):
     """
-    Новое Тестовое Распознавание байтов картинки m10 с параметрами
-    black, white
+    Новое Тестовое Распознавание банка вместо atb
     """
     try:
         black = int(request.data.get('black', 175))
@@ -152,21 +150,27 @@ def response_screen_m10(request: Request):
         image_bytes = image.file.read()
         logger.info(f'Параметры response_screen_m10: {black}-{white} {lang} {oem} {psm} {len(image_bytes)}b')
         char_whitelist = '+- :;*0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
-        responsed_text = response_text_from_image(image_bytes, black=black, white=white,
+        responsed_text = response_text_from_image(image_bytes, y_start=20, y_end=35, black=black, white=white,
                                                   oem=oem, psm=psm, lang=lang, char_whitelist=char_whitelist).strip()
         text = f'({black}-{white}) {responsed_text}'
         logger.info(f'Распозанано со скрина:\n{text}')
+        bank_card, date, pay, balance = responsed_text.split('\n')
+        date = date_m10_response(date)
         result = {
-            'text': responsed_text
+            'response_date': date.timestamp(),
+            'bank_card': bank_card,
+            'pay': convert_atb_value(pay),
+            'balance': convert_atb_value(balance)
         }
+
         # return HttpResponse(status=HTTPStatus.OK, reason=json.dumps(result, ensure_ascii=False), charset='utf-8')
-        return JsonResponse(data=result)
+        return HttpResponse(status=HTTPStatus.OK, reason=json.dumps(result, ensure_ascii=True), charset='utf-8')
 
     # Ошибка при обработке
     except Exception as err:
         logger.info(f'Ошибка при обработке response_screen_atb: {err}')
         logger.error(err, exc_info=True)
-        return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=err, charset='utf-8')
+        return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason={'error': str(err)}, charset='utf-8')
 
 
 @api_view(['POST'])

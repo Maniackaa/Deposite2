@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import aiohttp
 
@@ -6,21 +7,22 @@ from backend_deposit.settings import BASE_DIR
 
 
 async def response_from_bytes(bytes, black, white, oem='0', psm='6') -> str:
-    ENDPOINT = 'http://localhost/ocr/response_screen_m10/'
+    ENDPOINT = 'http://localhost/ocr/response_bank1/'
     async with aiohttp.ClientSession() as session:
         async with session.post(ENDPOINT,
                                 data={'black': str(black), 'white': str(white), 'lang': 'rus', 'oem': oem, 'psm': psm, 'image': bytes}) as resp:
             status = resp.status
-            # print(status)
+            print(status)
             # text = resp.reason
             # print(text)
-            data = await resp.json()
-            text = data.get('text')
+            result = resp.reason
+            text = json.loads(result)
+            print(text)
     return text
 
 
 async def main():
-    path = BASE_DIR / 'test' / 'ocr_test' / 'm10c.jpg'
+    path = BASE_DIR / 'test' / 'ocr_test' / 'b5.jpg'
     with open(path, "rb") as binary:
         binary = binary.read()
         # for i in range(0, 256):
