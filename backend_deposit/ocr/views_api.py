@@ -146,16 +146,27 @@ def response_bank1(request: Request):
         lang = request.data.get('lang', 'eng')
         oem = int(request.data.get('oem', 0))
         psm = int(request.data.get('psm', 6))
+        # oem = 0
+        # psm = 7
         image = request.data.get('image')
         image_bytes = image.file.read()
         logger.info(f'Параметры response_screen_m10: {black}-{white} {lang} {oem} {psm} {len(image_bytes)}b')
         char_whitelist = '+- :;*0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
-        responsed_text = response_text_from_image(image_bytes, y_start=20, y_end=35, black=black, white=white,
-                                                  oem=oem, psm=psm, lang=lang, char_whitelist=char_whitelist).strip()
-        text = f'({black}-{white}) {responsed_text}'
-        logger.info(f'Распозанано со скрина:\n{text}')
-        bank_card, date, pay, balance = responsed_text.split('\n')
+        char_whitelist = '+- :;*0123456789'
+        # responsed_text = response_text_from_image(image_bytes, y_start=20, y_end=35, black=black, white=white,
+        #                                           oem=oem, psm=psm, lang=lang, char_whitelist=char_whitelist).strip()
+        # text = f'({black}-{white}) {responsed_text}'
+        # logger.info(f'Распозанано со скрина:\n{text}')
+        # bank_card, date, pay, balance = responsed_text.split('\n')
+        bank_card = response_text_from_image(image_bytes, y_start=21, y_end=24, black=black, white=white,
+                                                  oem=oem, psm=psm, lang=lang, strip=True).strip()
+        date = response_text_from_image(image_bytes, y_start=24, y_end=26, black=black, white=white,
+                                                  oem=oem, psm=psm, lang=lang, strip=True, char_whitelist=' :0123456789').strip()
         date = date_m10_response(date)
+        pay = response_text_from_image(image_bytes, y_start=26, y_end=29, black=black, white=white,
+                                                  oem=oem, psm=psm, lang=lang, strip=True).strip()
+        balance = response_text_from_image(image_bytes, y_start=29, y_end=32, black=black, white=white,
+                                       oem=oem, psm=psm, lang=lang, strip=True).strip()
         result = {
             'response_date': date.timestamp(),
             'bank_card': bank_card,

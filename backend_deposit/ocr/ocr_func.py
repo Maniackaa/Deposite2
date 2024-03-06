@@ -198,7 +198,7 @@ def make_after_save_deposit(instance):
         logger.error(err, exc_info=True)
 
 
-def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, black=90, white=250, lang='eng',
+def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, strip=False, black=90, white=250, lang='eng',
                              oem=0, psm=6, char_whitelist=None) -> str:
     """
     Функция распознает переданный файл (байты) или путь.
@@ -207,6 +207,7 @@ def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, bla
     source: картинка (байты или путь)
     y_start: Начало по вертикали в %
     y_end: Конец по вертикали в %
+    strip: обрезать ли 20% по краям
     black
     white
     lang
@@ -225,7 +226,10 @@ def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, bla
         img = cv2.imdecode(np.frombuffer(source, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
     height, widht = img.shape
     if y_start and y_end:
-        img = img[int(y_start / 100 * height):int(y_end / 100 * height), :]
+        if strip:
+            img = img[int(y_start / 100 * height):int(y_end / 100 * height), int(20 / 100 * widht):int(80 / 100 * widht)]
+        else:
+            img = img[int(y_start / 100 * height):int(y_end / 100 * height), :]
     _, binary = cv2.threshold(img, black, white, cv2.THRESH_BINARY)
     # cv2.imwrite('preview.jpg', binary)
     # cv2.imshow('imname', img)
