@@ -217,8 +217,8 @@ def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, bla
     -------
 
     """
-    tespatch = Path('C:/') / 'Program Files' / 'Tesseract-OCR' / 'tesseract.exe'
-    pytesseract.pytesseract.tesseract_cmd = tespatch.as_posix()
+    # tespatch = Path('C:/') / 'Program Files' / 'Tesseract-OCR' / 'tesseract.exe'
+    # pytesseract.pytesseract.tesseract_cmd = tespatch.as_posix()
     if isinstance(source, Path):
         img = cv2.imdecode(np.fromfile(source, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
     else:
@@ -228,8 +228,8 @@ def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, bla
         img = img[int(y_start / 100 * height):int(y_end / 100 * height), :]
     _, binary = cv2.threshold(img, black, white, cv2.THRESH_BINARY)
     # cv2.imwrite('preview.jpg', binary)
-    cv2.imshow('imname', img)
-    cv2.waitKey(0)
+    # cv2.imshow('imname', img)
+    # cv2.waitKey(0)
     config = f'--psm {psm} --oem {oem}'
     if char_whitelist:
         config += f'-c tessedit_char_whitelist="{char_whitelist}"'
