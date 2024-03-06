@@ -170,7 +170,7 @@ def response_bank1(request: Request):
     except Exception as err:
         logger.info(f'Ошибка при обработке response_screen_atb: {err}')
         logger.error(err, exc_info=True)
-        return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason={'error': str(err)}, charset='utf-8')
+        return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=json.dumps({'error': str(err)}, ensure_ascii=True), charset='utf-8')
 
 
 @api_view(['POST'])

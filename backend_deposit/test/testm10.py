@@ -13,8 +13,8 @@ async def response_from_bytes(bytes, black, white, oem='0', psm='6') -> str:
                                 data={'black': str(black), 'white': str(white), 'lang': 'rus', 'oem': oem, 'psm': psm, 'image': bytes}) as resp:
             status = resp.status
             print(status)
-            # text = resp.reason
-            # print(text)
+            text = resp.reason
+            print(text)
             result = resp.reason
             text = json.loads(result)
             print(text)
@@ -22,7 +22,7 @@ async def response_from_bytes(bytes, black, white, oem='0', psm='6') -> str:
 
 
 async def main():
-    path = BASE_DIR / 'test' / 'ocr_test' / 'b5.jpg'
+    path = BASE_DIR / 'test' / 'ocr_test' / 'b6.jpg'
     with open(path, "rb") as binary:
         binary = binary.read()
         # for i in range(0, 256):
