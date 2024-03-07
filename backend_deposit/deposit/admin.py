@@ -30,7 +30,7 @@ class BadScreenAdmin(admin.ModelAdmin):
 
 
 class DepositAdmin(admin.ModelAdmin):
-    list_display = ('id', 'register_time', 'change_time', 'uid', 'phone', 'pay_sum', 'input_transaction', 'status', 'pay_screen', 'confirmed_incoming')
+    list_display = ('id', 'register_time', 'change_time', 'uid', 'phone', 'pay_sum', 'balance', 'input_transaction', 'status', 'pay_screen', 'confirmed_incoming')
     list_filter = ('register_time', 'status')
     list_editable = ('status',)
     # radio_fields = {'status': admin.VERTICAL}
