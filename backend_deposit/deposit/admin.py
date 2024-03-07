@@ -13,7 +13,7 @@ class TrashIncomingAdmin(admin.ModelAdmin):
 
 class IncomingAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'register_date', 'response_date', 'recipient', 'sender', 'pay', 'transaction', 'confirmed_deposit', 'type', 'image', 'phone_serial', 'worker'
+        'id', 'register_date', 'response_date', 'recipient', 'sender', 'pay', 'balance', 'transaction', 'confirmed_deposit', 'type', 'image', 'phone_serial', 'worker'
     )
     list_filter = ('register_date', 'response_date',
                    ("register_date", DateRangeFilterBuilder()),
@@ -30,7 +30,7 @@ class BadScreenAdmin(admin.ModelAdmin):
 
 
 class DepositAdmin(admin.ModelAdmin):
-    list_display = ('id', 'register_time', 'change_time', 'uid', 'phone', 'pay_sum', 'balance', 'input_transaction', 'status', 'pay_screen', 'confirmed_incoming')
+    list_display = ('id', 'register_time', 'change_time', 'uid', 'phone', 'pay_sum', 'input_transaction', 'status', 'pay_screen', 'confirmed_incoming')
     list_filter = ('register_time', 'status')
     list_editable = ('status',)
     # radio_fields = {'status': admin.VERTICAL}
