@@ -2,12 +2,14 @@ import datetime
 import logging
 import re
 
+import pytz
 from django.conf import settings
 from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
+from backend_deposit.settings import TIME_ZONE
 from core.global_func import send_message_tg
 from ocr.ocr_func import bytes_to_str, make_after_incoming_save
 from deposit.models import BadScreen, Incoming, TrashIncoming, Setting
@@ -17,6 +19,7 @@ from ocr.text_response_func import response_sms1, response_sms2, response_sms3, 
     response_sms6, response_sms7, response_sms8
 
 logger = logging.getLogger(__name__)
+TZ = pytz.timezone(TIME_ZONE)
 
 
 @api_view(['POST'])
@@ -217,18 +220,28 @@ def sms(request: Request):
                 errors = responsed_pay.pop('errors')
                 break
 
-        # responsed_pay['message_url'] = message_url
-        #Добавим получателя если его нет
+        # Добавим получателя если его нет
         if not responsed_pay.get('recipient'):
             responsed_pay['recipient'] = imei
         if text_sms_type:
             logger.info(f'Сохраняем в базу{responsed_pay}')
-            is_duplicate = Incoming.objects.filter(
-                response_date=responsed_pay.get('response_date'),
-                sender=responsed_pay.get('sender'),
-                pay=responsed_pay.get('pay'),
-                balance=responsed_pay.get('balance')
-            ).exists()
+            if text_sms_type in ['sms8', 'sms7']:
+                # Шаблоны без времени
+                threshold = datetime.datetime.now(tz=TZ) - datetime.timedelta(hours=12)
+                is_duplicate = Incoming.objects.filter(
+                    sender=responsed_pay.get('sender'),
+                    pay=responsed_pay.get('pay'),
+                    balance=responsed_pay.get('balance'),
+                    register_date__gte=threshold
+                ).exists()
+            else:
+                is_duplicate = Incoming.objects.filter(
+                    response_date=responsed_pay.get('response_date'),
+                    sender=responsed_pay.get('sender'),
+                    pay=responsed_pay.get('pay'),
+                    balance=responsed_pay.get('balance')
+                ).exists()
+
             if is_duplicate:
                 logger.info('Дубликат sms:\n\n{text}')
                 msg = f'Дубликат sms:\n\n{text}'
