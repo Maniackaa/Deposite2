@@ -14,7 +14,7 @@ from deposit.models import BadScreen, Incoming, TrashIncoming, Setting
 from ocr.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
 from ocr.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
-    response_sms6, response_sms7
+    response_sms6, response_sms7, response_sms8
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +191,7 @@ def sms(request: Request):
             'sms5': r'.*Mebleg:(.+) AZN.*\n.*(\*\*\*.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
             'sms6': r'.*Mebleg:(.+) AZN.*\nHesaba medaxil: (.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
             'sms7': r'(.+) AZN.*\n(.+)\nBalans (.+) AZN\nKart:(.+)',
+            'sms8': r'.*Mebleg: (.+) AZN.*Merchant: (.*)\sBalans: (.*) AZN'
         }
         response_func = {
             'sms1': response_sms1,
@@ -200,6 +201,7 @@ def sms(request: Request):
             'sms5': response_sms5,
             'sms6': response_sms6,
             'sms7': response_sms7,
+            'sms8': response_sms8,
         }
         fields = ['response_date', 'recipient', 'sender', 'pay', 'balance',
                   'transaction', 'type']
@@ -216,7 +218,9 @@ def sms(request: Request):
                 break
 
         # responsed_pay['message_url'] = message_url
-
+        #Добавим получателя если его нет
+        if not responsed_pay.get('recipient'):
+            responsed_pay['recipient'] = imei
         if text_sms_type:
             logger.info(f'Сохраняем в базу{responsed_pay}')
             is_duplicate = Incoming.objects.filter(
