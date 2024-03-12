@@ -75,7 +75,7 @@ class Incoming(models.Model):
             yield field.verbose_name, field.value_to_string(self)
 
     def __str__(self):
-        string = f'Платеж {self.id}. Сумма: {self.pay}. {self.transaction}.  Депозит: {self.confirmed_deposit.id if self.confirmed_deposit else "-"}'
+        string = f'Платеж {self.id}. Сумма: {self.pay} ({self.balance}). {self.transaction}.  Депозит: {self.confirmed_deposit.id if self.confirmed_deposit else "-"}'
         return string
 
     def phone_serial(self):

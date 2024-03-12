@@ -201,28 +201,16 @@ def receive_pay(request: Request):
         sms_type = request.data.get('type')
         phone_name = request.data.get('phone_name')
         logger.info(f'Принят pay: {pay_dict} от телефона {phone_name} со станции {worker}')
-        if pay > 0:
-            new_pay, status = Incoming.objects.get_or_create(
-                response_date=response_date,
-                sender=bank_card,
-                pay=pay,
-                balance=balance,
-                recipient=phone_name,
-                type=sms_type,
-                worker=worker,
-            )
-            logger.info(f'{status} {new_pay}')
-        elif pay < 0:
-            new_pay, status = Incoming.objects.get_or_create(
-                response_date=response_date,
-                sender=phone_name,
-                pay=pay,
-                balance=balance,
-                recipient=bank_card,
-                type=sms_type,
-                worker=worker,
-            )
-            logger.info(f'{status} {new_pay}')
+        new_pay, status = Incoming.objects.get_or_create(
+            response_date=response_date,
+            sender=bank_card,
+            pay=pay,
+            balance=balance,
+            recipient=phone_name,
+            type=sms_type,
+            worker=worker,
+        )
+        logger.info(f'{status} {new_pay}')
         return HttpResponse(status=HTTPStatus.OK)
     except Exception as err:
         logger.error(err, exc_info=True)
