@@ -41,6 +41,12 @@ def date_response(data_text: str) -> datetime.datetime:
         return response_data
     except ValueError:
         pass
+    try:
+        native_datetime = datetime.datetime.strptime(data_text.strip(), '%H:%M %d.%m.%y') - datetime.timedelta(hours=1)
+        response_data = tz.localize(native_datetime)
+        return response_data
+    except ValueError:
+        pass
     except Exception as err:
         err_log.error(f'Ошибка распознавания даты из текста: {err}')
         raise err
