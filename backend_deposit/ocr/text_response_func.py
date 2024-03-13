@@ -355,6 +355,7 @@ def response_sms11(fields, groups) -> dict[str, str | float]:
     sms_type = 'sms11'
     try:
         result = response_operations(fields, groups, response_fields, sms_type)
+        result['pay'] = -result['pay']
         return result
     except Exception as err:
         err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
