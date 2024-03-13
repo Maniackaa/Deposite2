@@ -195,7 +195,7 @@ def sms(request: Request):
             'sms6': r'.*Mebleg:(.+) AZN.*\nHesaba medaxil: (.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
             'sms7': r'(.+) AZN.*\n(.+)\nBalans (.+) AZN\nKart:(.+)',
             'sms8': r'.*Mebleg: (.+) AZN.*Merchant: (.*)\sBalans: (.*) AZN',
-            'sms9': r'(.*)\\n(\d\d\d\d\*\*\d\d\d\d)\\nMedaxil\\n(.*) AZN\\n(\d\d:\d\d \d\d\.\d\d.\d\d)\\nBALANCE\\n(.*)AZN',
+            'sms9': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*)AZN',
             'sms10': r'(.*) (\d\d\d\d\*\*\d\d\d\d) Medaxil (.*) AZN BALANCE (.*) AZN (\d\d:\d\d \d\d\.\d\d.\d\d)',
             'sms11': r'Odenis (.*) AZN (.*) (\d\d\d\d\*\*\d\d\d\d) (\d\d:\d\d \d\d\.\d\d.\d\d) BALANCE (.*)',
 
