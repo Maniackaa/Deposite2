@@ -16,7 +16,7 @@ from deposit.models import BadScreen, Incoming, TrashIncoming, Setting
 from ocr.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
 from ocr.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
-    response_sms6, response_sms7, response_sms8
+    response_sms6, response_sms7, response_sms8, response_sms9, response_sms10, response_sms11
 
 logger = logging.getLogger(__name__)
 TZ = pytz.timezone(TIME_ZONE)
@@ -194,7 +194,11 @@ def sms(request: Request):
             'sms5': r'.*Mebleg:(.+) AZN.*\n.*(\*\*\*.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
             'sms6': r'.*Mebleg:(.+) AZN.*\nHesaba medaxil: (.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
             'sms7': r'(.+) AZN.*\n(.+)\nBalans (.+) AZN\nKart:(.+)',
-            'sms8': r'.*Mebleg: (.+) AZN.*Merchant: (.*)\sBalans: (.*) AZN'
+            'sms8': r'.*Mebleg: (.+) AZN.*Merchant: (.*)\sBalans: (.*) AZN',
+            'sms9': r'(.*) (\d\d\d\d\*\*\d\d\d\d) Medaxil (.*) AZN (\d\d:\d\d \d\d\.\d\d.\d\d) BALANCE (.*) AZN',
+            'sms10': r'(.*) (\d\d\d\d\*\*\d\d\d\d) Medaxil (.*) AZN BALANCE (.*) AZN (\d\d:\d\d \d\d\.\d\d.\d\d)',
+            'sms11': r'Odenis (.*) AZN (.*) (\d\d\d\d\*\*\d\d\d\d) (\d\d:\d\d \d\d\.\d\d.\d\d) BALANCE (.*)',
+
         }
         response_func = {
             'sms1': response_sms1,
@@ -205,6 +209,10 @@ def sms(request: Request):
             'sms6': response_sms6,
             'sms7': response_sms7,
             'sms8': response_sms8,
+            'sms9': response_sms9,
+            'sms10': response_sms10,
+            'sms11': response_sms11,
+
         }
         fields = ['response_date', 'recipient', 'sender', 'pay', 'balance',
                   'transaction', 'type']
