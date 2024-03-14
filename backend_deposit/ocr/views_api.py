@@ -200,7 +200,9 @@ def receive_pay(request: Request):
         worker = request.data.get('worker')
         sms_type = request.data.get('type')
         phone_name = request.data.get('phone_name')
-        logger.info(f'Принят pay: {pay_dict} от телефона {phone_name} со станции {worker}')
+        image = request.data.get('image')
+        name = request.data.get('name')
+        logger.info(f'Принят pay: {pay_dict} от телефона {phone_name} со станции {worker}.')
         new_pay, status = Incoming.objects.get_or_create(
             response_date=response_date,
             sender=bank_card,
@@ -211,6 +213,8 @@ def receive_pay(request: Request):
             worker=worker,
         )
         logger.info(f'{status} {new_pay}')
+        if status:
+            new_pay.image.save(name=name, content=image)
         return HttpResponse(status=HTTPStatus.OK)
     except Exception as err:
         logger.error(err, exc_info=True)
