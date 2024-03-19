@@ -57,6 +57,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.username
