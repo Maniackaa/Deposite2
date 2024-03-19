@@ -360,3 +360,28 @@ def response_sms11(fields, groups) -> dict[str, str | float]:
     except Exception as err:
         err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
         raise err
+
+
+def response_sms12(fields, groups) -> dict[str, str | float]:
+    """
+    Функия распознавания шаблона 12
+    Card-to-Card: 19.03.24 19:34 M10 ACCOUNT TO CARD, AZ Card: ****7297 amount: 1.00 AZN Fee: 0.00 Balance: -4.00 AZN. Thank you. BankofBaku
+    :param fields: ['recipient', 'sender', 'pay', 'balance', 'type']
+    :param groups: ('19.03.24 19:34', 'M10 ACCOUNT TO CARD,', '****7297', '1.00', '-4.00')
+    :return: dict[str, str | float]
+    """
+    logger.debug(f'fields:{fields} groups:{groups}')
+    response_fields = {
+        'response_date': {'pos': 0, 'func': date_response},
+        'sender':        {'pos': 1},
+        'recipient':     {'pos': 2},
+        'pay':           {'pos': 3, 'func': float_digital},
+        'balance':       {'pos': 4, 'func': float_digital},
+    }
+    sms_type = 'sms12'
+    try:
+        result = response_operations(fields, groups, response_fields, sms_type)
+        return result
+    except Exception as err:
+        err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
+        raise err
