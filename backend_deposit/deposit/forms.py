@@ -8,7 +8,7 @@ from django import forms
 from django.contrib.admin import widgets
 from django.core.exceptions import ValidationError
 from django.db import connection
-from django.db.models import Subquery
+from django.db.models import Subquery, Q
 from django.forms import CheckboxInput
 
 from .models import Deposit, Incoming, ColorBank
@@ -116,16 +116,19 @@ def get_choice(recepient_type='phone'):
                 #     pk__in=Subquery(q)).order_by('-register_date').all()
                 distinct_recipients = Incoming.objects.filter(
                     pk__in=Subquery(q), recipient__isnull=False).values('recipient').order_by('register_date')
-                phone_recipents = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
-                stars_recipents = distinct_recipients.filter(recipient__iregex=r'^\*\*\*')
                 if recepient_type == 'phone':
+                    phone_recipents = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
                     distinct_recipients = phone_recipents
                 elif recepient_type == 'stars':
+                    stars_recipents = distinct_recipients.filter(recipient__iregex=r'^\*\*\*')
                     distinct_recipients = stars_recipents
-                else:
-                    distinct_recipients = distinct_recipients.exclude(pk__in=phone_recipents.values('id')).exclude(pk__in=stars_recipents.values('id'))
+                elif recepient_type == 'card':
+                    phone_recipents = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
+                    stars_recipents = distinct_recipients.filter(recipient__iregex=r'^\*\*\*')
+                    distinct_recipients = distinct_recipients.filter(~Q(recipient__in=phone_recipents.values('recipient'))).filter(~Q(recipient__in=stars_recipents.values('recipient')))
                 distinct_recipients = copy([x for x in distinct_recipients])
-                for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
+                # for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
+                for incoming in distinct_recipients:
                     result.append((incoming['recipient'], incoming['recipient']))
         return result
     except Exception as err:
