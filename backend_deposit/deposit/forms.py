@@ -1,5 +1,6 @@
 import logging
 import re
+from copy import copy
 
 import colorfield.fields
 from colorfield.fields import ColorField
@@ -123,7 +124,7 @@ def get_choice(recepient_type='phone'):
                     distinct_recipients = stars_recipents
                 else:
                     distinct_recipients = distinct_recipients.exclude(pk__in=phone_recipents.values('id')).exclude(pk__in=stars_recipents.values('id'))
-                distinct_recipients = [x for x in distinct_recipients]
+                distinct_recipients = copy([x for x in distinct_recipients])
                 for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
                     result.append((incoming['recipient'], incoming['recipient']))
         return result
@@ -138,13 +139,13 @@ class MyFilterForm(forms.Form):
         # print('**********__init__ MyFilterForm')
         super(MyFilterForm, self).__init__(*args, **kwargs)
         if self.fields.get('my_filter'):
-            self.fields['my_filter'].choices = get_choice('phone')
-            self.fields['my_filter2'].choices = get_choice('card')
-            self.fields['my_filter3'].choices = get_choice('stars')
+            self.fields['my_filter'].choices = copy(get_choice('phone'))
+            self.fields['my_filter2'].choices = copy(get_choice('card'))
+            self.fields['my_filter3'].choices = copy(get_choice('stars'))
 
-    my_filter = forms.MultipleChoiceField(choices=get_choice('phone'), widget=forms.CheckboxSelectMultiple, required=False)
-    my_filter2 = forms.MultipleChoiceField(choices=get_choice('card'), widget=forms.CheckboxSelectMultiple, required=False)
-    my_filter3 = forms.MultipleChoiceField(choices=get_choice('stars'), widget=forms.CheckboxSelectMultiple,
+    my_filter = forms.MultipleChoiceField(choices=copy(get_choice('phone')), widget=forms.CheckboxSelectMultiple, required=False)
+    my_filter2 = forms.MultipleChoiceField(choices=copy(get_choice('card')), widget=forms.CheckboxSelectMultiple, required=False)
+    my_filter3 = forms.MultipleChoiceField(choices=copy(get_choice('stars')), widget=forms.CheckboxSelectMultiple,
                                            required=False)
 
 
