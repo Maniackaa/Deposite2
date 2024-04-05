@@ -11,24 +11,24 @@ background: linear-gradient(125deg, #207A89, #17A3BA 55%);
   font-family: Share Tech Mono;
   background-color: #9BA7B2;
   display: block;
-  padding 50px 100px;
+  padding 25px 100px;
   width: 350px;
   border-radius: 10px;
-  -webkit-box-shadow: 0px 0px 10px 0px rgba(0,0,0,1);
--moz-box-shadow: 0px 0px 10px 0px rgba(0,0,0,1);
-box-shadow: 0px 0px 10px 0px rgba(0,0,0,1);
+  -webkit-box-shadow: 0px 0px 10px 0px rgb(210, 50, 124);
+-moz-box-shadow: 0px 0px 10px 0px rgb(224, 20, 20);
+box-shadow: 0px 0px 10px 0px rgb(84, 239, 50);
   border: 1px solid grey;
     margin: auto;
   position: sticky;
   top: 0; left: 0; bottom: 0; right: 0;
   height: 215px;
-    background: linear-gradient(-125deg, #1D3349, #06121E 55%);
+    background: linear-gradient(-125deg, #1D3349, #2a70b0 55%);
 }
 
 .bank-logo svg {
   position: absolute;
   padding-left: 220px;
-  padding-top: 15px;
+  padding-top: 10px;
   max-width: 65px;
   opacity: 0.9;
 }
@@ -36,15 +36,16 @@ box-shadow: 0px 0px 10px 0px rgba(0,0,0,1);
 img.chip {
   max-width: 75px;
   position: absolute;
-  padding-top: 50px;
+  padding-top: 45px;
   padding-left: 25px
 }
 
 .mc {
   position: absolute;
-  max-width: 70px;
+  max-width: 380px;
   padding-top: 150px;
-  padding-left: 260px;
+  padding-left: 250px;
+  padding-right: 50px;
 }
 
 .title {
@@ -53,8 +54,8 @@ img.chip {
   font-size: 14px;
   font-weight: 200;
   opacity: 0.8;
-  padding-left: 20px;
-  padding-top: 20px;
+  padding-left: 10px;
+  padding-top: 10px;
   position: absolute;
   display: inline-block;
 }
@@ -73,7 +74,7 @@ img.chip {
 
 .number {
   display: inline-block;
-  padding-top: 70px;
+  padding-top: 60px;
     font-size: 28px;
     padding-left: 20px;
   position: relative;
@@ -82,7 +83,7 @@ img.chip {
 
 .name {
   font-size: 18px;
-  padding-left: 30px;
+  padding-left: 20px;
   text-shadow: -2px -1px 1px rgba(255,255,255,1),
                 1px 1px 1px rgba(0,0,0,1),
                 1px 0px 1px rgba(255,255,255,1),
@@ -90,7 +91,7 @@ img.chip {
                 -1px 1px 1px rgba(0,0,0,1);
   -webkit-text-stroke: 1px rgba(0,0,0,0.2);
   display: inline-block;
-  padding-bottom: 0px;
+  padding-bottom: 10px;
 }
 
 .small-type {
@@ -175,7 +176,7 @@ span {
 
 <div class="card-holder">
           <div class="card">
-            <span class="title">Bank of Ireland</span>
+            <span class="title">{{ payment.pay_requisite.card.card_bank }}</span>
             <span class="bank-logo"></span>
             <img class="chip" src="https://raw.githubusercontent.com/muhammederdem/credit-card-form/master/src/assets/images/chip.png">
             <img class="mc" src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/MasterCard_logo.png/320px-MasterCard_logo.png">
