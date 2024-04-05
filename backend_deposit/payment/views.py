@@ -3,6 +3,7 @@ import logging
 import random
 from http import HTTPStatus
 
+import requests
 import structlog
 from django.conf import settings
 from django.http import HttpResponse, QueryDict, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest
@@ -14,7 +15,7 @@ from django.views.generic import CreateView, DetailView, FormView, UpdateView, L
 
 from payment import forms
 from payment.forms import InvoiceForm, PaymentListConfirmForm
-from payment.models import Payment, PayRequisite
+from payment.models import Payment, PayRequisite, Shop
 
 logger = structlog.get_logger(__name__)
 
@@ -237,3 +238,91 @@ def java(request):
     pay: Payment = Payment.objects.first()  # Retrieve the first pay object
     data = get_time_remaining_data(pay)
     return render(request, 'payment/jaya.html', {'data': data})
+
+
+def send_request(request, *args, **kwargs):
+    http_host = request.META.get('HTTP_HOST')
+
+    CONTENT_LENGTH = request.META.get('CONTENT_LENGTH')
+    CONTENT_TYPE = request.META.get('CONTENT_TYPE')
+    HTTP_ACCEPT = request.META.get('HTTP_ACCEPT')
+    HTTP_ACCEPT_ENCODING = request.META.get('HTTP_ACCEPT_ENCODING')
+    HTTP_ACCEPT_LANGUAGE = request.META.get('HTTP_ACCEPT_LANGUAGE')
+    HTTP_HOST = request.META.get('HTTP_HOST')
+    HTTP_REFERER = request.META.get('HTTP_REFERER')
+    HTTP_USER_AGENT = request.META.get('HTTP_USER_AGENT')
+    QUERY_STRING = request.META.get('QUERY_STRING')
+    REMOTE_ADDR = request.META.get('REMOTE_ADDR')
+    REMOTE_HOST = request.META.get('REMOTE_HOST')
+    REMOTE_USER = request.META.get('REMOTE_USER')
+    REQUEST_METHOD = request.META.get('REQUEST_METHOD')
+    SERVER_NAME = request.META.get('SERVER_NAME')
+    SERVER_PORT = request.META.get('SERVER_PORT')
+    logger.info(CONTENT_LENGTH)
+    logger.info(CONTENT_TYPE)
+    logger.info(HTTP_ACCEPT)
+    logger.info(HTTP_ACCEPT_ENCODING)
+    logger.info(HTTP_ACCEPT_LANGUAGE)
+    logger.info(HTTP_HOST)
+    logger.info(HTTP_REFERER)
+    logger.info(HTTP_USER_AGENT)
+    logger.info(QUERY_STRING)
+    logger.info(REMOTE_ADDR)
+    logger.info(REMOTE_HOST)
+    logger.info(REMOTE_USER)
+    logger.info(REQUEST_METHOD)
+    logger.info(SERVER_NAME)
+    logger.info(SERVER_PORT)
+
+    context = {'http_host': request.META['HTTP_HOST']}
+    logger.debug(http_host)
+    shop: Shop = Shop.objects.get(pk=1)
+    url = shop.pay_success_redirect
+    logger.info(f'Requests to url: {url}')
+    try:
+        result = requests.get(url, data={'aaa': 'bbb'})
+        logger.info(result.status_code)
+    except Exception as err:
+        logger.error(err)
+
+    return render(request,
+                  template_name='payment/test_send.html',
+                  context=context
+                  )
+
+
+def receive_request(request, *args, **kwargs):
+    logger.info(f'receive_request: {request}', args=args, kwargs=kwargs)
+    CONTENT_LENGTH = request.META.get('CONTENT_LENGTH')
+    CONTENT_TYPE = request.META.get('CONTENT_TYPE')
+    HTTP_ACCEPT = request.META.get('HTTP_ACCEPT')
+    HTTP_ACCEPT_ENCODING = request.META.get('HTTP_ACCEPT_ENCODING')
+    HTTP_ACCEPT_LANGUAGE = request.META.get('HTTP_ACCEPT_LANGUAGE')
+    HTTP_HOST = request.META.get('HTTP_HOST')
+    HTTP_REFERER = request.META.get('HTTP_REFERER')
+    HTTP_USER_AGENT = request.META.get('HTTP_USER_AGENT')
+    QUERY_STRING = request.META.get('QUERY_STRING')
+    REMOTE_ADDR = request.META.get('REMOTE_ADDR')
+    REMOTE_HOST = request.META.get('REMOTE_HOST')
+    REMOTE_USER = request.META.get('REMOTE_USER')
+    REQUEST_METHOD = request.META.get('REQUEST_METHOD')
+    SERVER_NAME = request.META.get('SERVER_NAME')
+    SERVER_PORT = request.META.get('SERVER_PORT')
+    logger.info(CONTENT_LENGTH)
+    logger.info(CONTENT_TYPE)
+    logger.info(HTTP_ACCEPT)
+    logger.info(HTTP_ACCEPT_ENCODING)
+    logger.info(HTTP_ACCEPT_LANGUAGE)
+    logger.info(HTTP_HOST)
+    logger.info(HTTP_REFERER)
+    logger.info(HTTP_USER_AGENT)
+    logger.info(QUERY_STRING)
+    logger.info(REMOTE_ADDR)
+    logger.info(REMOTE_HOST)
+    logger.info(REMOTE_USER)
+    logger.info(REQUEST_METHOD)
+    logger.info(SERVER_NAME)
+    logger.info(SERVER_PORT)
+    return HttpResponse(status=HTTPStatus.OK)
+
+

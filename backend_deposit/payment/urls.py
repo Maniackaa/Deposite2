@@ -19,7 +19,8 @@ urlpatterns = [
     # path('test/<str:pk>/', views.test, name='test'),
     # path('java/', views.java, name='java'),
     path('invoice_test_start/', views.invoice_test, name='invoice_test'),
-
+    path('send_request/', views.send_request, name='send_request'),
+    path('receive_request/', views.receive_request, name='receive_request'),
     ]
 
 if settings.DEBUG:
