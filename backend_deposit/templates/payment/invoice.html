@@ -4,20 +4,20 @@
 {% block content %}
 <div class="container">
   <div class="row justify-content-center">
-        <div class="col-md-3 justify-content-center"><br>
+        <div class="col-auto justify-content-center"><br>
             <span>Проиведите оплату на сумму {{ payment.amount }} согласно инструкции<br></span><br>
             {% include 'includes/timer.html' %}
         </div>
   </div>
 
   <div class="row justify-content-md-center">
-        <div class="col-md-3">
+        <div class="col-auto">
         {% include 'payment/credit_card.html' %}
         </div>
   </div>
 
   <div class="row justify-content-md-center">
-          <div class="col-md-3 justify-center"><br>
+          <div class="col-auto justify-center"><br>
               <span>{{ payment.pay_requisite.info }}</span>
               <form method="POST" enctype="multipart/form-data">
                     {% csrf_token %}
@@ -29,7 +29,7 @@
   </div>
 
   <div class="row justify-content-md-center">
-          <div class="col-md-3">
+          <div class="col-auto">
               <span id="time_exp_info1" style="display: none"><p>Время вышло</p></span>
           </div>
   </div>
