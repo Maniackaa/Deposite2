@@ -45,15 +45,15 @@
             {% else %}
               <td>{{ payment.amount }}</td>
             {% endif %}
-            <td><nobr>{{ payment.status_str }}
-                {% if payment.status == 1 %}
-                <form method="post" action=''>
-                {% csrf_token %}
-                    <button name="cancel_payment" value="{{ payment.id }}" style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-danger btn-sm">X</button>
-                </form>
-                {% endif %}
-            </nobr>
-            </td>
+            <form method="post" action=''>
+            {% csrf_token %}
+              <td style="white-space: nowrap">{{ payment.status_str }}
+              {% if payment.status == 1 %}
+                 <button name="cancel_payment" value="{{ payment.id }}" style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-danger btn-sm">X</button>
+              {% endif %}
+              </td>
+            </form>
+
             <td>{{ payment.confirmed_amount|default_if_none:""  }}</td>
             <td>{{ payment.confirmed_time|default_if_none:"-"  }}</td>
             <td>{{ payment.change_time }}</td>
@@ -82,7 +82,7 @@
                            value="{{ payment.incoming.id }}"
                            name="incoming_id_value:{{ payment.id }}"
                            size="7">
-                    {% if payment.confirmed_amount %}
+                    {% if payment.status != 1 %}
                       <button disabled name="payment_id:{{ payment.id }}" type="submit" class="btn btn-warning btn-sm">---</button>
                      {% else %}
                         <button name="payment_id:{{ payment.id }}" type="submit" class="btn btn-warning btn-sm">OK</button>
