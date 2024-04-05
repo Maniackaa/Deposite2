@@ -84,6 +84,8 @@
 
   </nav>
     {% load mathfilters %}
+    {% if user.is_authenticated %}
+
     {% with user.profile.all_message_count|sub:user.profile.read_message_count as message_count %}
       <div class="container">
         <div class="row justify-content-start align-items-center">
@@ -94,7 +96,7 @@
         </div>
       </div>
     {% endwith %}
-
+    {% endif %}
 
 
 
