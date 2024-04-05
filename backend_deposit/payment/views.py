@@ -272,18 +272,21 @@ def send_request(request, *args, **kwargs):
     logger.info(f'REMOTE_USER: {REMOTE_USER}')
     logger.info(f'REQUEST_METHOD: {REQUEST_METHOD}')
     logger.info(f'SERVER_NAME: {SERVER_NAME}')
-    logger.info('SERVER_PORT: {SERVER_PORT}')
+    logger.info(f'SERVER_PORT: {SERVER_PORT}')
 
     context = {'http_host': request.META['HTTP_HOST']}
     logger.debug(http_host)
     shop: Shop = Shop.objects.get(pk=1)
-    url = shop.pay_success_redirect
+    print('--------------')
+    url = 'http://45.67.228.39/receive_request/'
+    logger.info(request)
     logger.info(f'Requests to url: {url}')
     try:
         result = requests.get(url, data={'aaa': 'bbb'})
         logger.info(result.status_code)
     except Exception as err:
         logger.error(err)
+
 
     return render(request,
                   template_name='payment/test_send.html',
