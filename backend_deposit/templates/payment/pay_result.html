@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Статус заявки{% endblock %}
+{% block content %}
+
+    <style type="text/css">
+	.st0{fill:#FFFFFF;}
+	body {
+background: linear-gradient(125deg, #207A89, #17A3BA 55%);
+}
+
+</style>
+
+<div class="container">
+
+  <div class="row justify-content-md-center">
+      <div class="col-md-6 mx-auto">
+          <h2>Статус платежа {{ payment.outer_order_id }}</h2>
+          <p>Сумма {{ payment.amount }}</p>
+          <p>Дата: {{ payment.create_at }}</p>
+          {% if payment.screenshot %}
+          <img class="img-thumbnail"  src="/media/{{payment.screenshot}}" width="400" height="800">
+          {% else %}
+          Отсутствует
+          {% endif %}
+            <p>Не позднее чем через 10 минут статус вашего должен измениться на 'Подтвержден'<p>
+            <p>Текущий статус вашего платежа: <b>{{ status }}</b></p>
+            {% if payment.confirmed_amount %}
+            <span>Подтвержденная сумма: {{ payment.confirmed_amount }}</span><br>
+            {% endif %}
+
+
+          {% if payment.shop.host %}
+                <span><a href="{{ payment.shop }}">Вернуться в магазин</a></span><br>
+{#            <span><a href="{% url 'payment:test' payment.id %}">Подтвердить (тест)</a></span>#}
+            {% endif %}
+      </div>
+  </div>
+
+</div>
+
+{% endblock %}
+

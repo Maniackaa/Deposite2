@@ -39,6 +39,13 @@
           Мусор
         </a>
       </li>
+      <li class="nav-item">
+        <a
+           class="nav-link {% if view_name == 'payment:payment_list' %}active{% endif %}"
+           href="{% url 'payment:payment_list' %}">
+          Заявки
+        </a>
+      </li>
     </ul>
   </div>
   {% endwith %}

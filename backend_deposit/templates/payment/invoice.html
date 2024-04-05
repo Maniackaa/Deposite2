@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Оплата
+{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-md-center">
+        <div class="col-md-6"><br>
+            <span>Проиведите оплату на сумму {{ payment.amount }} согласно инструкции<br></span><br>
+            {% include 'includes/timer.html' %}
+        </div>
+  </div>
+
+  <div class="row justify-content-md-center">
+        <div class="col-md-6">
+        {% include 'payment/credit_card.html' %}
+        </div>
+  </div>
+
+  <div class="row justify-content-md-center">
+          <div class="col-md-6"><br>
+              <span>{{ payment.pay_requisite.info }}</span>
+              <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                      {% include 'includes/form_fields.html' %}
+                    <input id="confirm_btn" class="btn btn-success btn-lg" type="submit" value="Оплатил и приложил чек">
+                </form>
+          </div>
+
+  </div>
+
+  <div class="row justify-content-md-center">
+          <div class="col-md-6">
+              <span id="time_exp_info1" style="display: none"><p>Время вышло</p></span>
+          </div>
+  </div>
+
+</div>
+
+
+
+
+
+{% endblock %}
+

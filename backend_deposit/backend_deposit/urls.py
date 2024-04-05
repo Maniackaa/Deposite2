@@ -6,6 +6,7 @@ from django.contrib.auth import views as auth_views
     # path('api/', include('api.urls')),
 urlpatterns = [
     path('', include('deposit.urls', namespace='deposit')),
+    path('', include('payment.urls', namespace='payment')),
     path('admin/', admin.site.urls),
     path('auth/', include('users.urls', namespace='users')),
     path('ocr/', include('ocr.urls', namespace='ocr')),
@@ -14,3 +15,4 @@ urlpatterns = [
 
 
 handler403 = 'core.views.permission_denied'
+handler500 = 'core.views.server_error'

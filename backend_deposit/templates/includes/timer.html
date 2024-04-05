@@ -1,0 +1,79 @@
+<style>
+    {#body {#}
+    {#    font-family: Arial, sans-serif;#}
+    {#}#}
+
+    h1 {
+        color: #333;
+    }
+
+    #timer {
+        background-color: #dadada;
+        text-align: center;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin: 20px auto;
+        max-width: 300px;
+    }
+
+    #countdown {
+        font-size: 24px;
+        font-weight: bold;
+        color: #e44d26;
+    }
+
+    #event {
+        {#font-size: 34px;#}
+        font-weight: bold;
+        color: #221d1c;
+    }
+</style>
+
+    <div id="timer">
+        <h3 id="event">{{ data.name }}</h3>
+        <h4>Time Remaining:</h4>
+        <div id="countdown">
+            {{ data.hours|stringformat:"02d" }} : {{ data.minutes|stringformat:"02d" }} : {{ data.seconds|stringformat:"02d" }}
+        </div>
+    </div>
+
+<script>
+    // Function to update the countdown timer
+    function updateTimer() {
+        var hours = parseInt(document.getElementById('countdown').textContent.split(':')[0]);
+        var minutes = parseInt(document.getElementById('countdown').textContent.split(':')[1]);
+        var seconds = parseInt(document.getElementById('countdown').textContent.split(':')[2]);
+
+        if (seconds > 0) {
+            seconds--;
+        } else {
+            if (minutes > 0) {
+                minutes--;
+                seconds = 59;
+            } else {
+                if (hours > 0) {
+                    hours--;
+                    minutes = 59;
+                    seconds = 59;
+                } else {
+                    // Timer has reached zero, you can handle this case as needed
+                    var element1 = document.getElementById('confirm_btn');
+                    var element2 = document.getElementById('time_exp_info1');
+                    element1.style.display = "none";
+                    element2.style.display = "block";
+                }
+            }
+        }
+
+        // Update the timer display
+        document.getElementById('countdown').textContent =
+            (hours < 10 ? '0' : '') + hours + ' : ' +
+            (minutes < 10 ? '0' : '') + minutes + ' : ' +
+            (seconds < 10 ? '0' : '') + seconds;
+    }
+
+    // Update the timer every second
+    {#window.onload = updateTimer#}
+    setInterval(updateTimer, 1000);
+</script>

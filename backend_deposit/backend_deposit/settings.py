@@ -2,8 +2,10 @@ import os
 from pathlib import Path
 
 import pytz
+import structlog
 from celery.schedules import crontab
 from dotenv import load_dotenv
+from structlog.typing import WrappedLogger, EventDict
 
 load_dotenv()
 
@@ -24,6 +26,9 @@ MY_APPS = [
     'mathfilters',
     'celery',
     'django_celery_beat',
+    'payment.apps.PaymentConfig',
+    'django_structlog'
+
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
@@ -48,7 +53,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware'
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
+    # 'django_structlog.middlewares.RequestMiddleware',
+    'better_exceptions.integrations.django.BetterExceptionsMiddleware',
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -170,101 +177,120 @@ REST_FRAMEWORK = {
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
 
+
+
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'default_formatter': {
-            'format': '[%(asctime)s] #%(levelname)-8s %(filename)s:%(lineno)d %(module)s/%(funcName)s\n%(message)s',
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    "formatters": {
+        "json_formatter": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.processors.JSONRenderer(),
+        },
+        "plain_console": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.dev.ConsoleRenderer(),
         },
     },
-    'handlers': {
-        # 'file': {
-        #     'level': 'DEBUG',
-        #     'class': 'logging.FileHandler',
-        #     'filename': 'logs/log.log',
-        #     'formatter': 'default_formatter',
-        #
-        # },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'default_formatter',
+    "handlers": {
+        "null": {
+            "class": "logging.NullHandler",
         },
-        'rotate': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename':'logs/deposite_rotate.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
-            'level': 'DEBUG',
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "plain_console",
+            # 'filters': ['skip_errors'],
         },
-        'celery_handler': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename':  'logs/celery_tasks.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
-            'level': 'DEBUG',
+        "json_file": {
+            "class": "logging.handlers.WatchedFileHandler",
+            "filename": "logs/json.log",
+            "formatter": "json_formatter",
         },
-        'errors': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/errors.log',
-            'backupCount': 10,
-            'maxBytes': 10 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
-            'level': 'ERROR',
+        "console_file": {
+            "class": "logging.handlers.WatchedFileHandler",
+            "filename": "logs/console.log",
+            "formatter": "plain_console",
         },
-        'ocr_rotate': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/ocr_rotate.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
-            'level': 'DEBUG',
+        "root_handler": {
+            "class": "logging.handlers.WatchedFileHandler",
+            "filename": "logs/root.log",
+            "formatter": "plain_console",
         },
-        'django_rotate': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/django_rotate.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
-            'level': 'WARNING',
-        }
     },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'django_rotate'],
-            'level': 'WARNING',
-            'propagate': True
+    "loggers": {
+        "django.request": {
+            "handlers": ["null"],
+            "propagate": False,
         },
-        'deposit': {
-            'handlers': ['console', 'rotate', 'errors'],
-            'level': 'DEBUG',
-            'propagate': True
+        "payment": {
+            "handlers": ["console", "console_file"],
+            "level": "DEBUG",
+            "propagate": False,
         },
-        'ocr': {
-            'handlers': ['console', 'ocr_rotate', 'errors'],
-            'level': 'DEBUG',
-            'propagate': True
+        "root": {
+            "handlers": [],
+            "level": "WARNING",
+            "propagate": False,
         },
-        'celery': {
-            'handlers': ['celery_handler', 'console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    }
+
+
+    },
 }
+
+
+class LogJump:
+    def __init__(
+            self,
+            full_path: bool = False,
+    ) -> None:
+        self.full_path = full_path
+
+    def __call__(
+            self, logger: WrappedLogger, name: str, event_dict: EventDict
+    ) -> EventDict:
+        if self.full_path:
+            file_part = "\n" + event_dict.pop("pathname")
+        else:
+            file_part = event_dict.pop("filename")
+        event_dict["location"] = f'"{file_part}:{event_dict.pop("lineno")}"'
+
+        return event_dict
+
+
+base_structlog_processors = [
+    structlog.contextvars.merge_contextvars,
+    structlog.stdlib.add_logger_name,
+    structlog.stdlib.add_log_level,
+    structlog.stdlib.filter_by_level,
+    # Perform %-style formatting.
+    structlog.stdlib.PositionalArgumentsFormatter(),
+    # Add a timestamp in ISO 8601 format.
+    structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+    structlog.processors.StackInfoRenderer(),
+    # If some value is in bytes, decode it to a unicode str.
+    structlog.processors.UnicodeDecoder(),
+    # Add callsite parameters.
+    structlog.processors.CallsiteParameterAdder(
+        {
+            structlog.processors.CallsiteParameter.FILENAME,
+            structlog.processors.CallsiteParameter.FUNC_NAME,
+            structlog.processors.CallsiteParameter.LINENO,
+        }
+    ),
+]
+
+base_structlog_formatter = [structlog.stdlib.ProcessorFormatter.wrap_for_formatter]
+
+structlog.configure(
+    processors=base_structlog_processors + base_structlog_formatter,  # type: ignore
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
+
+os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
+
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_IDS = os.getenv('ADMIN_IDS').split(',')
@@ -289,3 +315,5 @@ CELERYD_HIJACK_ROOT_LOGGER = False
 #     },
 # }
 REMOTE_SERVER = os.getenv('REMOTE_SERVER')
+
+print('DEBUG-', DEBUG)
