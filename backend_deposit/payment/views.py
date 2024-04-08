@@ -101,7 +101,10 @@ def invoice(request, *args, **kwargs):
             )
             logger.debug(f'payment, status: {payment} {status}')
         except Exception as err:
-            raise err
+            logger.error(err)
+            return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not correct data',
+                                          content='Not correct data'
+                                          )
         if payment.status > 0 or payment.status == -1:
             return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
 
@@ -138,7 +141,7 @@ def invoice(request, *args, **kwargs):
             logger.debug(f'{form.errors}')
             context = {'form': form, 'payment': payment, 'status': payment.PAYMENT_STATUS[payment.status]}
             return render(request, context=context, template_name='payment/invoice.html')
-    logger.critical('афй')
+    logger.critical('Необработанный путь')
 
 
 class PayResultView(DetailView):
@@ -327,7 +330,8 @@ def send_request(request, *args, **kwargs):
     shop: Shop = Shop.objects.get(pk=1)
     print('--------------')
     # url = 'http://45.67.228.39/receive_request/'
-    url = 'http://127.0.0.1:8000/receive_request/'
+    # url = 'http://127.0.0.1:8000/receive_request/'
+    url = 'http://asu=payme.com/receive_request/'
     logger.info(request)
     logger.info(f'Requests to url: {url}')
     try:
