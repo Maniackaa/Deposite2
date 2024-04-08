@@ -83,14 +83,14 @@ def invoice(request, *args, **kwargs):
         user_login = request.GET.get('user_login')
         amount = request.GET.get('amount')
         pay_type = request.GET.get('pay_type')
-        logger.debug(f'GET {shop_id} {outer_order_id} {user_login} {amount} {pay_type}')
+        logger.debug(f'GET {shop_id} {outer_order_id} {user_login} {amount} {pay_type}'
+                     f' {request.META.get("HTTP_REFERER")}')
         required_key = ['shop_id', 'outer_order_id', 'user_login', 'amount', 'pay_type']
         # Проверяем наличие всех данных для создания платежа
         for key in required_key:
             if key not in request.GET:
                 return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not enough info for create pay',
-                                              content='Not enough info for create pay'
-                                              )
+                                              content='Not enough info for create pay')
         logger.debug('Key ok')
         try:
             payment, status = Payment.objects.get_or_create(
@@ -116,7 +116,6 @@ def invoice(request, *args, **kwargs):
 
         # Сохраняем реквизит к платежу
         if not payment.pay_requisite:
-            requisite = get_pay_requisite(pay_type)
             payment.pay_requisite = requisite
             payment.save()
 

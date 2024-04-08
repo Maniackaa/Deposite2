@@ -1,6 +1,7 @@
 import logging
 import uuid
 
+import requests
 import structlog
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
@@ -128,3 +129,11 @@ def after_save_pay(sender, instance: Payment, created, raw, using, update_fields
     # Если статус изменился с 2 на 3 (потвержден):
     if instance.status == 2 and instance.cached_status == 1:
         logger.debug('Выполняем действие полсле подтверждения платежа')
+        shop: Shop = instance.shop
+        url = shop.pay_success_redirect
+        logger.info(f'Requests to url: {url}')
+        try:
+            result = requests.post(url, data={'result': 'test_request', 'order_id': instance.outer_order_id})
+            logger.info(result.status_code)
+        except Exception as err:
+            logger.error(err)
