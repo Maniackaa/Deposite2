@@ -48,13 +48,14 @@
            <th>Pay</th>
            <th>Б</th>
            <th>Тр-я</th>
+           <th>Pay-t</th>
            <th>Бирпай</th>
        </tr>
      </thead>
      <tbody style="text-align: end" >
          {% for incoming in page_obj %}
          <tr title="{{incoming.comment|default_if_none:'' }}" id="pay{{ incoming.id }}"
-                 {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-'%}
+                 {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-' or incoming.confirmed_payment != None %}
                  class="table-success"
                  {% endif %}>
 
@@ -78,17 +79,18 @@
             </td>
 
             <td title="{{ incoming.transaction }}">{{ incoming.transaction|default_if_none:""|make_list|slice:'-4:'|join:'' }}</td>
+            <td>{{ incoming.confirmed_payment.short_id }}</td>
 
          {% load l10n %}
          {% localize off %}
             <td class="text-nowrap">
                 <form action="{% url 'deposit:incomings' %}" method="post">
                                     {% csrf_token %}
-                    <input type="text" style="margin-bottom: -10px; margin-top: -10px; font-size: 14px; height: 20px" minlength="0" maxlength="12" size="9"  value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
-
-                    {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-' %}
+                    {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-' or  incoming.confirmed_payment != None %}
+                        <input type="text" style="margin-bottom: -10px; margin-top: -10px; font-size: 14px; height: 20px" minlength="0" maxlength="12" size="9"  value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
                       <button disabled style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-success btn-sm">---</button>
                     {% else %}
+                        <input type="text" style="margin-bottom: -10px; margin-top: -10px; font-size: 14px; height: 20px" minlength="0" maxlength="12" size="9"  value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
                       <button style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-warning btn-sm">Ok</button>
                     {% endif %}
                 </form>

@@ -61,6 +61,7 @@ class Incoming(models.Model):
     birpay_confirm_time = models.DateTimeField('Время подтверждения', null=True, blank=True)
     birpay_edit_time = models.DateTimeField('Время ручной корректировки', null=True, blank=True)
     confirmed_deposit = models.OneToOneField('Deposit', null=True, blank=True, on_delete=models.SET_NULL)
+    confirmed_payment = models.OneToOneField('payment.Payment', null=True, blank=True, on_delete=models.SET_NULL)
     birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
 

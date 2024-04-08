@@ -9,12 +9,14 @@ from django.conf import settings
 from django.http import HttpResponse, QueryDict, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.response import TemplateResponse
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, FormView, UpdateView, ListView
 
+from deposit.models import Incoming
 from payment import forms
-from payment.forms import InvoiceForm, PaymentListConfirmForm
+from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm
 from payment.models import Payment, PayRequisite, Shop
 
 logger = structlog.get_logger(__name__)
@@ -109,7 +111,7 @@ def invoice(request, *args, **kwargs):
             # Перенаправляем на извинения
             return redirect(reverse('payment:payment_type_not_worked'))
 
-        # Сохраняем реквизит к рлатежу
+        # Сохраняем реквизит к платежу
         if not payment.pay_requisite:
             requisite = get_pay_requisite(pay_type)
             payment.pay_requisite = requisite
@@ -156,7 +158,7 @@ class PaymentListView(ListView):
     template_name = 'payment/payment_list.html'
     model = Payment
     fields = ('confirmed_amount',
-                  'incoming')
+              'confirmed_incoming')
 
     # def get(self, request, *args, **kwargs):
     #     logger.debug('get form', request=request, args=args, kwargs=kwargs)
@@ -174,7 +176,7 @@ class PaymentListView(ListView):
         logger.info(request.POST.keys())
         logger.info(request.POST.dict())
 
-        payment_id = confirmed_amount = incoming_id = None
+        payment_id = confirmed_amount = confirmed_incoming_id = None
         for key in request.POST.keys():
             if 'cancel_payment' in request.POST.keys():
                 payment_id = request.POST['cancel_payment']
@@ -190,29 +192,73 @@ class PaymentListView(ListView):
                 confirmed_amount = request.POST[key]
                 if confirmed_amount:
                     confirmed_amount = int(confirmed_amount)
-            if key.startswith('incoming_id_value:'):
-                incoming_id = request.POST[key]
-                if incoming_id:
-                    incoming_id = int(incoming_id)
+            if key.startswith('confirmed_incoming_id_value:'):
+                confirmed_incoming_id = request.POST[key]
+                if confirmed_incoming_id:
+                    confirmed_incoming_id = int(confirmed_incoming_id)
         logger.debug('Получили:',
                      payment_id=payment_id,
                      confirmed_amount=confirmed_amount,
-                     incoming_id=incoming_id)
+                     confirmed_incoming_id=confirmed_incoming_id)
         payment = Payment.objects.get(pk=payment_id)
         logger.debug(payment)
         form = PaymentListConfirmForm(instance=payment,
                                       data={'confirmed_amount': confirmed_amount,
-                                            'incoming': incoming_id
+                                            'confirmed_incoming': confirmed_incoming_id
                                             })
         if form.is_valid():
             # Логика подтверждения заявки
             logger.debug(f'valid {form.cleaned_data}')
             payment.status = 2
             payment.confirmed_time = timezone.now()
+
+            if confirmed_incoming_id:
+                incoming = Incoming.objects.get(pk=confirmed_incoming_id)
+                incoming.confirmed_payment = payment
+                incoming.save()
             form.save()
         else:
             return HttpResponseBadRequest(str(form.errors))
         return redirect(reverse('payment:payment_list'))
+
+
+class PaymentEdit(UpdateView, ):
+    # Подробно о payment
+    model = Payment
+    form_class = PaymentForm
+    success_url = reverse_lazy('payment:payment_list')
+    template_name = 'payment/payment_edit.html'
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        print(self.object)
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if request.user.has_perm('deposit.can_hand_edit'):
+            self.object = self.get_object()
+            return super().post(request, *args, **kwargs)
+        return HttpResponseForbidden('У вас нет прав делать ручную корректировку')
+
+    def get_context_data(self, **kwargs):
+        context = super(PaymentEdit, self).get_context_data(**kwargs)
+        # history = self.object.history.order_by('-id').all()
+        # context['history'] = history
+        return context
+
+    def form_valid(self, form):
+        if form.is_valid():
+            # old_incoming = Payment.objects.get(pk=self.object.id)
+            # payment: Payment = self.object
+            # payment.birpay_edit_time = datetime.datetime.now(tz=pytz.timezone(settings.TIME_ZONE))
+            # if not incoming.birpay_confirm_time:
+            #     incoming.birpay_confirm_time = datetime.datetime.now(tz=pytz.timezone(settings.TIME_ZONE))
+            # payment.save()
+
+            # Сохраняем историю
+            # IncomingChange().save_incoming_history(old_incoming, incoming, self.request.user)
+
+            return super(PaymentEdit, self).form_valid(form)
 
 
 def payment_type_not_worked(request, *args, **kwargs):
@@ -280,11 +326,13 @@ def send_request(request, *args, **kwargs):
     logger.debug(http_host)
     shop: Shop = Shop.objects.get(pk=1)
     print('--------------')
-    url = 'http://45.67.228.39/receive_request/'
+    # url = 'http://45.67.228.39/receive_request/'
+    url = 'http://127.0.0.1:8000/receive_request/'
     logger.info(request)
     logger.info(f'Requests to url: {url}')
     try:
-        result = requests.get(url, data={'aaa': 'bbb'})
+        # result = requests.get(url, data={'aaa': 'bbb'})
+        result = requests.post(url, data={'aaa': 'bbb'})
         logger.info(result.status_code)
     except Exception as err:
         logger.error(err)
@@ -295,7 +343,7 @@ def send_request(request, *args, **kwargs):
                   context=context
                   )
 
-
+@csrf_exempt
 def receive_request(request, *args, **kwargs):
     logger.info(f'receive_request: {request}', args=args, kwargs=kwargs)
     CONTENT_LENGTH = request.META.get('CONTENT_LENGTH')
@@ -330,6 +378,9 @@ def receive_request(request, *args, **kwargs):
     logger.info(f'REQUEST_METHOD: {REQUEST_METHOD}')
     logger.info(f'SERVER_NAME: {SERVER_NAME}')
     logger.info(f'SERVER_PORT: {SERVER_PORT}')
+    logger.info(f'request.GET.dict: {request.GET.dict()}')
+    if request.POST:
+        logger.info(f'request.POST.dict: {request.POST.dict()}')
     return HttpResponse(status=HTTPStatus.OK)
 
 

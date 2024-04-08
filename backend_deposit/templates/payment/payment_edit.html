@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Подробно о payment{% endblock %}
+
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+  <div class="container">
+    <div class="row justify-content-start ">
+      <div class="col col-md-auto">
+        <table class="table table-bordered table-sm" style="font-size: medium">
+        <thead class="thead-dark align-content-center">
+           <tr>
+               <th>Поле</th>
+               <th>Значение</th>
+           </tr>
+        </thead>
+        <tbody>
+
+            <tr>
+                <td>id</td>
+                <td>{{ payment.id }}</td>
+            </tr>
+            <tr>
+                <td>Поступил</td>
+                <td>{{ payment.create_at }}</td>
+            </tr>
+            <tr>
+                <td>shop</td>
+                <td>{{ payment.shop }}</td>
+            </tr>
+            <tr>
+                <td>outer_order_id</td>
+                <td>{{ payment.outer_order_id }}</td>
+            </tr>
+            <tr>
+                <td>user_login</td>
+                <td>{{ payment.user_login }}</td>
+            </tr>
+            <tr>
+                <td>Сумма заявки</td>
+                <td>{{ payment.amount }}</td>
+            </tr>
+            <tr>
+                <td>pay_requisite</td>
+                <td>{{ payment.pay_requisite }}</td>
+            </tr>
+            <tr>
+                <td>confirmed_incoming</td>
+                <td>{{ payment.confirmed_incoming }}</td>
+            </tr>
+            <tr>
+                <td>confirmed_amount</td>
+                <td>{{ payment.confirmed_amount }}</td>
+            </tr>
+            <tr>
+                <td>Скрин</td>
+                <td>{{ payment.screenshot }}</td>
+            </tr>
+            <tr>
+                <td>Тип</td>
+                <td>{{ payment.type }}</td>
+            </tr>
+            <tr>
+                <td>Подтверждено</td>
+                <td>{{ payment.confirmed_time }}</td>
+            </tr>
+            <tr>
+                <td>change_time</td>
+                <td>{{ payment.change_time  }}</td>
+            </tr>
+            <tr>
+                <td>confirmed_incoming</td>
+                <td>{{ payment.confirmed_incoming }}</td>
+            </tr>
+            <tr>
+                <td>Статус</td>
+                <td>{{ payment.status_str }}</td>
+            </tr>
+
+
+        </tbody>
+        </table>
+
+      </div>
+
+      <div class="col col-md-3">
+          {% if payment.screenshot %}
+        <img class="img" style="object-fit: cover; object-position: 0 0" src="/media/{{payment.screenshot}}" width="300" height="400">
+          {% endif %}
+      </div>
+    </div>
+
+
+    <div class="row justify-content-start  col-md-3">
+        <div class="col">
+        <br><b>Ручная корректировка:</b>
+        <form method="POST">
+            {% csrf_token %}
+              {% include 'includes/form_fields.html' %}
+            <input type="submit" value="Сохранить">
+        </form>
+        </div>
+    </div>
+
+{#    <span>#}
+{#        <hr>#}
+{#          {% for log in history %}#}
+{#             {{ log.time }} {{ log.user }} {{ log.val_name }} {{ log.new_val }}<br>#}
+{#          {% endfor %}#}
+{#    </span>#}
+  </div>
+
+
+{% endblock %}

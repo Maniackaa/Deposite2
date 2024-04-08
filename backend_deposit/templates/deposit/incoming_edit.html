@@ -72,10 +72,15 @@
                 <td>Birpay id</td>
                 <td>{{ incoming.birpay_id|default_if_none:"---" }}</td>
             </tr>
+{#            <tr>#}
+{#                <td>Депозит</td>#}
+{#                <td>{{ incoming.confirmed_deposit|default_if_none:"---" }}</td>#}
+{#            </tr>#}
             <tr>
-                <td>Депозит</td>
-                <td>{{ incoming.confirmed_deposit|default_if_none:"---" }}</td>
+                <td>Заявка</td>
+                <td>{{ incoming.confirmed_payment|default_if_none:"---" }}</td>
             </tr>
+
 
         </tbody>
         </table>

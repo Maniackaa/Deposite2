@@ -42,7 +42,7 @@ class CreditCard(models.Model):
         return string
 
     def __str__(self):
-        string = f'{self.__class__.__name__} {self.id}. {self.card_number}'
+        string = f'СС {self.id}. {self.card_number}'
         return string
 
 
@@ -58,7 +58,7 @@ class PayRequisite(models.Model):
         return string
 
     def __str__(self):
-        string = f'{self.__class__.__name__} {self.id}. {self.card}'
+        string = f'{self.pay_type} {self.id}. {self.card}'
         return string
 
 
@@ -96,7 +96,7 @@ class Payment(models.Model):
     referrer = models.URLField('Откуда пришел', null=True, blank=True)
 
     # Подтверждение:
-    incoming = models.OneToOneField(verbose_name='Платеж', to=Incoming,
+    confirmed_incoming = models.OneToOneField(verbose_name='Платеж', to=Incoming,
                                     on_delete=models.SET_NULL, null=True, blank=True)
     confirmed_amount = models.IntegerField('Подтвержденная сумма заявки', null=True, blank=True)
     comment = models.CharField('Комментарий', max_length=1000, null=True, blank=True)
@@ -114,7 +114,7 @@ class Payment(models.Model):
         return f'{str(self.id)[-6:]}'
 
     class Meta:
-        ordering = ('create_at',)
+        ordering = ('-create_at',)
 
 
 # @receiver(pre_save, sender=Payment)

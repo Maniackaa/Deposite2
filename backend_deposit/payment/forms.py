@@ -24,6 +24,14 @@ class PaymentListConfirmForm(forms.ModelForm):
         model = Payment
         fields = (
                   'confirmed_amount',
-                  'incoming'
+                  'confirmed_incoming',
+        )
 
-                  )
+
+class PaymentForm(forms.ModelForm):
+    # birpay_id = forms.IntegerField(required=False)
+    comment = forms.CharField(widget=forms.Textarea, required=False)
+
+    class Meta:
+        model = Payment
+        fields = ('confirmed_incoming', 'comment')

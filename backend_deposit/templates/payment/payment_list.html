@@ -33,7 +33,7 @@
                      class="table-success"
                  {% endif %}>
 
-            <td><a class="changelink" href="">{{ payment.short_id }}</a>
+            <td><a class="changelink" href="{% url 'payment:payment_edit' payment.id %}">{{ payment.short_id }}</a>
                 {% if payment.comment %}
                   *
                 {% endif %}
@@ -79,8 +79,8 @@
             <td class="text-nowrap">
 
                     <input type="text"
-                           value="{{ payment.incoming.id }}"
-                           name="incoming_id_value:{{ payment.id }}"
+                           value="{{ payment.confirmed_incoming.id }}"
+                           name="confirmed_incoming_id_value:{{ payment.id }}"
                            size="7">
                     {% if payment.status != 1 %}
                       <button disabled name="payment_id:{{ payment.id }}" type="submit" class="btn btn-warning btn-sm">---</button>

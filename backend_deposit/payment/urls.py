@@ -12,6 +12,7 @@ urlpatterns = [
     path('invoice/', views.invoice, name='pay_created'),
     path('pay_result/<str:pk>/', views.PayResultView.as_view(), name='pay_result'),
     path('payments/', views.PaymentListView.as_view(), name='payment_list'),
+    path('payments/<str:pk>/', views.PaymentEdit.as_view(), name='payment_edit'),
 
     path('payment_type_not_worked/', views.payment_type_not_worked, name='payment_type_not_worked'),
 
