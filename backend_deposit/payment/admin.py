@@ -17,7 +17,7 @@ class PayRequisiteAdmin(admin.ModelAdmin):
 
 class PaymentAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'shop', 'outer_order_id', 'amount', 'confirmed_amount', 'confirmed_time', 'pay_requisite',  'screenshot',
+        'id', 'shop', 'order_id', 'amount', 'confirmed_amount', 'confirmed_time', 'pay_requisite',  'screenshot',
         'create_at', 'status', 'change_time', 'confirmed_time', 'confirmed_incoming'
     )
 

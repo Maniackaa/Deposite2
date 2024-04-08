@@ -5,13 +5,13 @@ from payment.models import Payment
 
 class InvoiceForm(forms.ModelForm):
     amount = forms.CharField(widget=forms.HiddenInput())
-    outer_order_id = forms.CharField(widget=forms.HiddenInput())
+    order_id = forms.CharField(widget=forms.HiddenInput())
     screenshot = forms.ImageField(widget=forms.ClearableFileInput(), required=True, label='Скриншот об оплате')
 
     class Meta:
         model = Payment
         fields = (
-                  'outer_order_id',
+                  'order_id',
                   'amount',
                   'phone',
                   'screenshot',

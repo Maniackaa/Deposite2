@@ -17,9 +17,9 @@ class Shop(models.Model):
     name = models.CharField('Название', max_length=100)
     is_active = models.BooleanField(default=False)
     host = models.URLField(null=True, blank=True)
-
+    secret = models.CharField('Секретная фраза', max_length=100, null=True, blank=True)
     # Endpoints
-    pay_success_redirect = models.URLField(null=True, blank=True)
+    pay_success_endpoint = models.URLField(null=True, blank=True)
 
 
 class CreditCard(models.Model):
@@ -67,8 +67,8 @@ class Payment(models.Model):
     PAYMENT_STATUS = (
         (0, 'Заготовка'),
         (1, 'Ожидание'),
-        (2, 'Подтверждена'),
-        (-1, 'Заявка отклонена')
+        (2, 'Подтвержден'),
+        (-1, 'Отклонен')
     )
 
     def __init__(self, *args, **kwargs) -> None:
@@ -78,7 +78,7 @@ class Payment(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, max_length=36, db_index=True, unique=True,)
     shop = models.ForeignKey('Shop', on_delete=models.CASCADE, null=True)
-    outer_order_id = models.CharField(max_length=36, db_index=True, unique=True, null=True, blank=True)
+    order_id = models.CharField(max_length=36, db_index=True, unique=True, null=True, blank=True)
     user_login = models.CharField(max_length=36)
     amount = models.IntegerField('Сумма заявки', validators=[MinValueValidator(5)])
     pay_requisite = models.ForeignKey('PayRequisite', on_delete=models.CASCADE, null=True)
@@ -129,11 +129,3 @@ def after_save_pay(sender, instance: Payment, created, raw, using, update_fields
     # Если статус изменился с 2 на 3 (потвержден):
     if instance.status == 2 and instance.cached_status == 1:
         logger.debug('Выполняем действие полсле подтверждения платежа')
-        shop: Shop = instance.shop
-        url = shop.pay_success_redirect
-        logger.info(f'Requests to url: {url}')
-        try:
-            result = requests.post(url, data={'result': 'test_request', 'order_id': instance.outer_order_id})
-            logger.info(result.status_code)
-        except Exception as err:
-            logger.error(err)

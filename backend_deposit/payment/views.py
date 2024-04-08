@@ -69,7 +69,7 @@ def invoice(request, *args, **kwargs):
     ----------
     args
         shop_id: id платежной системы
-        outer_order_id: внешний идентификатор
+        order_id: внешний идентификатор
         user_id
         amount: сумма платежа
         pay_type: тип платежа
@@ -79,13 +79,13 @@ def invoice(request, *args, **kwargs):
 
     if request.method == 'GET':
         shop_id = request.GET.get('shop_id')
-        outer_order_id = request.GET.get('outer_order_id')
+        order_id = request.GET.get('order_id')
         user_login = request.GET.get('user_login')
         amount = request.GET.get('amount')
         pay_type = request.GET.get('pay_type')
-        logger.debug(f'GET {shop_id} {outer_order_id} {user_login} {amount} {pay_type}'
+        logger.debug(f'GET {shop_id} {order_id} {user_login} {amount} {pay_type}'
                      f' {request.META.get("HTTP_REFERER")}')
-        required_key = ['shop_id', 'outer_order_id', 'user_login', 'amount', 'pay_type']
+        required_key = ['shop_id', 'order_id', 'user_login', 'amount', 'pay_type']
         # Проверяем наличие всех данных для создания платежа
         for key in required_key:
             if key not in request.GET:
@@ -95,7 +95,7 @@ def invoice(request, *args, **kwargs):
         try:
             payment, status = Payment.objects.get_or_create(
                 shop_id=shop_id,
-                outer_order_id=outer_order_id,
+                order_id=order_id,
                 user_login=user_login,
                 amount=amount,
             )
@@ -125,9 +125,9 @@ def invoice(request, *args, **kwargs):
 
     elif request.method == 'POST':
         # Обработка нажатия кнопки
-        outer_order_id = request.POST.get('outer_order_id')
+        order_id = request.POST.get('order_id')
         amount = request.POST.get('amount')
-        payment, status = Payment.objects.get_or_create(outer_order_id=outer_order_id, amount=amount)
+        payment, status = Payment.objects.get_or_create(order_id=order_id, amount=amount)
         logger.debug(f': {payment} s: {status}')
         form = InvoiceForm(request.POST or None, instance=payment, files=request.FILES or None)
         if form.is_valid():
@@ -335,7 +335,7 @@ def send_request(request, *args, **kwargs):
     logger.info(f'Requests to url: {url}')
     try:
         # result = requests.get(url, data={'aaa': 'bbb'})
-        result = requests.post(url, data={'aaa': 'bbb'})
+        result = requests.post(url, headers={'Referer': 'xxx.com'}, data={'aaa': 'bbb'})
         logger.info(result.status_code)
     except Exception as err:
         logger.error(err)

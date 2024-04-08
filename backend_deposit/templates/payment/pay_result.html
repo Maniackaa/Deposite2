@@ -10,33 +10,50 @@ background: linear-gradient(125deg, #207A89, #17A3BA 55%);
 
 </style>
 
+
+
 <div class="container">
 
-  <div class="row justify-content-md-center">
-      <div class="col-md-6 mx-auto">
-          <h2>Статус платежа {{ payment.outer_order_id }}</h2>
-          <p>Сумма {{ payment.amount }}</p>
-          <p>Дата: {{ payment.create_at }}</p>
-          {% if payment.screenshot %}
-          <img class="img-thumbnail"  src="/media/{{payment.screenshot}}" width="400" height="800">
-          {% else %}
-          Отсутствует
-          {% endif %}
-            <p>Не позднее чем через 10 минут статус вашего должен измениться на 'Подтвержден'<p>
+  <div class="row justify-content-center">
+      <div class="col-xl-4 col-lg-4  col-md-6 col-sm-9 col-12 justify-content-center border">
+          <div class="row col-12 border">
+                <h2 >Статус платежа</h2>
+{#                <h4>{{ payment.order_id }}</h4>#}
+          </div>
+
+          <div class="row col-12">
+              <p>Сумма {{ payment.amount }}</p>
+              <p>Дата: {{ payment.create_at }}</p>
+          </div>
+
+          <div class="row col-12">
+            <div>
+              {% if payment.screenshot %}
+                <img class="img-thumbnail"  src="/media/{{payment.screenshot}}" width="300" height="600">
+              {% else %}
+                Отсутствует
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="row col-12">
             <p>Текущий статус вашего платежа: <b>{{ status }}</b></p>
+          </div>
+
+          <div class="row col-12">
             {% if payment.confirmed_amount %}
-            <span>Подтвержденная сумма: {{ payment.confirmed_amount }}</span><br>
+              <span>Подтвержденная сумма: {{ payment.confirmed_amount }}</span><br>
+                            {% if payment.shop.host %}
+              <span><a href="{{ payment.shop.host }}">Вернуться в магазин</a></span><br>
             {% endif %}
+            {% endif %}
+          </div>
 
 
-          {% if payment.shop.host %}
-                <span><a href="{{ payment.shop }}">Вернуться в магазин</a></span><br>
-{#            <span><a href="{% url 'payment:test' payment.id %}">Подтвердить (тест)</a></span>#}
-            {% endif %}
       </div>
   </div>
-
 </div>
+
 
 {% endblock %}
 
