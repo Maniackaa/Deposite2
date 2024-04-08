@@ -331,7 +331,7 @@ def send_request(request, *args, **kwargs):
     print('--------------')
     # url = 'http://45.67.228.39/receive_request/'
     # url = 'http://127.0.0.1:8000/receive_request/'
-    url = 'http://asu=payme.com/receive_request/'
+    url = 'http://asu-payme.com/receive_request/'
     logger.info(request)
     logger.info(f'Requests to url: {url}')
     try:
