@@ -34,4 +34,4 @@ class PaymentForm(forms.ModelForm):
 
     class Meta:
         model = Payment
-        fields = ('confirmed_incoming', 'comment')
+        fields = ('confirmed_incoming', 'comment', 'status')

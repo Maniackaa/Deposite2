@@ -17,7 +17,7 @@ services:
 #      - ./postgres/postgres-data.conf:/var/lib/postgresql/data
       - pg_data:/var/lib/postgresql/data
     ports:
-      - "15432:5432"
+      - "25432:5432"
     restart: always
 
 

@@ -151,7 +151,9 @@ class PayResultView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['status'] = self.object.PAYMENT_STATUS[self.object.status][1]
-        context['data'] = get_time_remaining_data(self.object)
+        data = get_time_remaining_data(self.object)
+        data['name'] = 'Время до подтверждения'
+        context['data'] = data
         return context
 
 
