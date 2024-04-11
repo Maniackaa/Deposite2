@@ -1,12 +1,12 @@
 import datetime
 import json
-import logging
+
 import random
 from http import HTTPStatus
 
 import requests
 import structlog
-from django.conf import settings
+
 from django.http import HttpResponse, QueryDict, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.response import TemplateResponse
@@ -77,6 +77,42 @@ def invoice(request, *args, **kwargs):
     Returns
     -------
     """
+    import urllib.parse
+    if request.method == 'GET':
+        query_params = request.GET.urlencode()
+        logger.debug(f'GET {args} {kwargs} {request.GET.dict()}'
+                     f' {request.META.get("HTTP_REFERER")}')
+        required_key = ['shop_id', 'order_id', 'user_login', 'amount', 'pay_type']
+        # Проверяем наличие всех данных для создания платежа
+        for key in required_key:
+            if key not in request.GET:
+                return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not enough info for create pay',
+                                              content='Not enough info for create pay')
+        logger.debug('Key ok')
+
+        pay_type = request.GET.get('pay_type')
+        if pay_type == 'Card-to-Card':
+            return redirect(reverse('payment:pay_to_card_create') + f'?{query_params}')
+    logger.warning('Необработанный путь')
+    return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not correct data',
+                                  content='Not correct data'
+                                  )
+
+
+def pay_to_card_create(request, *args, **kwargs):
+    """Создание платежа со стотусом 0 и идентификатором
+
+    Parameters
+    ----------
+    args
+        shop_id: id платежной системы
+        order_id: внешний идентификатор
+        user_id
+        amount: сумма платежа
+        pay_type: тип платежа
+    Returns
+    -------
+    """
 
     if request.method == 'GET':
         shop_id = request.GET.get('shop_id')
@@ -84,7 +120,7 @@ def invoice(request, *args, **kwargs):
         user_login = request.GET.get('user_login')
         amount = request.GET.get('amount')
         pay_type = request.GET.get('pay_type')
-        logger.debug(f'GET {shop_id} {order_id} {user_login} {amount} {pay_type}'
+        logger.debug(f'GET {request.GET.dict()} {shop_id} {order_id} {user_login} {amount} {pay_type}'
                      f' {request.META.get("HTTP_REFERER")}')
         required_key = ['shop_id', 'order_id', 'user_login', 'amount', 'pay_type']
         # Проверяем наличие всех данных для создания платежа

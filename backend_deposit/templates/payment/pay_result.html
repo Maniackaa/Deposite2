@@ -5,7 +5,7 @@
     <style type="text/css">
 	.st0{fill:#FFFFFF;}
 	body {
-background: linear-gradient(125deg, #207A89, #17A3BA 55%);
+{#background: linear-gradient(125deg, #207A89, #17A3BA 55%);#}
 }
 
 </style>
@@ -15,28 +15,30 @@ background: linear-gradient(125deg, #207A89, #17A3BA 55%);
 <div class="container">
 
   <div class="row justify-content-center">
-      <div class="col-xl-4 col-lg-4  col-md-6 col-sm-9 col-12 justify-content-center border ">
-          <div class="row col-12">
+          <div class="col-md-6 col-sm-12 col-xs-12  text-center border">
               <h2 >Статус платежа</h2>
               <h5><i>{{ payment.id }}</i></h5>
           </div>
-
-          <div class="row col-12">
+  </div>
+    <div class="row justify-content-center">
+          <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
               <p>Сумма {{ payment.amount }}</p>
               <p>Дата: {{ payment.create_at }}</p>
           </div>
+    </div>
 
-          <div class="row col-12" >
-            <div>
+    <div class="row justify-content-center">
+            <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
               {% if payment.screenshot %}
                   <p class="aligncenter"><img class="img-thumbnail" src="/media/{{payment.screenshot}}" width="300" height="600"></p>
               {% else %}
                 Отсутствует
               {% endif %}
             </div>
-          </div>
+    </div>
 
-          <div class="row col-12" style="margin-top: 20px">
+    <div class="row justify-content-center">
+        <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
             <p>Текущий статус вашего платежа:
 
               {% if payment.status == 1 %}
@@ -52,13 +54,16 @@ background: linear-gradient(125deg, #207A89, #17A3BA 55%);
                 <a href="{% url 'payment:pay_result' payment.id %}">Обновить статус</a>
               {% endif %}
           </div>
+    </div>
+
 
 
             {% if payment.status == 1 %}
                 {% include 'includes/result_timer.html' %}
             {% endif %}
 
-          <div class="row col-12">
+    <div class="row justify-content-center">
+            <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
             {% if payment.confirmed_amount %}
               <span>Подтвержденная сумма: {{ payment.confirmed_amount }}</span><br>
                             {% if payment.shop.host %}
@@ -66,15 +71,17 @@ background: linear-gradient(125deg, #207A89, #17A3BA 55%);
             {% endif %}
             {% endif %}
           </div>
+    </div>
 
-          <div id="support_info" class="row col-12" style="display: none">
+        <div class="row justify-content-center">
+            <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
+
               <p>Если в течении 10 минут статус вашего платежа не сменится на "Подтвержден", то напишите нам в поддержку.</p>
               <p>Напишите в  <a href="https://t.me/AlBotttxxxx">AlBotttxxxx</a>. свой номер заказа<br><b id="payment_id">{{ payment.id }}</b> <img onclick="CopyToClipboard('payment_id')" style="opacity: 0.5" class="img-thumbnail" width="32" height="32" src="https://i.pinimg.com/736x/c2/6a/2c/c26a2c7168cf2a4fd1443ee1e658d807.jpg"><br>и приложите скриншот оплаты</p>
-          </div>
-
+            </div>
       </div>
-  </div>
 </div>
+
 
     <script>
   function CopyToClipboard(containerid) {
@@ -92,7 +99,7 @@ background: linear-gradient(125deg, #207A89, #17A3BA 55%);
   }
 }
 </script>
-<script src="//code.jivo.ru/widget/b2YKXyDPmC" async></script>
+{#<script src="//code.jivo.ru/widget/b2YKXyDPmC" async></script>#}
 
 {% endblock %}
 
