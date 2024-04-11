@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import random
 from http import HTTPStatus
@@ -384,8 +385,10 @@ def receive_request(request, *args, **kwargs):
     logger.info(f'SERVER_NAME: {SERVER_NAME}')
     logger.info(f'SERVER_PORT: {SERVER_PORT}')
     logger.info(f'request.GET.dict: {request.GET.dict()}')
-    if request.POST:
-        logger.info(f'request.POST.dict: {request.POST.dict()}')
+    logger.info(f'request.POST.dict: {request.POST.dict()}')
+    logger.info(f'data: {request.content_type}')
+    data = request.body
+    print(json.loads(data))
     return HttpResponse(status=HTTPStatus.OK)
 
 

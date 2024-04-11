@@ -101,6 +101,8 @@ class Payment(models.Model):
                                     on_delete=models.SET_NULL, null=True, blank=True)
     confirmed_amount = models.IntegerField('Подтвержденная сумма заявки', null=True, blank=True)
     comment = models.CharField('Комментарий', max_length=1000, null=True, blank=True)
+    response_status_code = models.IntegerField(null=True, blank=True)
+
 
     def __str__(self):
         string = f'{self.__class__.__name__} {self.id}.'
