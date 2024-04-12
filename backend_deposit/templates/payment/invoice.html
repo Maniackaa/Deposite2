@@ -3,33 +3,34 @@
 {% endblock %}
 {% block content %}
 
-<div class="container col-xxl-3 col-xl-4 col-lg-5  col-md-6 col-sm-9 col-12">
+<div class="container margin: auto" style="max-width: 500px;">
+  <div class="card" style="padding-left: 20px; padding-right: 20px; padding-bottom:20px; background: #efefef">
 
-  <div class="row  justify-content-center  border border-primary">
 
-    <div class="row justify-content-center ">
-        <div class="col-12 justify-content-center align-content-center"><br>
+
+    <div class="row">
+        <div class="card-header">
             <span>Проиведите оплату на сумму {{ payment.amount }} согласно инструкции<br></span><br>
-            {% include 'includes/timer.html' %}
+
         </div>
     </div>
-
-    <div class="row justify-content-center">
-        <div class="col-12 justify-center">
+{% include 'includes/timer.html' %}
+    <div class="row ">
+        <div class="">
         {% include 'payment/credit_card.html' %}
         </div>
     </div>
 
-    <div class="row justify-content-center">
-          <div class=col-12 justify-center"><br>
+    <div class="row">
+          <div>
               <span>{{ payment.pay_requisite.info }}</span>
               <form method="POST" enctype="multipart/form-data">
                     {% csrf_token %}
                       {% include 'includes/form_fields.html' %}
                     <input id="confirm_btn" class="btn btn-success btn-lg" type="submit" value="Оплатил и приложил чек">
                 </form>
+         </div>
     </div>
-
 
 
     <div class="row justify-content-center">
@@ -40,6 +41,7 @@
 
   </div>
 </div>
+
 
 
 

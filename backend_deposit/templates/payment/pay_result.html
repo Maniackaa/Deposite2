@@ -12,23 +12,23 @@
 
 
 
-<div class="container">
-
-  <div class="row justify-content-center">
-          <div class="col-md-6 col-sm-12 col-xs-12  text-center border">
+<div class="container margin: auto" style="max-width: 500px;">
+  <div class="card" style="padding-left: 20px; padding-right: 20px; padding-bottom:20px; background: #efefef">
+      <div class="row" >
+          <div class="text-center card-header">
               <h2 >Статус платежа</h2>
               <h5><i>{{ payment.id }}</i></h5>
           </div>
   </div>
-    <div class="row justify-content-center">
-          <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
-              <p>Сумма {{ payment.amount }}</p>
-              <p>Дата: {{ payment.create_at }}</p>
+    <div class="row">
+          <div class="">
+              <h5>Сумма {{ payment.amount }}</h5>
+              <h5>Дата: {{ payment.create_at }}</h5>
           </div>
     </div>
 
-    <div class="row justify-content-center">
-            <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
+    <div class="row">
+            <div class="text-center">
               {% if payment.screenshot %}
                   <p class="aligncenter"><img class="img-thumbnail" src="/media/{{payment.screenshot}}" width="300" height="600"></p>
               {% else %}
@@ -37,8 +37,8 @@
             </div>
     </div>
 
-    <div class="row justify-content-center">
-        <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
+    <div class="row ">
+        <div class="row ">
             <p>Текущий статус вашего платежа:
 
               {% if payment.status == 1 %}
@@ -62,8 +62,8 @@
                 {% include 'includes/result_timer.html' %}
             {% endif %}
 
-    <div class="row justify-content-center">
-            <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
+    <div class="row">
+            <div class="row text-center">
             {% if payment.confirmed_amount %}
               <span>Подтвержденная сумма: {{ payment.confirmed_amount }}</span><br>
                             {% if payment.shop.host %}
@@ -73,15 +73,15 @@
           </div>
     </div>
 
-        <div class="row justify-content-center">
-            <div class="row col-md-6 col-sm-12 col-xs-12 text-center border">
+        <div class="row ">
+            <div class="row text-center">
 
-              <p>Если в течении 10 минут статус вашего платежа не сменится на "Подтвержден", то напишите нам в поддержку.</p>
-              <p>Напишите в  <a href="https://t.me/AlBotttxxxx">AlBotttxxxx</a>. свой номер заказа<br><b id="payment_id">{{ payment.id }}</b> <img onclick="CopyToClipboard('payment_id')" style="opacity: 0.5" class="img-thumbnail" width="32" height="32" src="https://i.pinimg.com/736x/c2/6a/2c/c26a2c7168cf2a4fd1443ee1e658d807.jpg"><br>и приложите скриншот оплаты</p>
+              <p>Если в течении 10 минут статус вашего платежа не сменится на "Подтвержден", то напишите нам
+              в  чат свой номер заказа<br><b id="payment_id">{{ payment.id }}</b> <img onclick="CopyToClipboard('payment_id')" style="opacity: 0.5" class="img-thumbnail" width="32" height="32" src="https://i.pinimg.com/736x/c2/6a/2c/c26a2c7168cf2a4fd1443ee1e658d807.jpg"><br>и приложите скриншот оплаты</p>
             </div>
       </div>
 </div>
-
+</div>
 
     <script>
   function CopyToClipboard(containerid) {
