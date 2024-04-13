@@ -20,16 +20,10 @@ MY_APPS = [
     'users.apps.UsersConfig',
     'deposit.apps.DepositConfig',
     'ocr.apps.OcrConfig',
-    'crispy_bootstrap4',
-    'rangefilter',
-    'spurl',
-    'mathfilters',
-    'celery',
-    'django_celery_beat',
     'payment.apps.PaymentConfig',
-    'django_structlog'
-
+    'api.apps.ApiConfig',
 ]
+
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 INSTALLED_APPS = [
@@ -43,6 +37,14 @@ INSTALLED_APPS = [
     'sorl.thumbnail',
     'colorfield',
     'debug_toolbar',
+    'crispy_bootstrap4',
+    'rangefilter',
+    'spurl',
+    'mathfilters',
+    'celery',
+    'django_celery_beat',
+    'django_structlog',
+    'django_filters',
 ] + MY_APPS
 
 MIDDLEWARE = [

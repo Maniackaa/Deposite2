@@ -16,12 +16,12 @@
       </div>
     {% endfor %}
     {% if not field.is_hidden %}
-    <label for="{{ field.id_for_label }}">
+      <label for="{{ field.id_for_label }}">
       {{ field.label }}
-        {% if field.field.required %}
-          <span class="required text-danger">*</span>
-        {% endif %}
+      {% if field.field.required %}
+        <span class="required text-danger">*</span>
       {% endif %}
+    {% endif %}
     </label>
     {{ field }}
     <div>

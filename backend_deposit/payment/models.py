@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 
@@ -24,12 +25,12 @@ class Shop(models.Model):
 
 class CreditCard(models.Model):
     card_number = models.CharField('Номер карты', max_length=16)
-    owner_name = models.CharField('Имя владельца', max_length=100)
+    owner_name = models.CharField('Имя владельца', max_length=100, null=True, blank=True)
     cvv = models.CharField(max_length=4, null=True, blank=True)
     card_type = models.CharField('Система карты', max_length=100)
     card_bank = models.CharField('Название банка', max_length=50, default='Bank')
     expired_month = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
-    expired_year = models.IntegerField(validators=[MinValueValidator(2023), MaxValueValidator(2100)])
+    expired_year = models.IntegerField(validators=[MinValueValidator(20), MaxValueValidator(99)])
     status = models.CharField('Статус карты',
                               default='not_active',
                               choices=[
@@ -47,10 +48,16 @@ class CreditCard(models.Model):
         return string
 
 
+PAY_TYPE = (
+        ('Card-to-Card', 'Card-to-Card'),
+        ('Card-to-m10', 'Card-to-m10'),
+    )
+
+
 class PayRequisite(models.Model):
-    pay_type = models.CharField('Тип реквизитов',
-                                      choices=[('Card-to-Card', 'Card-to-Card')])
-    card = models.ForeignKey(CreditCard, on_delete=models.CASCADE)
+
+    pay_type = models.CharField('Тип платежа', choices=PAY_TYPE)
+    card = models.ForeignKey(CreditCard, on_delete=models.CASCADE, null=True, blank=True)
     is_active = models.BooleanField(default=False)
     info = models.CharField('Инструкция', null=True, blank=True)
 
@@ -65,10 +72,13 @@ class PayRequisite(models.Model):
 
 class Payment(models.Model):
     PAYMENT_STATUS = (
-        (0, 'Заготовка'),
-        (1, 'Ожидание'),
-        (2, 'Подтвержден'),
-        (-1, 'Отклонен')
+        (-1, '-1. Отклонен'),
+        (0, '0. Заготовка'),
+        (3, '3. Ввел CC.'),
+        (4, '4. Отправлено боту'),
+        (5, '5. Бот отработал'),
+        (7, '7. Ожидание подтверждения'),
+        (9, '9. Подтвержден'),
     )
 
     def __init__(self, *args, **kwargs) -> None:
@@ -81,7 +91,8 @@ class Payment(models.Model):
     order_id = models.CharField(max_length=36, db_index=True, unique=True, null=True, blank=True)
     user_login = models.CharField(max_length=36)
     amount = models.IntegerField('Сумма заявки', validators=[MinValueValidator(5)])
-    pay_requisite = models.ForeignKey('PayRequisite', on_delete=models.CASCADE, null=True)
+    pay_requisite = models.ForeignKey('PayRequisite', on_delete=models.CASCADE, null=True, blank=True)
+    pay_type = models.CharField('Тип платежа', choices=PAY_TYPE, null=True, blank=True)
     screenshot = models.ImageField(upload_to='uploaded_pay_screens/',
                       verbose_name='Ваша квитанция', null=True, blank=True, help_text='Приложите скриншот квитанции после оплаты')
 
@@ -95,6 +106,7 @@ class Payment(models.Model):
     # Данные отправителя
     phone = models.CharField('Телефон отправителя', max_length=20, null=True, blank=True)
     referrer = models.URLField('Откуда пришел', null=True, blank=True)
+    card_data = models.JSONField(null=True, blank=True)
 
     # Подтверждение:
     confirmed_incoming = models.OneToOneField(verbose_name='Платеж', to=Incoming,
@@ -102,7 +114,6 @@ class Payment(models.Model):
     confirmed_amount = models.IntegerField('Подтвержденная сумма заявки', null=True, blank=True)
     comment = models.CharField('Комментарий', max_length=1000, null=True, blank=True)
     response_status_code = models.IntegerField(null=True, blank=True)
-
 
     def __str__(self):
         string = f'{self.__class__.__name__} {self.id}.'
@@ -112,6 +123,22 @@ class Payment(models.Model):
         for status_num, status_str in self.PAYMENT_STATUS:
             if status_num == self.status:
                 return status_str
+
+    def card_data_str(self):
+        if not self.card_data:
+            return ''
+        data = json.loads(self.card_data)
+        result = ''
+        for k, v in data.items():
+            result += f'{v} '
+        return result
+
+    def card_data_url(self):
+        import urllib.parse
+        data = json.loads(self.card_data)
+        query = urllib.parse.urlencode(data)
+        return query
+
 
     def short_id(self):
         return f'{str(self.id)[-6:]}'

@@ -11,6 +11,7 @@ urlpatterns = [
     path('auth/', include('users.urls', namespace='users')),
     path('ocr/', include('ocr.urls', namespace='ocr')),
     path("__debug__/", include("debug_toolbar.urls")),
+    path('api/', include('api.urls')),
 ]
 
 

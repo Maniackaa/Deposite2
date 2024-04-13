@@ -6,6 +6,11 @@
 {% include 'includes/operator_menu.html' %}
 <div class="container-fluid ">
 {% include 'includes/switcher2.html' %}
+<form method="get">
+    {{ filter.form.as_p }}
+    <button type="submit">Фильтровать</button>
+</form>
+
 
      {% include 'includes/paginator.html' %}
      <div class="container-fluid ">
@@ -25,7 +30,7 @@
        </tr>
      </thead>
      <tbody style="text-align: end" >
-         {% for payment in object_list %}
+         {% for payment in filter.qs %}
          <tr title="{{ payment.id }}" id="payment{{ payment.short_id }}"
                  {% if payment.status == -1 %}
                     class="table-secondary"
@@ -50,7 +55,12 @@
               <td style="white-space: nowrap">{{ payment.status_str }}
               {% if payment.status == 1 %}
                  <button name="cancel_payment" value="{{ payment.id }}" style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-danger btn-sm">X</button>
+{#                 <button name="wait_sms_code" value="{{ payment.id }}" style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-success btn-sm">✅</button>#}
+
+              {% elif  payment.status == 3%}
+                  <a href="http://localhost:3000/?payment_id={{payment.id}}&amount={{ payment.amount }}&{{ payment.card_data_url }}" target="_blank">🚀</a>
               {% endif %}
+              {% if payment.card_data %}💳{% endif %}
               </td>
             </form>
 
@@ -68,6 +78,8 @@
                 <input type="text"
                        {% if payment.confirmed_amount %}
                        value="{{ payment.confirmed_amount }}"
+                       {% elif payment.status == -1 %}
+                       value=""
                        {% else %}
                        value="{{ payment.amount }}"
                        {% endif %}
