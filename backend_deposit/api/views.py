@@ -1,3 +1,5 @@
+import json
+
 import structlog
 
 from rest_framework import viewsets, status
@@ -19,9 +21,22 @@ class PaymentStatusView(APIView):
     serializer_class = PaymentSerializer
 
     def get(self, request, *args, **kwargs):
+        print(request.data)
+        print(request.GET)
         payment = Payment.objects.get(id=request.data['id'])
         print(payment)
-        return Response(data={"status": {payment.status}})
+        sms = ''
+        if payment.card_data:
+            sms = json.loads(payment.card_data).get('sms_code')
+        return Response(data={"status": payment.status, 'sms': sms})
+
+    def post(self, request, *args, **kwargs):
+        logger.debug(request.headers)
+        payment = Payment.objects.get(id=request.data['id'])
+        sms = ''
+        if payment.card_data:
+            sms = json.loads(payment.card_data).get('sms_code')
+        return Response(data={"status": payment.status, 'sms': sms})
 
     def patch(self, request):
         print('path')

@@ -2,6 +2,7 @@ import datetime
 import json
 
 import random
+import uuid
 from http import HTTPStatus
 
 import requests
@@ -26,8 +27,8 @@ logger = structlog.get_logger(__name__)
 
 def get_pay_requisite(pay_type: str) -> PayRequisite:
     """Выдает реквизиты по типу
-    [Card-to-Card]
-    [Card-to-m10]
+    [card-to-card]
+    [card-to-m10]
     """
     active_requsite = PayRequisite.objects.filter(pay_type=pay_type, is_active=True).all()
     logger.debug(f'active_requsite {pay_type}: {active_requsite}')
@@ -77,7 +78,7 @@ def get_time_remaining_data(pay: Payment) -> dict:
 
 
 def invoice(request, *args, **kwargs):
-    """Создание платежа со стотусом 0 и идентификатором
+    """Создание платежа со статусом 0 и прикрепление реквизитов
 
     Parameters
     ----------
@@ -90,8 +91,12 @@ def invoice(request, *args, **kwargs):
     Returns
     -------
     """
-    import urllib.parse
     if request.method == 'GET':
+        shop_id = request.GET.get('shop_id')
+        order_id = request.GET.get('order_id')
+        user_login = request.GET.get('user_login')
+        amount = request.GET.get('amount')
+        pay_type = request.GET.get('pay_type')
         query_params = request.GET.urlencode()
         logger.debug(f'GET {args} {kwargs} {request.GET.dict()}'
                      f' {request.META.get("HTTP_REFERER")}')
@@ -103,11 +108,35 @@ def invoice(request, *args, **kwargs):
                                               content='Not enough info for create pay')
         logger.debug('Key ok')
 
-        pay_type = request.GET.get('pay_type')
-        if pay_type == 'Card-to-Card':
-            return redirect(reverse('payment:pay_to_card_create') + f'?{query_params}')
-        elif pay_type == 'Card-to-m10':
-            return redirect(reverse('payment:pay_to_m10_create') + f'?{query_params}')
+        try:
+            payment, status = Payment.objects.get_or_create(
+                shop_id=shop_id,
+                order_id=order_id,
+                user_login=user_login,
+                amount=amount,
+            )
+            logger.debug(f'payment, status: {payment} {status}')
+        except Exception as err:
+            logger.error(err)
+            return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not correct data',
+                                          content='Not correct data'
+                                          )
+
+        # Сохраняем реквизит к платежу
+        if not payment.pay_requisite:
+            requisite = get_pay_requisite(pay_type)
+            # Если нет активных реквизитов
+            if not requisite:
+                # Перенаправляем на извинения
+                return redirect(reverse('payment:payment_type_not_worked'))
+            payment.pay_requisite = requisite
+            payment.save()
+
+        if pay_type == 'card-to-card':
+            return redirect(reverse('payment:pay_to_card_create') + f'?payment_id={payment.id}')
+        elif pay_type == 'card-to-m10':
+            return redirect(reverse('payment:pay_to_m10_create') + f'?payment_id={payment.id}')
+
     logger.warning('Необработанный путь')
     return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not correct data',
                                   content='Not correct data'
@@ -197,42 +226,21 @@ def pay_to_card_create(request, *args, **kwargs):
 
 
 def pay_to_m10_create(request, *args, **kwargs):
-
+    """Платеж через ввод реквизитов карты"""
     if request.method == 'GET':
-        shop_id = request.GET.get('shop_id')
-        order_id = request.GET.get('order_id')
-        user_login = request.GET.get('user_login')
-        amount = request.GET.get('amount')
-        pay_type = request.GET.get('pay_type')
-        logger.debug(f'GET {request.GET.dict()} {shop_id} {order_id} {user_login} {amount} {pay_type}'
+        payment_id = request.GET.get('payment_id')
+        logger.debug(f'GET {request.GET.dict()}'
                      f' {request.META.get("HTTP_REFERER")}')
 
         try:
-            payment, status = Payment.objects.get_or_create(
-                shop_id=shop_id,
-                order_id=order_id,
-                user_login=user_login,
-                amount=amount,
-                pay_type=pay_type
-            )
-            logger.debug(f'payment, status: {payment} {status}')
+            payment = Payment.objects.get(id=payment_id)
+            logger.debug(f'payment, status: {payment}')
         except Exception as err:
             logger.error(err)
             return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not correct data',
                                           content='Not correct data')
         if payment.status not in [0, 3]:
             return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
-
-        requisite = get_pay_requisite(pay_type)
-        # Если нет активных реквизитов
-        if not requisite:
-            # Перенаправляем на извинения
-            return redirect(reverse('payment:payment_type_not_worked'))
-
-        # Сохраняем реквизит к платежу
-        if not payment.pay_requisite:
-            payment.pay_requisite = requisite
-            payment.save()
 
         initial_data = {'payment_id': payment.id}
         if payment.card_data:
@@ -424,7 +432,7 @@ def invoice_test(request, *args, **kwargs):
     print(http_host)
     return render(request,
                   template_name='payment/test_send.html',
-                  context={'host': http_host})
+                  context={'host': http_host, 'uid': uuid.uuid4()})
 
 
 def java(request):

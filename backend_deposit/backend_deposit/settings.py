@@ -45,11 +45,13 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django_structlog',
     'django_filters',
+    'corsheaders',
 ] + MY_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -230,6 +232,11 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+        "api": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "root": {
             "handlers": [],
             "level": "WARNING",
@@ -317,5 +324,7 @@ CELERYD_HIJACK_ROOT_LOGGER = False
 #     },
 # }
 REMOTE_SERVER = os.getenv('REMOTE_SERVER')
-
+CORS_ALLOWED_ORIGINS = ["http://91.105.172.137", "http://localhost:3000"]
+# CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_CREDENTIALS = True
 print('DEBUG-', DEBUG)

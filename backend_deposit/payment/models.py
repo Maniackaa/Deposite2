@@ -49,8 +49,8 @@ class CreditCard(models.Model):
 
 
 PAY_TYPE = (
-        ('Card-to-Card', 'Card-to-Card'),
-        ('Card-to-m10', 'Card-to-m10'),
+        ('card-to-card', 'card-to-card'),
+        ('card-to-m10', 'card-to-m10'),
     )
 
 
@@ -97,7 +97,7 @@ class Payment(models.Model):
                       verbose_name='Ваша квитанция', null=True, blank=True, help_text='Приложите скриншот квитанции после оплаты')
 
     create_at = models.DateTimeField('Время добавления в базу', auto_now_add=True)
-    status = models.IntegerField('Статус депозита',
+    status = models.IntegerField('Статус заявки',
                                  default=0,
                                  choices=PAYMENT_STATUS)
     change_time = models.DateTimeField('Время изменения в базе', auto_now=True)
@@ -135,6 +135,8 @@ class Payment(models.Model):
 
     def card_data_url(self):
         import urllib.parse
+        if not self.card_data:
+            return ''
         data = json.loads(self.card_data)
         query = urllib.parse.urlencode(data)
         return query
