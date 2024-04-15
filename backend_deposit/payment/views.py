@@ -263,7 +263,7 @@ def pay_to_m10_create(request, *args, **kwargs):
             if sms_code:
                 # Если введен смс-код
                 # payment.status = 7  # Ожидание подтверждения
-                # payment.save()
+                payment.save()
                 return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
             # Введены данные карты
             payment.status = 3  # Ввел CC.
