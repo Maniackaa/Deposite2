@@ -38,7 +38,7 @@ def get_pay_requisite(pay_type: str) -> PayRequisite:
         return selected_requisite
 
 
-TIMER_SECONDS = 100
+TIMER_SECONDS = 300
 
 
 def get_time_remaining(pay: Payment) -> datetime.timedelta:
