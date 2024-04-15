@@ -16,9 +16,9 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def validate_status(self, value):
         logger.debug(f'validate {self}')
-        if value not in (4, 5, -1):
-            raise serializers.ValidationError(
-                "Такой статус нельзя")
+        # if value not in (4, 5, -1):
+        #     raise serializers.ValidationError(
+        #         "Такой статус нельзя")
         return value
 
 

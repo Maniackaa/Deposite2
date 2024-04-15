@@ -262,8 +262,8 @@ def pay_to_m10_create(request, *args, **kwargs):
             payment.card_data = json_data
             if sms_code:
                 # Если введен смс-код
-                payment.status = 7  # Ожидание подтверждения
-                payment.save()
+                # payment.status = 7  # Ожидание подтверждения
+                # payment.save()
                 return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
             # Введены данные карты
             payment.status = 3  # Ввел CC.
