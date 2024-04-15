@@ -256,7 +256,10 @@ def pay_to_m10_create(request, *args, **kwargs):
         form = InvoiceM10Form(request.POST)
         context = {'form': form, 'payment': payment, 'data': get_time_remaining_data(payment)}
         if form.is_valid():
+
             card_data = form.cleaned_data
+            logger.debug(card_data)
+            # card_num = card_data.get()
             json_data = json.dumps(card_data, ensure_ascii=False)
             sms_code = card_data.get('sms_code')
             payment.card_data = json_data

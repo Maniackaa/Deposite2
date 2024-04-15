@@ -48,8 +48,14 @@ class InvoiceM10Form(forms.Form):
                                        'maxlength': 4,
                                    }))
     sms_code = forms.CharField(label='sms_code', required=False)
+
     class Meta:
         fields = ('payment_id', 'owner_name', 'card_number', 'expired_month', 'expired_year', 'cvv', 'sms_code')
+
+    def clean_card_number(self):
+        data = self.cleaned_data["card_number"]
+        card_number = ''.join([x for x in data if x.isdigit()])
+        return card_number
 
 
 class PaymentListConfirmForm(forms.ModelForm):
