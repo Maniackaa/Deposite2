@@ -168,7 +168,8 @@
 
                     <span {% if payment.status != 0 %}hidden{% endif %}>
                         <label class="pay">Name on Card</label>
-                        <input type="text" name="owner_name" placeholder="John Smith">
+{#                        <input type="text" name="owner_name" placeholder="John Smith">#}
+                        {{ form.owner_name }}
                         <div class="row">
                             <div class="col-8 col-md-6">
                                 <label class="pay"><span class="required text-danger">*</span>Card Number</label>

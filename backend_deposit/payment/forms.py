@@ -20,6 +20,8 @@ class InvoiceForm(forms.ModelForm):
 
 class InvoiceM10Form(forms.Form):
     payment_id = forms.CharField(widget=forms.HiddenInput())
+    owner_name = forms.CharField(label='owner_name',
+                        widget=forms.TextInput(), required=False)
     card_number = forms.CharField(label='card_number',
                         widget=forms.TextInput(attrs={'placeholder': '0000 0000 0000 0000',
                                                       'minlength': 16,
