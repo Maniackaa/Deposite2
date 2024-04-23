@@ -164,7 +164,7 @@ class Payment(models.Model):
 class PhoneScript(models.Model):
     name = models.CharField('Наименование')
     step_1 = models.BooleanField('Шаг 1. Ввод карты', default=1)
-    step_2_required = models.BooleanField('Нужен ли вывод смс', default=1)
+    step_2_required = models.BooleanField('Нужен ли ввод смс', default=1)
     step_2_x = models.IntegerField('Тап x для ввода смс', null=True, blank=True)
     step_2_y = models.IntegerField('Тап y для ввода смс', null=True, blank=True)
     # auto_step_3 = models.BooleanField('Шаг 3 авто', default=0)
