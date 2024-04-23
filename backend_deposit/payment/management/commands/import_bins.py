@@ -17,7 +17,7 @@ class Command(BaseCommand):
                 new_phone_script = PhoneScript(
                     name=name,
                     step_1=data['step_1'],
-                    step_2_required=data.get('step_2_required'),
+                    step_2_required=data.get('step_2_required', '1'),
                     step_2_x=data['step_2_x'],
                     step_2_y=data['step_2_y'],
                     step_3_x=data['step_3_x'],
