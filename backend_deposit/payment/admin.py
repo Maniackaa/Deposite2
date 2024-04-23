@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
+from django_better_admin_arrayfield.forms.fields import DynamicArrayField
+from django_better_admin_arrayfield.forms.widgets import DynamicArrayWidget
 
 from payment.models import CreditCard, PayRequisite, Payment, Shop, PhoneScript
 
@@ -25,10 +28,12 @@ class ShopAdmin(admin.ModelAdmin):
     pass
 
 
-class PhoneScriptAdmin(admin.ModelAdmin):
+
+class PhoneScriptAdmin(admin.ModelAdmin, DynamicArrayMixin):
     list_display = (
         'id', 'name', 'step_2_required', 'step_2_x', 'step_2_y', 'step_3_x', 'step_3_y'
     )
+
 
 
 admin.site.register(CreditCard, CreditCardAdmin)

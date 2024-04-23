@@ -7,6 +7,7 @@ from http import HTTPStatus
 
 import requests
 import structlog
+from django.core.exceptions import PermissionDenied
 
 from django.http import HttpResponse, QueryDict, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
@@ -329,6 +330,11 @@ class PaymentListView(ListView):
     #     logger.debug('get form', request=request, args=args, kwargs=kwargs)
     #     self.object = Payment.objects.first()
     #     return super().get(request, *args, **kwargs)
+    #
+    def get_queryset(self):
+        if not self.request.user.is_staff:
+            raise PermissionDenied('Недостаточно прав')
+        super(PaymentListView, self).get_queryset()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -406,8 +412,9 @@ class PaymentEdit(UpdateView, ):
     template_name = 'payment/payment_edit.html'
 
     def get(self, request, *args, **kwargs):
+        if not self.request.user.is_staff:
+            raise PermissionDenied('Недостаточно прав')
         self.object = self.get_object()
-        print(self.object)
         return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):

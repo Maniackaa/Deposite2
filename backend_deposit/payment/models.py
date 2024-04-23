@@ -4,11 +4,12 @@ import uuid
 
 import requests
 import structlog
-from django.contrib.postgres.fields import ArrayField
+
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django_better_admin_arrayfield.models.fields import ArrayField
 
 from deposit.models import Incoming
 
@@ -189,6 +190,11 @@ class PhoneScript(models.Model):
 # @receiver(pre_save, sender=Payment)
 # def pre_save_pay(sender, instance: Payment, raw, using, update_fields, *args, **kwargs):
 #     logger.debug(f'pre_save_status = {instance.status} cashed: {instance.cached_status}')
+
+
+@receiver(pre_save, sender=PhoneScript)
+def after_save_script(sender, instance: PhoneScript, raw, using, update_fields, *args, **kwargs):
+    instance.bins = sorted(instance.bins)
 
 
 @receiver(post_save, sender=Payment)

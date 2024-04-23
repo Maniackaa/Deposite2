@@ -54,7 +54,7 @@ bins = {
         'step_1': 1,
         'step_2_x': 0,
         'step_2_y': 0,
-        'step_3_x': 0,
-        'step_3_y': 0,
+        'step_3_x': 550,
+        'step_3_y': 2050,
     },
 }

@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django_structlog',
     'django_filters',
     'corsheaders',
+    'django_better_admin_arrayfield',
 ] + MY_APPS
 
 MIDDLEWARE = [
