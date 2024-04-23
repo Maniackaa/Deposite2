@@ -227,6 +227,11 @@ LOGGING = {
             "handlers": ["null"],
             "propagate": False,
         },
+        "deposit": {
+            "handlers": ["console", "console_file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "payment": {
             "handlers": ["console", "console_file"],
             "level": "DEBUG",

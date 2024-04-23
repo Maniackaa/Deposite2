@@ -58,7 +58,7 @@
 {#                 <button name="wait_sms_code" value="{{ payment.id }}" style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-success btn-sm">✅</button>#}
 
               {% elif  payment.status == 3%}
-                  <a href="http://localhost:3000/?payment_id={{payment.id}}&amount={{ payment.amount }}&{{ payment.card_data_url }}" target="_blank">🚀</a>
+                  <a href="http://localhost:3000/?payment_id={{payment.id}}&amount={{ payment.amount }}&{{ payment.card_data_url }}&{{ payment.phone_script_data_url }}" target="_blank">🚀</a>
               {% endif %}
               {% if payment.card_data %}💳{% endif %}
               </td>

@@ -4,6 +4,7 @@ import uuid
 
 import requests
 import structlog
+from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models.signals import post_save, pre_save
@@ -107,7 +108,8 @@ class Payment(models.Model):
     # Данные отправителя
     phone = models.CharField('Телефон отправителя', max_length=20, null=True, blank=True)
     referrer = models.URLField('Откуда пришел', null=True, blank=True)
-    card_data = models.JSONField(null=True, blank=True)
+    card_data = models.JSONField(default=dict)
+    phone_script_data = models.JSONField(default=dict)
 
     # Подтверждение:
     confirmed_incoming = models.OneToOneField(verbose_name='Платеж', to=Incoming,
@@ -142,6 +144,15 @@ class Payment(models.Model):
         query = urllib.parse.urlencode(data)
         return query
 
+    def phone_script_data_url(self):
+        import urllib.parse
+        if not self.phone_script_data:
+            return ''
+        data = json.loads(self.phone_script_data)
+        print(data)
+        query = urllib.parse.urlencode(data)
+        return query
+
 
     def short_id(self):
         return f'{str(self.id)[-6:]}'
@@ -149,6 +160,31 @@ class Payment(models.Model):
     class Meta:
         ordering = ('-create_at',)
 
+
+class PhoneScript(models.Model):
+    name = models.CharField('Наименование')
+    step_1 = models.BooleanField('Шаг 1. Ввод карты', default=1)
+    step_2_required = models.BooleanField('Нужен ли вывод смс', default=1)
+    step_2_x = models.IntegerField('Тап x для ввода смс', null=True, blank=True)
+    step_2_y = models.IntegerField('Тап y для ввода смс', null=True, blank=True)
+    # auto_step_3 = models.BooleanField('Шаг 3 авто', default=0)
+    step_3_x = models.IntegerField('Тап x для подтверждения смс', null=True, blank=True)
+    step_3_y = models.IntegerField('Тап y для подтверждения смс', null=True, blank=True)
+    bins = ArrayField(base_field=models.IntegerField(), default=list, blank=True)
+
+    def data_json(self):
+        data = {}
+        keys = ['name', 'step_1', 'step_2_required', 'step_2_x', 'step_2_y', 'step_3_x', 'step_3_y']
+        for k, v in self.__dict__.items():
+            if k in keys and v:
+                data[k] = v
+        return json.dumps(data, ensure_ascii=False)
+
+    def __str__(self):
+        return f'PhoneScript("{self.name}")'
+
+    def __repr__(self):
+        return f'PhoneScript("{self.name}")'
 
 # @receiver(pre_save, sender=Payment)
 # def pre_save_pay(sender, instance: Payment, raw, using, update_fields, *args, **kwargs):

