@@ -93,7 +93,7 @@ class Payment(models.Model):
     shop = models.ForeignKey('Shop', on_delete=models.CASCADE, null=True)
     order_id = models.CharField(max_length=36, db_index=True, unique=True, null=True, blank=True)
     user_login = models.CharField(max_length=36)
-    amount = models.IntegerField('Сумма заявки', validators=[MinValueValidator(5)])
+    amount = models.IntegerField('Сумма заявки', validators=[MinValueValidator(5)], null=True)
     pay_requisite = models.ForeignKey('PayRequisite', on_delete=models.CASCADE, null=True, blank=True)
     pay_type = models.CharField('Тип платежа', choices=PAY_TYPE, null=True, blank=True)
     screenshot = models.ImageField(upload_to='uploaded_pay_screens/',

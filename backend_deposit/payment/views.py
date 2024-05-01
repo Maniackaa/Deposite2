@@ -117,7 +117,7 @@ def invoice(request, *args, **kwargs):
         query_params = request.GET.urlencode()
         logger.debug(f'GET {args} {kwargs} {request.GET.dict()}'
                      f' {request.META.get("HTTP_REFERER")}')
-        required_key = ['shop_id', 'order_id', 'user_login', 'amount', 'pay_type']
+        required_key = ['shop_id', 'order_id', 'user_login', 'pay_type']
         # Проверяем наличие всех данных для создания платежа
         for key in required_key:
             if key not in request.GET:
@@ -259,7 +259,8 @@ def pay_to_m10_create(request, *args, **kwargs):
         if payment.status not in [0, 3]:
             return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
 
-        initial_data = {'payment_id': payment.id}
+        amount = payment.amount
+        initial_data = {'payment_id': payment.id, 'amount': amount}
         if payment.card_data:
             initial_data.update(json.loads(payment.card_data))
         form = forms.InvoiceM10Form(initial=initial_data)
@@ -280,6 +281,7 @@ def pay_to_m10_create(request, *args, **kwargs):
             card_data = form.cleaned_data
             logger.debug(card_data)
             card_number = card_data.get('card_number')
+            amount = card_data.get('amount')
             phone_script = get_phone_script(card_number)
             context['phone_script'] = phone_script
             # phone_script.step_2_required = 0
@@ -293,6 +295,7 @@ def pay_to_m10_create(request, *args, **kwargs):
                 payment.save()
                 return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
             # Введены данные карты
+            payment.amount = amount
             payment.status = 3  # Ввел CC.
             payment.save()
             return render(request, context=context, template_name='payment/invoice_m10.html')

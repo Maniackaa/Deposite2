@@ -18,8 +18,9 @@ class InvoiceForm(forms.ModelForm):
                   )
 
 
-class InvoiceM10Form(forms.Form):
+class InvoiceM10Form(forms.ModelForm):
     payment_id = forms.CharField(widget=forms.HiddenInput())
+    amount = forms.CharField()
     owner_name = forms.CharField(label='owner_name',
                         widget=forms.TextInput(), required=False)
     card_number = forms.CharField(label='card_number',
@@ -49,9 +50,13 @@ class InvoiceM10Form(forms.Form):
                                        'minlength': 3,
                                        'maxlength': 4,
                                    }))
-    sms_code = forms.CharField(label='sms_code', required=False)
+    sms_code = forms.CharField(label='sms_code', required=False,
+                               widget=forms.TextInput(attrs={'minlength': 4,
+                                                             'maxlength': 6})
+                               )
 
     class Meta:
+        model = Payment
         fields = ('payment_id', 'owner_name', 'card_number', 'expired_month', 'expired_year', 'cvv', 'sms_code')
 
     def clean_card_number(self):

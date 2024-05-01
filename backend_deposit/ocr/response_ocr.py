@@ -50,6 +50,7 @@ async def create_response_part(bytes, black, white) -> str:
             text = await resp.json()
     return text
 
+
 async def create_atb_from_part(bytes, black, white, oem='0', psm='6') -> str:
     ENDPOINT = 'http://localhost/ocr/response_screen_atb/'
     async with aiohttp.ClientSession() as session:

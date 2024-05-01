@@ -37,18 +37,17 @@
 
     <div class="row ">
         <div class="row ">
-            <p>Текущий статус вашего платежа:
+            <p>Текущий статус вашего платежа:<br>
 
-              {% if payment.status == 1 %}
-                <b style= "color: #ffd400">
-              {% elif payment.status == 2 %}
-                <b style= "color: #00ff7c">
-              {% elif payment.status == -1 %}
-                <b style= "color: #e01414">
-
+              {% if payment.status == -1 %}
+                <b style= "color: #fa3131">Отклонен</b></p>
+              {% elif payment.status == 9 %}
+                <b style= "color: #00ff7c">Подтвержден</b></p>
+              {% else %}
+                <b style= "color: #937800">Ожидает подтверждения</b></p>
               {% endif %}
-                {{ status }}</b></p>
-              {% if payment.status != 2 %}
+
+              {% if payment.status != 9 and  payment.status != -1 %}
                 <a href="{% url 'payment:pay_result' payment.id %}">Обновить статус</a>
               {% endif %}
           </div>
@@ -56,7 +55,7 @@
 
 
 
-            {% if payment.status == 1 %}
+            {% if payment.status != 9 and  payment.status != -1 %}
                 {% include 'includes/result_timer.html' %}
             {% endif %}
 
@@ -97,7 +96,7 @@
   }
 }
 </script>
-{#<script src="//code.jivo.ru/widget/b2YKXyDPmC" async></script>#}
+<script src="//code.jivo.ru/widget/b2YKXyDPmC" async></script>
 
 {% endblock %}
 
