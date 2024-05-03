@@ -331,7 +331,8 @@ CELERYD_HIJACK_ROOT_LOGGER = False
 # }
 REMOTE_SERVER = os.getenv('REMOTE_SERVER')
 # CORS_ALLOWED_ORIGINS = ["http://91.105.172.137", "http://localhost:3000"]
-CORS_ALLOWED_ORIGINS = ["http://91.105.172.137", "http://localhost:3000", "https://asu-payme.com"]
+CORS_ALLOWED_ORIGINS = ["http://91.105.172.137", "http://localhost:3000", "https://asu-payme.com",
+                        "http://194.190.152.131"]
 # CORS_ALLOW_ALL_ORIGINS = True
 # CORS_ALLOW_CREDENTIALS = True
 print('DEBUG-', DEBUG)
