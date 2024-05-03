@@ -206,14 +206,14 @@
   </div>
 </div>
 
-
+{{ request.get_host }}
 <script>
 function checkInput() {
     let input = document.getElementById("id_card_number").value;
     console.log(input.length)
     if (input.length === 7) {
         // Отправляем GET запрос на сервер
-        fetch('http://127.0.0.1:8000/get_bank/' + input)
+        fetch('/get_bank/' + input)
             .then(response => response.json())
             .then(data => {
                 // Заменяем изображение на полученное из ответа
