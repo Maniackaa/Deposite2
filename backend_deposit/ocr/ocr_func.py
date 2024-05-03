@@ -61,6 +61,7 @@ def bytes_to_str(file_bytes, black=180, white=255, lang='rus'):
         return string
     except Exception as err:
         logger.error(f'Ошибка в cv2 {err}', exc_info=True)
+        raise err
 
 
 def date_m10_response(data_text: str) -> datetime.datetime:

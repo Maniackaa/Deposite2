@@ -20,29 +20,32 @@ class InvoiceForm(forms.ModelForm):
 
 class InvoiceM10Form(forms.ModelForm):
     payment_id = forms.CharField(widget=forms.HiddenInput())
-    amount = forms.CharField()
+    amount = forms.CharField(widget=forms.TextInput(attrs={'placeholder': '₼',
+                                                           }
+                                                         ))
     owner_name = forms.CharField(label='owner_name',
-                        widget=forms.TextInput(), required=False)
+                                 widget=forms.TextInput(), required=False)
     card_number = forms.CharField(label='card_number',
-                        widget=forms.TextInput(attrs={'placeholder': '0000 0000 0000 0000',
-                                                      'minlength': 16,
-                                                      'maxlength': 19,
-                                                      }
-                                               )
+                                  widget=forms.TextInput(attrs={'placeholder': '0000 0000 0000 0000',
+                                                                'minlength': 16,
+                                                                'maxlength': 19,
+                                                                }
+                                                         )
                                   )
+    months = ((1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10), (11, 11), (12, 12), )
     expired_month = forms.CharField(label='expired_month',
-                        widget=forms.TextInput(attrs={'placeholder': 'MM',
-                                                      'minlength': 2,
-                                                      'maxlength': 2,
-                                                      }
-                                               )
+                                    widget=forms.TextInput(attrs={'placeholder': 'MM',
+                                                                  'minlength': 2,
+                                                                  'maxlength': 2,
+                                                                  }
+                                                           )
                                     )
     expired_year = forms.CharField(label='expired_month',
-                        widget=forms.TextInput(attrs={'placeholder': 'YY',
-                                                      'minlength': 2,
-                                                      'maxlength': 2,
-                                                      }
-                                               )
+                                   widget=forms.TextInput(attrs={'placeholder': 'YY',
+                                                                 'minlength': 2,
+                                                                 'maxlength': 2,
+                                                                 }
+                                                          )
                                    )
     cvv = forms.CharField(label='cvv',
                           widget=forms.PasswordInput(render_value=True, attrs={

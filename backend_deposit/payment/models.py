@@ -171,7 +171,7 @@ class PhoneScript(models.Model):
     # auto_step_3 = models.BooleanField('Шаг 3 авто', default=0)
     step_3_x = models.IntegerField('Тап x для подтверждения смс', null=True, blank=True)
     step_3_y = models.IntegerField('Тап y для подтверждения смс', null=True, blank=True)
-    bins = ArrayField(base_field=models.IntegerField(), default=list, blank=True)
+    # bins = ArrayField(base_field=models.IntegerField(), default=list, blank=True)
 
     def data_json(self):
         data = {}
@@ -186,6 +186,14 @@ class PhoneScript(models.Model):
 
     def __repr__(self):
         return f'PhoneScript("{self.name}")'
+
+
+class Bank(models.Model):
+    name = models.CharField('Наименование', unique=True)
+    bins = ArrayField(base_field=models.IntegerField(), default=list, blank=True)
+    script = models.ForeignKey('PhoneScript', on_delete=models.CASCADE)
+    image = models.ImageField('Иконка банка', upload_to='bank_icons', null=True, blank=True)
+
 
 # @receiver(pre_save, sender=Payment)
 # def pre_save_pay(sender, instance: Payment, raw, using, update_fields, *args, **kwargs):

@@ -3,7 +3,7 @@ from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
 from django_better_admin_arrayfield.forms.fields import DynamicArrayField
 from django_better_admin_arrayfield.forms.widgets import DynamicArrayWidget
 
-from payment.models import CreditCard, PayRequisite, Payment, Shop, PhoneScript
+from payment.models import CreditCard, PayRequisite, Payment, Shop, PhoneScript, Bank
 
 
 class CreditCardAdmin(admin.ModelAdmin):
@@ -35,9 +35,13 @@ class PhoneScriptAdmin(admin.ModelAdmin, DynamicArrayMixin):
     )
 
 
+class BankAdmin(admin.ModelAdmin, DynamicArrayMixin):
+    pass
+
 
 admin.site.register(CreditCard, CreditCardAdmin)
 admin.site.register(PayRequisite, PayRequisiteAdmin)
 admin.site.register(Payment, PaymentAdmin)
 admin.site.register(Shop, ShopAdmin)
 admin.site.register(PhoneScript, PhoneScriptAdmin)
+admin.site.register(Bank, BankAdmin)

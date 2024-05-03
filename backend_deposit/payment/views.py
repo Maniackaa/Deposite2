@@ -9,7 +9,8 @@ import requests
 import structlog
 from django.core.exceptions import PermissionDenied
 
-from django.http import HttpResponse, QueryDict, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest
+from django.http import HttpResponse, QueryDict, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest, \
+    JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
@@ -21,7 +22,7 @@ from deposit.models import Incoming
 from payment import forms
 from payment.filters import PaymentFilter
 from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm, InvoiceM10Form
-from payment.models import Payment, PayRequisite, Shop, CreditCard, PhoneScript
+from payment.models import Payment, PayRequisite, Shop, CreditCard, PhoneScript, Bank
 
 logger = structlog.get_logger(__name__)
 
@@ -445,6 +446,19 @@ class PaymentEdit(UpdateView, ):
             # IncomingChange().save_incoming_history(old_incoming, incoming, self.request.user)
 
             return super(PaymentEdit, self).form_valid(form)
+
+
+def get_bank(request, bin_num):
+    bin_num = int(bin_num.replace(' ', ''))
+    bank = Bank.objects.filter(bins__contains=[bin_num]).first()
+
+    if bank:
+        data = {'image': bank.image.name}
+    else:
+        bank = Bank.objects.filter(name='Default').first()
+        data = {'image': bank.image.name}
+    print(data)
+    return JsonResponse(data, safe=False)
 
 
 def payment_type_not_worked(request, *args, **kwargs):

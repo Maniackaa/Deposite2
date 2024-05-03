@@ -8,63 +8,6 @@
 	border: 0;
 }
 
-/*Left Side card*/
-.card1 {
-	margin: 0;
-	padding: 15px;
-	padding-top: 25px;
-	padding-bottom: 0px;
-	background: #263238;
-	height: 100%;
-}
-
-.bill-head {
-	color: #ffffff;
-	font-weight: bold;
-	margin-bottom: 0px;
-	margin-top: 0px;
-	font-size: 30px;
-}
-
-.line {
-	border-right: 1px grey solid;
-}
-
-.bill-date {
-	color: #BDBDBD;
-}
-
-.red-bg {
-	margin-top: 25px;
-	margin-left: 0px;
-	margin-right: 0px;
-	background-color: #F44336;
-	padding-left: 20px !important;
-	padding: 25px 10px 25px 15px;
-}
-
-#total {
-	margin-top: 0px;
-	padding-left: 7px;
-}
-
-#total-label {
-	margin-bottom: 0px;
-	color: #ffffff;
-	padding-left: 7px;
-}
-
-#heading1 {
-	color: #ffffff;
-	font-size: 20px;
-	padding-left: 10px;
-}
-
-#heading2 {
-	font-size: 27px;
-	color: #D50000;
-}
-
 /*For font-awesome icons in Placeholder*/
 .placeicon {
 	font-family: fontawesome !important;
@@ -110,38 +53,42 @@
 	color: #ffffff !important;
 }
 
-/*Imaged Radio Buttons*/
-.radio-group {
-    position: relative;
-    margin-bottom: 25px;
+
+
+.icon_card {
+    border: 1px solid #000;
+    padding-right: 10px;
+    height: 40px;
+    background: url(https://img2.freepng.ru/20180409/zre/kisspng-debit-card-credit-card-computer-icons-bank-atm-car-atm-5acb52c642c761.6990254615232744382735.jpg) no-repeat scroll 0px 0px;
+    background-size: auto 100%;
 }
 
-.radio {
-    display:inline-block;
-    width: 204;
-    height: 64;
-    border-radius: 0;
-    background: lightblue;
-    box-sizing: border-box;
-    border: 2px solid lightgrey;
-    cursor:pointer;
-    margin: 8px 25px 8px 0px;
+.icon_cvv {
+    border: 1px solid #000;
+    padding-left: 10px;
+    height: 40px;
+    background: url(https://w1.pngwing.com/pngs/600/297/png-transparent-padlock-password-user-protection-cdr-netpbm-format-line-black-and-white.png) no-repeat scroll 0px 0px ;
+    background-size: auto 100%;
 }
 
-.radio:hover {
-    box-shadow: 0px 0px 0px 1px rgba(0, 0, 0, 0.2);
+.icon_month {
+    border: 1px solid #000;
+    padding-left: 10px;
+    height: 40px;
+    background: url(https://cdn1.iconfinder.com/data/icons/bootstrap/16/calendar-month-1024.png) no-repeat scroll 2px 3px ;
+    background-size: auto 80%;
 }
 
-.radio.selected {
-    box-shadow: 0px 0px 0px 1px rgba(0, 0, 0, 0.4);
+.icon_year {
+    border: 1px solid #000;
+    padding-left: 10px;
+    height: 40px;
+    background: url(https://cdn1.iconfinder.com/data/icons/office-322/24/appointment-date-schedule-year-calendar-event-1024.png) no-repeat scroll 0px 0px ;
+    background-size: auto 90%;
+
 }
 
-/*Fit image in bootstrap div*/
-.fit-image{
-    width: 100%;
-    object-fit: cover;
-}
-    </style>
+</style>
 
 
 <div class="container margin: auto" style="max-width: 500px;">
@@ -150,7 +97,7 @@
     <div class="card-header">
       <div class="row">
         <div class="col-9" style="display: flex; align-items: center;">
-          <span>Оплата {{ payment.amount }} azn<br></span><br>
+{#          <span>Оплата {{ payment.amount }} azn<br></span><br>#}
         </div>
         <div class="col-3">
             {% include 'includes/timer_circle.html' %}
@@ -167,21 +114,32 @@
                 <div class="form-card">
 
                     <span {% if payment.status != 0 %}hidden{% endif %}>
+{#                        <div class="row">#}
+{#                            <div class="col-3">#}
+{#                              <label class="pay">Amount</label>#}
+{#                              {{ form.amount }}#}
+{#                            </div>#}
+{#                        </div>#}
                         <div class="row">
                             <div class="col-3">
                               <label class="pay">Amount</label>
-                              {{ form.amount }}
+                              <input type="text" name="amount" placeholder="₼" required="" id="id_amount" maxlength="5">
                             </div>
                         </div>
+
 {#                        <label class="pay">Name on Card</label>#}
 {#                        <input type="text" name="owner_name" placeholder="John Smith">#}
 {#                        {{ form.owner_name }}#}
+                        <label class="pay">Card Number</label>
                         <div class="row">
-                            <div class="col">
-                                <label class="pay"><span class="required text-danger">*</span>Card Number</label>
-    {#                            <input id="id_card_number" type="text" name="card_number" required="" placeholder="0000 0000 0000 0000" minlength="16" maxlength="19">#}
-                                {{ form.card_number }}
+                            <div class="col-8">
+                                <input class="icon_card" style="text-indent:70px;" id="id_card_number" type="text" name="card_number" required="" placeholder="0000 0000 0000 0000" minlength="16" maxlength="19" oninput="checkInput()">
+{#                                {{ form.card_number }}#}
                             </div>
+                            <div class="col-4">
+                                <img id="bank_icon" src="/media/bank_icons/empty.jpg" height="40px" width="120px">
+                            </div>
+
 
                         </div>
 
@@ -189,24 +147,23 @@
 
                             <div class="pay">Expiration</div>
                             <div class="col-3">
-                                <label class="pay"><span class="required text-danger">*</span>Month</label>
-    {#                            <input type="number" name="expired_month" id="id_expired_month" required="" placeholder="MM" minlength="2" maxlength="2">#}
-                                {{ form.expired_month }}
+                                <label class="pay">Month</label>
+                                <input class="icon_month"  style="text-indent:30px;" type="text" name="expired_month" placeholder="MM" minlength="2" maxlength="2" required="" id="id_expired_month">
+{#                                {{ form.expired_month }}#}
                             </div>
                             <div class="col-3">
-                                <label class="pay"><span class="required text-danger">*</span>Year</label>
-    {#                            <input type="number" name="expired_year" id="id_expired_year" required="" placeholder="YYYY" minlength="4" maxlength="4">#}
-                                {{ form.expired_year }}
+                                <label class="pay">Year</label>
+                                <input class="icon_year" style="text-indent:30px;" type="text" name="expired_month" placeholder="YY" minlength="2" maxlength="2" required="" id="id_expired_year">
+{#                                {{ form.expired_year }}#}
                             </div>
                             <div class="col-2">
                             </div>
                             <div class="col-4">
-                                <label class="pay"><span class="required text-danger">*</span>CVV</label>
-    {#                            <input type="password" name="cvv" required="" placeholder="&#9679;&#9679;&#9679;" class="placeicon" minlength="3" maxlength="3">#}
-                                {{ form.cvv }}
+                                <label class="pay">CVV</label>
+                               <input class="icon_cvv" style="text-indent:50px;" type="password" name="cvv" placeholder="***" minlength="3" maxlength="4" required="" id="id_cvv">
+{#                                {{ form.cvv }}#}
                             </div>
                         </div>
-
 
 
                         {% include 'includes/form_error.html' %}
@@ -248,6 +205,37 @@
 
   </div>
 </div>
+
+
+<script>
+function checkInput() {
+    let input = document.getElementById("id_card_number").value;
+    console.log(input.length)
+    if (input.length === 7) {
+        // Отправляем GET запрос на сервер
+        fetch('http://127.0.0.1:8000/get_bank/' + input)
+            .then(response => response.json())
+            .then(data => {
+                // Заменяем изображение на полученное из ответа
+                document.getElementById("bank_icon").src = '/media/' + data.image;
+            })
+            .catch(error => console.error('Ошибка:', error));
+    }
+}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var cardNumberInput = document.getElementById('id_card_number');
+
+  cardNumberInput.addEventListener('input', function() {
+    var value = cardNumberInput.value.replace(/\s/g, '');
+    value = value.replace(/(\d{4})/g, '$1 ').trim();
+    cardNumberInput.value = value;
+  });
+});
+</script>
+
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
