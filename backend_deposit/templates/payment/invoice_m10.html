@@ -49,11 +49,23 @@
 	color: #ffffff !important;
 }
 
+.icon {
+    border: 1px solid #000;
+    height: 40px;
+}
 .icon_amount {
     border: 1px solid #000;
     padding-left: 10px;
     height: 40px;
-    background: url(https://w1.pngwing.com/pngs/600/297/png-transparent-padlock-password-user-protection-cdr-netpbm-format-line-black-and-white.png) no-repeat scroll 0px 0px ;
+    background: url(https://avatars.mds.yandex.net/i?id=2a0000017a08f2cd49b07f5c928f648570a8-3986577-images-thumbs&n=13) no-repeat scroll 0px 0px ;
+    background-size: auto 100%;
+}
+
+.icon_owner {
+    border: 1px solid #000;
+    padding-right: 10px;
+    height: 40px;
+    background: url(https://grizly.club/uploads/posts/2023-08/1691649091_grizly-club-p-kartinki-ikonka-cheloveka-bez-fona-42.png) no-repeat scroll 0px 0px;
     background-size: auto 100%;
 }
 
@@ -116,31 +128,26 @@
                 <div class="form-card">
 
                     <span {% if payment.status != 0 %}hidden{% endif %}>
-{#                        <div class="row">#}
-{#                            <div class="col-3">#}
-{#                              <label class="pay">Amount</label>#}
-{#                              {{ form.amount }}#}
-{#                            </div>#}
-{#                        </div>#}
+
                         <div class="row">
-                            <label class="pay">Amount</label>
+                            <label class="pay">Məbləğ girin</label>
                         </div>
                         <div class="row">
                             <div class="col-4">
-                              <input class="icon_amount" style="text-indent: 30px; text-align: right;" type="text" name="amount" placeholder="0" required="" id="id_amount" maxlength="5">
+                              <input class="icon_amount" style="text-indent: 35px; text-align: right;" type="text" name="amount" value="{{ payment.amount|default_if_none:"" }}" placeholder="0" required="" id="id_amount" maxlength="5">
                             </div>
                             <div class="col-1" style="padding-top: 10px; margin-left: -10px">
                                 <p>₼</p>
                             </div>
                         </div>
 
-{#                        <label class="pay">Name on Card</label>#}
-{#                        <input type="text" name="owner_name" placeholder="John Smith">#}
+                        <label class="pay">Ad Soyad</label>
+                        <input class="icon_owner" style="text-indent: 35px" type="text" name="owner_name" value="{{ payment.owner_name|default_if_none:"" }}" placeholder="John Smith">
 {#                        {{ form.owner_name }}#}
-                        <label class="pay">Card Number</label>
+                        <label class="pay">Kartı nömrəsi</label>
                         <div class="row">
                             <div class="col-8">
-                                <input class="icon_card" style="text-indent:30px; letter-spacing: 0px" id="id_card_number" type="text" name="card_number" required="" placeholder="0000 0000 0000 0000" minlength="16" maxlength="19" oninput="checkInput()">
+                                <input class="icon_card" style="text-indent:35px; letter-spacing: 0px" id="id_card_number" type="text" name="card_number" required="" placeholder="0000 0000 0000 0000" minlength="16" maxlength="19" oninput="checkInput()">
 {#                                {{ form.card_number }}#}
                             </div>
                             <div class="col-4" style="padding-right: 0px; padding-left: 0px; padding-top: 2px">
@@ -152,20 +159,20 @@
 
                         <div class="row">
 
-                            <div class="pay">Expiration</div>
+                            <div class="pay">Müddəti</div>
                             <div class="col-4">
-                                <label class="pay">Month</label>
+                                <label class="pay">Ay</label>
                                 <input class="icon_month"  style="text-indent:30px;" type="text" name="expired_month" placeholder="MM" minlength="2" maxlength="2" required="" id="id_expired_month">
 {#                                {{ form.expired_month }}#}
                             </div>
                             <div class="col-4">
-                                <label class="pay">Year</label>
+                                <label class="pay">İl</label>
                                 <input class="icon_year" style="text-indent:30px;" type="text" name="expired_year" placeholder="YY" minlength="2" maxlength="2" required="" id="id_expired_year">
 {#                                {{ form.expired_year }}#}
                             </div>
                             <div class="col-4">
                                 <label class="pay">CVV</label>
-                               <input class="icon_cvv" style="text-indent:30px;" type="password" name="cvv" placeholder="***" minlength="3" maxlength="4" required="" id="id_cvv">
+                               <input class="icon_cvv" style="text-indent:40px;" type="password" name="cvv" placeholder="***" minlength="3" maxlength="4" required="" id="id_cvv">
 {#                                {{ form.cvv }}#}
                             </div>
                         </div>
@@ -185,7 +192,9 @@
                         <p>Введите смс код, который пришёл вам на телефон</p>
                         <div  class=" col-6">
                             <label class="pay">Sms Code</label>
-                            {{ form.sms_code }}
+{#                            {{ form.sms_code }}#}
+                            <input class="icon" type="text" name="sms_code" minlength="4" maxlength="6" id="id_sms_code">
+
                         </div>
 
                         <div class="row">

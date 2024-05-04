@@ -135,7 +135,7 @@ function startTimer() {
     timePassed = timePassed += 1;
     timeLeft = TIME_LIMIT - timePassed + 0;
     document.getElementById("base-timer-label").innerHTML = formatTime(
-      timeLeft
+      timeLeft + 1
     );
     setCircleDasharray();
     setRemainingPathColor(timeLeft);
