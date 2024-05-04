@@ -45,13 +45,12 @@ def get_phone_script(card_num) -> PhoneScript:
     try:
         bin_num = str(card_num)[:6]
         logger.debug(f'bin_num: {bin_num}')
-        phone_script = PhoneScript.objects.filter(bins__contains=[bin_num]).first()
+        bank = Bank.objects.filter(bins__contains=[bin_num]).first()
 
-        if not phone_script:
-            logger.info('phone_script: default')
-            return PhoneScript.objects.get(name='default')
-        logger.info(f'phone_script: {phone_script}')
-        return phone_script
+        if not bank:
+            bank = Bank.objects.get(name='Default')
+        logger.info(f'phone_script: {bank.script}')
+        return bank.script
     except Exception as err:
         logger.error(err)
 

@@ -3,15 +3,7 @@
 {% endblock %}
 {% block content %}
 <style>
-    .card0 {
-	margin: 40px 12px 15px 12px;
-	border: 0;
-}
 
-/*For font-awesome icons in Placeholder*/
-.placeicon {
-	font-family: fontawesome !important;
-}
 
 /*Right Side Card*/
 .card2 {
@@ -25,7 +17,7 @@
 }
 
 .form-card input, .form-card textarea {
-    padding: 10px 8px 10px 8px;
+    padding: 1px 10px 1px 10px;
     border: none;
     border: 1px solid lightgrey;
     border-radius: 0px;
@@ -92,7 +84,7 @@
 
 
 <div class="container margin: auto" style="max-width: 500px;">
-  <div class="card" style="padding-left: 20px; padding-right: 20px; padding-bottom:20px; background: #efefef">
+  <div class="card" style="padding-left: 1px; padding-right: 1px; padding-bottom:1px; background: #efefef">
 
     <div class="card-header">
       <div class="row">
@@ -153,7 +145,7 @@
                             </div>
                             <div class="col-3">
                                 <label class="pay">Year</label>
-                                <input class="icon_year" style="text-indent:30px;" type="text" name="expired_month" placeholder="YY" minlength="2" maxlength="2" required="" id="id_expired_year">
+                                <input class="icon_year" style="text-indent:30px;" type="text" name="expired_year" placeholder="YY" minlength="2" maxlength="2" required="" id="id_expired_year">
 {#                                {{ form.expired_year }}#}
                             </div>
                             <div class="col-2">
@@ -170,7 +162,7 @@
 
                         <div id="send_cc_data" class="row">
                             <div class="col-md-6">
-                                <input  type="submit" value="Подтвердить" class="btn btn-info placeicon">
+                                <input  type="submit" value="Подтвердить" class="btn btn-info">
                             </div>
                         </div>
                     </span>
@@ -206,17 +198,14 @@
   </div>
 </div>
 
-{{ request.get_host }}
 <script>
 function checkInput() {
     let input = document.getElementById("id_card_number").value;
     console.log(input.length)
     if (input.length === 7) {
-        // Отправляем GET запрос на сервер
         fetch('/get_bank/' + input)
             .then(response => response.json())
             .then(data => {
-                // Заменяем изображение на полученное из ответа
                 document.getElementById("bank_icon").src = '/media/' + data.image;
             })
             .catch(error => console.error('Ошибка:', error));
@@ -235,7 +224,6 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
-
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
