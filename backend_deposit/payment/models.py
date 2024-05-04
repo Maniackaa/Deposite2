@@ -200,9 +200,9 @@ class Bank(models.Model):
 #     logger.debug(f'pre_save_status = {instance.status} cashed: {instance.cached_status}')
 
 
-@receiver(pre_save, sender=PhoneScript)
-def after_save_script(sender, instance: PhoneScript, raw, using, update_fields, *args, **kwargs):
-    instance.bins = sorted(instance.bins)
+# @receiver(pre_save, sender=PhoneScript)
+# def after_save_script(sender, instance: PhoneScript, raw, using, update_fields, *args, **kwargs):
+#     instance.bins = sorted(instance.bins)
 
 
 @receiver(post_save, sender=Payment)

@@ -36,7 +36,9 @@ class PhoneScriptAdmin(admin.ModelAdmin, DynamicArrayMixin):
 
 
 class BankAdmin(admin.ModelAdmin, DynamicArrayMixin):
-    pass
+    list_display = (
+        'id', 'name', 'script'
+    )
 
 
 admin.site.register(CreditCard, CreditCardAdmin)

@@ -12,6 +12,10 @@
 	height: 100%;
 }
 
+.placeicon {
+	height: 80%;
+}
+
 .form-card .pay {
 	font-weight: bold;
 }
@@ -97,7 +101,7 @@
         <div class="col-9" style="display: flex; align-items: center;">
 {#          <span>Оплата {{ payment.amount }} azn<br></span><br>#}
         </div>
-        <div class="col-3">
+        <div class="col-3" style="margin-left: -20px">
             {% include 'includes/timer_circle.html' %}
         </div>
       </div>
@@ -140,7 +144,7 @@
 {#                                {{ form.card_number }}#}
                             </div>
                             <div class="col-4" style="padding-right: 0px; padding-left: 0px; padding-top: 2px">
-                                <img id="bank_icon" src="/media/bank_icons/empty.jpg" height="40px" width="120px">
+                                <img id="bank_icon" src="/media/bank_icons/empty.jpg" height="40px" width="90%">
                             </div>
 
 
@@ -171,7 +175,7 @@
 
                         <div id="send_cc_data" class="row">
                             <div class="col-md-6">
-                                <input  type="submit" value="Подтвердить" class="btn btn-info">
+                                <input  type="submit" value="Подтвердить" class="btn btn-info placeicon">
                             </div>
                         </div>
                     </span>
