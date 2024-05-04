@@ -7,7 +7,7 @@
 
 /*Right Side Card*/
 .card2 {
-	padding: 25px;
+	padding: 5px;
 	margin: 0;
 	height: 100%;
 }
@@ -45,7 +45,13 @@
 	color: #ffffff !important;
 }
 
-
+.icon_amount {
+    border: 1px solid #000;
+    padding-left: 10px;
+    height: 40px;
+    background: url(https://w1.pngwing.com/pngs/600/297/png-transparent-padlock-password-user-protection-cdr-netpbm-format-line-black-and-white.png) no-repeat scroll 0px 0px ;
+    background-size: auto 100%;
+}
 
 .icon_card {
     border: 1px solid #000;
@@ -113,9 +119,14 @@
 {#                            </div>#}
 {#                        </div>#}
                         <div class="row">
+                            <label class="pay">Amount</label>
+                        </div>
+                        <div class="row">
                             <div class="col-3">
-                              <label class="pay">Amount</label>
-                              <input type="text" name="amount" placeholder="₼" required="" id="id_amount" maxlength="5">
+                              <input class="icon_amount" style="text-indent: 30px" type="text" name="amount" placeholder="0" required="" id="id_amount" maxlength="5">
+                            </div>
+                            <div class="col-1" style="padding-top: 10px; margin-left: -10px">
+                                <p>₼</p>
                             </div>
                         </div>
 
@@ -128,7 +139,7 @@
                                 <input class="icon_card" style="text-indent:70px;" id="id_card_number" type="text" name="card_number" required="" placeholder="0000 0000 0000 0000" minlength="16" maxlength="19" oninput="checkInput()">
 {#                                {{ form.card_number }}#}
                             </div>
-                            <div class="col-4">
+                            <div class="col-4" style="padding-right: 0px; padding-left: 0px; padding-top: 2px">
                                 <img id="bank_icon" src="/media/bank_icons/empty.jpg" height="40px" width="120px">
                             </div>
 
