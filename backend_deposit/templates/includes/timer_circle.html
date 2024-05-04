@@ -9,8 +9,8 @@
 
 .base-timer {
   position: relative;
-  width: 100px;
-  height: 100px;
+  width: 50px;
+  height: 50px;
 }
 
 .base-timer__svg {
@@ -51,13 +51,13 @@
 
 .base-timer__label {
   position: absolute;
-  width: 100px;
-  height: 100px;
+  width: 50px;
+  height: 50px;
   top: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 18px;
 }
 
 </style>
@@ -140,7 +140,7 @@ function startTimer() {
     setCircleDasharray();
     setRemainingPathColor(timeLeft);
 
-    if (timeLeft <= 0) {
+    if (timeLeft < 0) {
       onTimesUp();
 
     }

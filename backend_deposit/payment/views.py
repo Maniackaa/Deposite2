@@ -278,8 +278,10 @@ def pay_to_m10_create(request, *args, **kwargs):
         # Обработка нажатия кнопки
         payment_id = request.POST.get('payment_id')
         payment = Payment.objects.get(pk=payment_id)
-        form = InvoiceM10Form(request.POST)
+        initial_data = {'payment_id': payment.id}
+        form = InvoiceM10Form(request.POST, instance=payment, initial=initial_data)
         context = {'form': form, 'payment': payment, 'data': get_time_remaining_data(payment)}
+
         if form.is_valid():
             card_data = form.cleaned_data
             logger.debug(card_data)
@@ -287,8 +289,6 @@ def pay_to_m10_create(request, *args, **kwargs):
             amount = card_data.get('amount')
             phone_script = get_phone_script(card_number)
             context['phone_script'] = phone_script
-            # phone_script.step_2_required = 0
-            print(phone_script)
             sms_code = card_data.get('sms_code')
             payment.card_data = json.dumps(card_data, ensure_ascii=False)
             payment.phone_script_data = phone_script.data_json()

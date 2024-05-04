@@ -110,12 +110,14 @@
 
     <div class="card-header">
       <div class="row">
-        <div class="col-9" style="display: flex; align-items: center;">
-{#          <span>Оплата {{ payment.amount }} azn<br></span><br>#}
+          <img src="https://avatars.mds.yandex.net/i?id=fd346399fa062c74dd77fc93d7fccba878fc5db6-10805353-images-thumbs&n=13">
+      </div>    
+      <div class="row">
+        <div class="col-9 mx-auto" style="display: flex; align-items: center;">
+
+
         </div>
-        <div class="col-3" style="margin-left: -20px">
-            {% include 'includes/timer_circle.html' %}
-        </div>
+
       </div>
     </div>
 
@@ -126,9 +128,12 @@
         <div class="col-sm-12 p-0 box">
             <div class="card rounded-0 border-0 card2" id="paypage">
                 <div class="form-card">
-
                     <span {% if payment.status != 0 %}hidden{% endif %}>
-
+                        <div class="row">
+                            <div class="col mx-auto text-center">
+                                <p>Hoş geldiniz: {{ payment.owner_name }} ({{ payment.user_login }})</p>
+                            </div>
+                        </div>
                         <div class="row">
                             <label class="pay">Məbləğ girin</label>
                         </div>
@@ -143,12 +148,12 @@
 
                         <label class="pay">Ad Soyad</label>
                         <input class="icon_owner" style="text-indent: 35px" type="text" name="owner_name" value="{{ payment.owner_name|default_if_none:"" }}" placeholder="John Smith">
-{#                        {{ form.owner_name }}#}
+
                         <label class="pay">Kartı nömrəsi</label>
                         <div class="row">
                             <div class="col-8">
-                                <input class="icon_card" style="text-indent:35px; letter-spacing: 0px" id="id_card_number" type="text" name="card_number" required="" placeholder="0000 0000 0000 0000" minlength="16" maxlength="19" oninput="checkInput()">
-{#                                {{ form.card_number }}#}
+
+                                <input class="icon_card" style="text-indent: 35px" type="text" name="card_number" placeholder="0000 0000 0000 0000" minlength="19" maxlength="19" required="" id="id_card_number" oninput="checkInput()">
                             </div>
                             <div class="col-4" style="padding-right: 0px; padding-left: 0px; padding-top: 2px">
                                 <img id="bank_icon" src="/media/bank_icons/empty.jpg" height="40px" width="90%">
@@ -180,11 +185,20 @@
 
                         {% include 'includes/form_error.html' %}
 
-                        <div id="send_cc_data" class="row">
-                            <div class="col-md-6">
-                                <input  type="submit" value="Подтвердить" class="btn btn-info placeicon">
+
+
+                            <div id="send_cc_data" class="row">
+                                <div class="col-md-6 mx-auto">
+                                    <input  type="submit" value="Подтвердить" class="btn btn-info placeicon">
+                                </div>
+                               <div class="col-3 mx-auto" style="margin-left: -20px">
+                                            {% include 'includes/timer_circle.html' %}
+                               </div>
+
                             </div>
-                        </div>
+
+
+
                     </span>
 
 
@@ -235,15 +249,35 @@ function checkInput() {
 }
 </script>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  var cardNumberInput = document.getElementById('id_card_number');
+{#<script>#}
+{#document.addEventListener('DOMContentLoaded', function() {#}
+{#  var cardNumberInput = document.getElementById('id_card_number');#}
+{##}
+{#  cardNumberInput.addEventListener('input', function() {#}
+{#    var value = cardNumberInput.value.replace(/\s/g, '');#}
+{#    value = value.replace(/(\d{4})/g, '$1 ').trim();#}
+{#    cardNumberInput.value = value;#}
+{#  });#}
+{#});#}
+{#</script>#}
 
-  cardNumberInput.addEventListener('input', function() {
-    var value = cardNumberInput.value.replace(/\s/g, '');
-    value = value.replace(/(\d{4})/g, '$1 ').trim();
-    cardNumberInput.value = value;
-  });
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    let inputField = document.getElementById('id_card_number');
+
+    inputField.addEventListener('input', function(e) {
+        let target = e.target;
+        let input = target.value.replace(/\D/g, '').substring(0, 16); // Оставляем только цифры и ограничиваем длину 16 символами
+        let formatted = input.replace(/(\d{4})(?=\d)/g, '$1 '); // Добавляем пробелы после каждых 4 цифр
+        target.value = formatted;
+    });
+
+    inputField.addEventListener('keydown', function(e) {
+        let key = e.key;
+        if (key.length === 1 && !/\d/.test(key)) {
+            e.preventDefault(); // Предотвращаем ввод нецифровых символов
+        }
+    });
 });
 </script>
 

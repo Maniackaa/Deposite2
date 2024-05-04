@@ -1,4 +1,5 @@
 from django import forms
+from django.core.exceptions import ValidationError
 
 from payment.models import Payment, CreditCard
 
@@ -65,7 +66,21 @@ class InvoiceM10Form(forms.ModelForm):
     def clean_card_number(self):
         data = self.cleaned_data["card_number"]
         card_number = ''.join([x for x in data if x.isdigit()])
+        if len(card_number) != 16:
+            raise ValidationError('Неверное количество символов в номере карты')
         return card_number
+
+    def clean_expired_month(self):
+        data = self.cleaned_data["expired_month"]
+        try:
+            month = int(data)
+            if 1 <= month <= 12:
+                return data
+            else:
+                raise ValidationError('Неверный месяц')
+        except Exception:
+            raise ValidationError('Неверный месяц')
+
 
 
 class PaymentListConfirmForm(forms.ModelForm):
