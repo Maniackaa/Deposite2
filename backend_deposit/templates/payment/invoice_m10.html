@@ -138,9 +138,9 @@
                 <div class="form-card">
                     <span {% if payment.status != 0 %}hidden{% endif %}>
                         <div class="row">
-                            <div class="col mx-auto text-center" style="font-weight: 800">
-                                <p style="margin-bottom: 0px; ">Ödəniş Cədvəli</p>
-                                <p>Hörmətli {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p>
+                            <div class="col mx-auto text-center">
+                                <p style="margin-bottom: 0px;  font-weight: 800">Ödəniş Cədvəli</p>
+                                <p  style="font-weight: 800">Hörmətli {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p>
                             </div>
                         </div>
                         <div class="row">
