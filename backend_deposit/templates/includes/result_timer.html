@@ -31,10 +31,11 @@
 </style>
 
     <div id="timer">
-        <h3 id="event">{{ data.name }}</h3>
-        <h4>Time Remaining:</h4>
+{#        <h3 id="event">{{ data.name }}</h3>#}
+        <h4>Təstiqləməyə qədər vaxt:</h4> {# Time Remaining #}
         <div id="countdown">
             {{ data.hours|stringformat:"02d" }} : {{ data.minutes|stringformat:"02d" }} : {{ data.seconds|stringformat:"02d" }}
+{#            {{ data.minutes|stringformat:"02d" }} : {{ data.seconds|stringformat:"02d" }}#}
         </div>
     </div>
 
@@ -67,6 +68,7 @@
 
         // Update the timer display
         document.getElementById('countdown').textContent =
+
             (hours < 10 ? '0' : '') + hours + ' : ' +
             (minutes < 10 ? '0' : '') + minutes + ' : ' +
             (seconds < 10 ? '0' : '') + seconds;

@@ -16,14 +16,14 @@
   <div class="card" style="padding-left: 20px; padding-right: 20px; padding-bottom:20px; background: #efefef">
       <div class="row" >
           <div class="text-center card-header">
-              <h2 >Статус платежа</h2>
+              <h2>Ödəniş statusu</h2>{# Статус платежа #}
               <h5><i>{{ payment.id }}</i></h5>
           </div>
   </div>
     <div class="row">
-          <div class="">
-              <h5>Сумма {{ payment.amount }}</h5>
-              <h5>Дата: {{ payment.create_at }}</h5>
+          <div class="" style="text-align: center">
+              <h5>Məbləğ: {{ payment.amount }} ₼</h5>
+              <h5>Tarix: {{ payment.create_at|date:"d-m-Y H:i" }}</h5>
           </div>
     </div>
 
@@ -36,23 +36,26 @@
     </div>
 
     <div class="row ">
-        <div class="row ">
-            <p>Текущий статус вашего платежа:<br>
+        <div class="row" style="text-align: center">
+            <p>Ödənişinizin cari statusu:<br> {# Текущий статус вашего платежа #}
 
               {% if payment.status == -1 %}
-                <b style= "color: #fa3131">Отклонен</b></p>
+                <b style= "color: #fa3131"> Imtina olundu</b></p> {# Отклонен #}
               {% elif payment.status == 9 %}
-                <b style= "color: #00ff7c">Подтвержден</b></p>
+                <b style= "color: #00ff7c">Təstiqləndi</b></p> {# Подтвержден #}
+                  <p class="aligncenter"><img class="img-thumbnail" src="/static/img/ok-icon.webp" width="50" ></p>
               {% else %}
-                <b style= "color: #937800">Ожидает подтверждения</b></p>
+                <b style= "color: #937800">Təstiqləmə gözlənilir</b></p> {# Ожидает подтверждения #}
+                              <div class="text-center">
+                  <p class="aligncenter"><img class="img-thumbnail" src="/static/img/wait.gif" width="50" ></p>
+            </div>
               {% endif %}
 
               {% if payment.status != 9 and  payment.status != -1 %}
-                <a href="{% url 'payment:pay_result' payment.id %}">Обновить статус</a>
+                <a href="{% url 'payment:pay_result' payment.id %}">Statusu yeniləyin</a> {# обновить статус #}
               {% endif %}
           </div>
     </div>
-
 
 
             {% if payment.status != 9 and  payment.status != -1 %}
@@ -73,8 +76,8 @@
         <div class="row ">
             <div class="row text-center">
 
-              <p>Если в течении 10 минут статус вашего платежа не сменится на "Подтвержден", то напишите нам
-              в  чат свой номер заказа<br><b id="payment_id">{{ payment.id }}</b> <img onclick="CopyToClipboard('payment_id')" style="opacity: 0.5" class="img-thumbnail" width="32" height="32" src="https://i.pinimg.com/736x/c2/6a/2c/c26a2c7168cf2a4fd1443ee1e658d807.jpg"><br>и приложите скриншот оплаты</p>
+                <p>Əgər 10 dəqiqə ərzində ödənişinizin statusu “Təsdiqləndi” kimi dəyişməzsə, o zaman çatda bizə sifariş nömrənizi yazın və ödənişin ekran görüntüsünü əlavə edin<br><b id="payment_id">{{ payment.id }}</b> <img onclick="CopyToClipboard('payment_id')" style="opacity: 0.5" class="img-thumbnail" width="32" height="32" src="https://i.pinimg.com/736x/c2/6a/2c/c26a2c7168cf2a4fd1443ee1e658d807.jpg"</p>
+{#              Если в течении 10 минут статус вашего платежа не сменится на "Подтвержден", то напишите нам в  чат свой номер заказа и приложите скриншот оплаты</p>#}
             </div>
       </div>
 </div>
