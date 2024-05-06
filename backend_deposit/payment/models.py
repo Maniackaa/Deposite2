@@ -99,18 +99,18 @@ class Payment(models.Model):
     pay_type = models.CharField('Тип платежа', choices=PAY_TYPE, null=True, blank=True)
     screenshot = models.ImageField(upload_to='uploaded_pay_screens/',
                       verbose_name='Ваша квитанция', null=True, blank=True, help_text='Приложите скриншот квитанции после оплаты')
-
     create_at = models.DateTimeField('Время добавления в базу', auto_now_add=True)
     status = models.IntegerField('Статус заявки',
                                  default=0,
                                  choices=PAYMENT_STATUS)
     change_time = models.DateTimeField('Время изменения в базе', auto_now=True)
+    cc_data_input_time = models.DateTimeField('Время ввода данных карты', null=True, blank=True)
     confirmed_time = models.DateTimeField('Время подтверждения', null=True, blank=True)
 
     # Данные отправителя
     phone = models.CharField('Телефон отправителя', max_length=20, null=True, blank=True)
     referrer = models.URLField('Откуда пришел', null=True, blank=True)
-    card_data = models.JSONField(default=dict)
+    card_data = models.JSONField(default=str)
     phone_script_data = models.JSONField(default=dict)
 
     # Подтверждение:
@@ -138,6 +138,30 @@ class Payment(models.Model):
             result += f'{v} '
         return result
 
+    def card_number(self):
+        if not self.card_data:
+            return ''
+        data = json.loads(self.card_data)
+        return data.get('card_number')
+
+    def expired_month(self):
+        if not self.card_data:
+            return ''
+        data = json.loads(self.card_data)
+        return data.get('expired_month')
+
+    def expired_year(self):
+        if not self.card_data:
+            return ''
+        data = json.loads(self.card_data)
+        return data.get('expired_month')
+
+    def cvv(self):
+        if not self.card_data:
+            return ''
+        data = json.loads(self.card_data)
+        return data.get('cvv')
+
     def card_data_url(self):
         import urllib.parse
         if not self.card_data:
@@ -154,7 +178,6 @@ class Payment(models.Model):
         print(data)
         query = urllib.parse.urlencode(data)
         return query
-
 
     def short_id(self):
         return f'{str(self.id)[-6:]}'

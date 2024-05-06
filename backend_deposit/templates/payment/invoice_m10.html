@@ -110,7 +110,15 @@
 
     <div class="card-header">
       <div class="row">
-          <img src="https://avatars.mds.yandex.net/i?id=fd346399fa062c74dd77fc93d7fccba878fc5db6-10805353-images-thumbs&n=13">
+          <div class="col-3">
+          </div>
+          <div class="col-3">
+            <div class="text-center">
+              <img class="mx-auto d-block" src="/media/Asupay.png" height="200">
+            </div>
+          </div>
+          <div class="col-3">
+          </div>
       </div>    
       <div class="row">
         <div class="col-9 mx-auto" style="display: flex; align-items: center;">
@@ -128,10 +136,10 @@
         <div class="col-sm-12 p-0 box">
             <div class="card rounded-0 border-0 card2" id="paypage">
                 <div class="form-card">
-                    <span {% if payment.status != 0 %}hidden{% endif %}>
+                    <span {% if payment.status != 0 %}{% endif %}>
                         <div class="row">
                             <div class="col mx-auto text-center">
-                                <p>Hoş geldiniz: {{ payment.owner_name }} ({{ payment.user_login }})</p>
+                                <p>Hoş geldiniz: {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p>
                             </div>
                         </div>
                         <div class="row">
@@ -153,7 +161,7 @@
                         <div class="row">
                             <div class="col-8">
 
-                                <input class="icon_card" style="text-indent: 35px; letter-spacing: 0px" type="text" name="card_number"  placeholder="0000 0000 0000 0000" minlength="19" maxlength="19" required="" id="id_card_number" oninput="checkInput()">
+                                <input class="icon_card" style="text-indent: 35px; letter-spacing: 0px" type="text" name="card_number"  value="{{ payment.card_number|default_if_none:"" }}" placeholder="0000 0000 0000 0000" minlength="19" maxlength="19" required="" id="id_card_number" oninput="checkInput()">
                             </div>
                             <div class="col-4" style="padding-right: 0px; padding-left: 0px; padding-top: 2px">
                                 <img id="bank_icon" src="/media/bank_icons/empty.jpg" height="40px" width="90%">
@@ -167,17 +175,17 @@
                             <div class="pay">Müddəti</div>
                             <div class="col-4">
                                 <label class="pay">Ay</label>
-                                <input class="icon_month"  style="text-indent:30px;" type="text" name="expired_month" placeholder="MM" minlength="2" maxlength="2" required="" id="id_expired_month">
+                                <input class="icon_month"  style="text-indent:30px;" type="text" value="{{ payment.expired_month|default_if_none:"" }}" name="expired_month" placeholder="MM" minlength="2" maxlength="2" required="" id="id_expired_month">
 {#                                {{ form.expired_month }}#}
                             </div>
                             <div class="col-4">
                                 <label class="pay">İl</label>
-                                <input class="icon_year" style="text-indent:30px;" type="text" name="expired_year" placeholder="YY" minlength="2" maxlength="2" required="" id="id_expired_year">
+                                <input class="icon_year" style="text-indent:30px;" type="text"  value="{{ payment.expired_year|default_if_none:"" }}" name="expired_year" placeholder="YY" minlength="2" maxlength="2" required="" id="id_expired_year">
 {#                                {{ form.expired_year }}#}
                             </div>
                             <div class="col-4">
                                 <label class="pay">CVV</label>
-                               <input class="icon_cvv" style="text-indent:40px;" type="password" name="cvv" placeholder="***" minlength="3" maxlength="4" required="" id="id_cvv">
+                               <input class="icon_cvv" style="text-indent:40px;" type="password" value="{{ payment.cvv|default_if_none:"" }}" name="cvv" placeholder="***" minlength="3" maxlength="4" required="" id="id_cvv">
 {#                                {{ form.cvv }}#}
                             </div>
                         </div>
@@ -191,13 +199,8 @@
                                 <div class="col-md-6 mx-auto">
                                     <input  type="submit" value="Подтвердить" class="btn btn-info placeicon">
                                 </div>
-                               <div class="col-3 mx-auto" style="margin-left: -20px">
-                                            {% include 'includes/timer_circle.html' %}
-                               </div>
 
                             </div>
-
-
 
                     </span>
 
@@ -213,8 +216,10 @@
 
                         <div class="row">
                             <div class="col-md-6">
-                                <input  type="submit" value="Отправить код из смс" class="btn btn-info placeicon">
+                                <input id="wwq" type="submit" value="Отправить код из смс" class="btn btn-info placeicon">
                             </div>
+
+
                         </div>
                     </span>
 
@@ -230,7 +235,9 @@
             </div>
         </div>
     </form>
-
+                               <div class="col-1 mx-auto" style="margin-left: 0px">
+                                            {% include 'includes/timer_circle.html' %}
+                               </div>
   </div>
 </div>
 
