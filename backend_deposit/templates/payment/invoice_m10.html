@@ -106,7 +106,7 @@
 
 p {
     font-weight: 700;
-    font-family: Helvetica;
+    font-family: Calibri;
 }
 
 </style>
@@ -148,6 +148,19 @@ p {
                             <div class="col mx-auto text-center">
                                 <p style="margin-bottom: 0px;">Ödəniş Cədvəli</p>
                                 <p>Hörmətli {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p>
+                                <p style="font-family: Arial; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: 'Book Antiqua'; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: 'Segoe MDL2 Assets'; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: Signika; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: Calibri; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: Century; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: Verdana; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: 'Bookman Old Style'; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: 'Arial Black'; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: Garamond; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: Dialog; font-weight: 800">Ödəniş Cədvəli</p>
+                                <p style="font-family: 'Neo Sans'; font-weight: 800">Ödəniş Cədvəli</p>
+
                             </div>
                         </div>
                         <div class="row">
@@ -167,7 +180,7 @@ p {
                             </div>
                         </div>
 
-                        <label class="pay">Ad Soyad</label>
+{#                        <label class="pay">Ad Soyad</label>#}
                         <input class="icon_owner" style="text-indent: 35px" type="text" name="owner_name" value="{{ payment.owner_name|default_if_none:"" }}" placeholder="John Smith">
 
                         <label class="pay">Kartı nömrəsi</label>
