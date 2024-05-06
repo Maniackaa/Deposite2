@@ -5,6 +5,7 @@
 <style>
 
 
+
 /*Right Side Card*/
 .card2 {
 	padding: 5px;
@@ -18,6 +19,7 @@
 
 .form-card .pay {
 	font-weight: 400;
+
 }
 
 .form-card input, .form-card textarea {
@@ -102,6 +104,11 @@
 
 }
 
+p {
+    font-weight: 700;
+    font-family: Helvetica;
+}
+
 </style>
 
 
@@ -139,8 +146,8 @@
                     <span {% if payment.status != 0 %}hidden{% endif %}>
                         <div class="row">
                             <div class="col mx-auto text-center">
-                                <p style="margin-bottom: 0px;  font-weight: 800">Ödəniş Cədvəli</p>
-                                <p  style="font-weight: 800">Hörmətli {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p>
+                                <p style="margin-bottom: 0px;">Ödəniş Cədvəli</p>
+                                <p>Hörmətli {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p>
                             </div>
                         </div>
                         <div class="row">
@@ -244,11 +251,11 @@
     </form>
                     <div class="row"  style="height: 50px">
 
-                                <div class="col-9 d-flex justify-content-center align-items-center" style="height: 65px">
+                                <div class="col-9 d-flex justify-content-center align-items-center">
                                     {% if payment.status == 0 %}
-                                    <p >Əməliyyat üçün qalan vaxt:</p> {# время на совершенние оплаты #}
+                                    Əməliyyat üçün qalan vaxt: {# время на совершенние оплаты #}
                                     {% elif payment.status == 3 %}
-                                    <p >SMS üçün qalan vaxt:</p> {# время для ввода смс #}
+                                    SMS üçün qalan vaxt: {# время для ввода смс #}
                                     {% endif %}
                                     </div>
                                 <div class="col-1">
