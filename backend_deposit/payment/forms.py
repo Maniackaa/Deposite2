@@ -67,7 +67,7 @@ class InvoiceM10Form(forms.ModelForm):
         data = self.cleaned_data["card_number"]
         card_number = ''.join([x for x in data if x.isdigit()])
         if len(card_number) != 16:
-            raise ValidationError('Неверное количество символов в номере карты')
+            raise ValidationError('Kart nömrəsindəki simvolların sayı səhvdir')  # Неверное количество символов в номере карты
         return card_number
 
     def clean_expired_month(self):
@@ -77,9 +77,9 @@ class InvoiceM10Form(forms.ModelForm):
             if 1 <= month <= 12:
                 return data
             else:
-                raise ValidationError('Неверный месяц')
+                raise ValidationError('Qeyd etdiyiniz ay yalnışdır')  # Неверный месяц
         except Exception:
-            raise ValidationError('Неверный месяц')
+            raise ValidationError('Qeyd etdiyiniz ay yalnışdır')
 
 
 

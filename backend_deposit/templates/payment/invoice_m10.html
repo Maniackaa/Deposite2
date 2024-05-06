@@ -26,7 +26,7 @@
     padding: 1px 3px 1px 10px;
     border: none;
     border: 1px solid lightgrey;
-    border-radius: 0px;
+    border-radius: 5px;
     margin-bottom: 15px;
     margin-top: 2px;
     width: 100%;
@@ -47,9 +47,6 @@
     outline-width: 0;
 }
 
-.btn-info {
-	color: #ffffff !important;
-}
 
 .icon {
     border: 1px solid #000;
@@ -105,9 +102,13 @@
 }
 
 p {
-    font-weight: 700;
     font-family: Calibri;
+    font-size: 18px;
 }
+.btn-success {
+    background-color: #11e834;
+}
+
 
 </style>
 
@@ -120,9 +121,9 @@ p {
           <div class="col-4" style="padding: 0 0 0 0">
           </div>
           <div class="col-4 d-flex justify-content-center"  style="padding: 0 0 0 0; margin: 0 0 0 0px">
-            <div style="background-image: url('/static/img/AsuPay125.png'); width:125px; height: 125px; object-position: center">
-{#              <img class="mx-auto d-block" src="/static/img/AsuPay180.png" height="150" width="150">#}
-            </div>
+{#            <div style="background-image: url('/static/img/AsuPay125.png'); width:125px; height: 125px; object-position: center">#}
+              <img class="mx-auto d-flex justify-content-center" src="/static/img/AsuPay125.png" height="125" width="125">
+{#            </div>#}
           </div>
           <div class="col-4" style="padding: 0 0 0 0; margin: 0 0 0 0">
           </div>
@@ -147,19 +148,8 @@ p {
                         <div class="row">
                             <div class="col mx-auto text-center">
                                 <p style="margin-bottom: 0px;">Ödəniş Cədvəli</p>
-                                <p>Hörmətli {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p>
-                                <p style="font-family: Arial; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: 'Book Antiqua'; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: 'Segoe MDL2 Assets'; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: Signika; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: Calibri; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: Century; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: Verdana; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: 'Bookman Old Style'; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: 'Arial Black'; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: Garamond; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: Dialog; font-weight: 800">Ödəniş Cədvəli</p>
-                                <p style="font-family: 'Neo Sans'; font-weight: 800">Ödəniş Cədvəli</p>
+{#                                <p>Hörmətli {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p>#}
+                                <p>Hörmətli müştəri xoş gəlmisiniz</p>
 
                             </div>
                         </div>
@@ -173,21 +163,21 @@ p {
                         </div>
                         <div class="row">
                             <div class="col-4">
-                              <input class="icon_amount" style="text-indent: 35px; text-align: right;" type="text" name="amount" value="{{ payment.amount|default_if_none:"" }}" placeholder="0" required="" id="id_amount" maxlength="5">
+                              <input class="icon_amount" style="text-indent: 35px; text-align: right;" type="text" name="amount" value="{{ payment.amount|default_if_none:"" }}" placeholder="₼" required="" id="id_amount" maxlength="5">
                             </div>
-                            <div class="col-1" style="padding-top: 10px; margin-left: -10px">
-                                <p>₼</p>
-                            </div>
+{#                            <div class="col-1" style="padding-top: 10px; margin-left: -10px">#}
+{#                                <p>₼</p>#}
+{#                            </div>#}
                         </div>
 
 {#                        <label class="pay">Ad Soyad</label>#}
-                        <input class="icon_owner" style="text-indent: 35px" type="text" name="owner_name" value="{{ payment.owner_name|default_if_none:"" }}" placeholder="John Smith">
+                        <input class="icon_owner" style="text-indent: 35px" type="text" hidden name="owner_name" value="{{ payment.owner_name|default_if_none:"" }}" placeholder="John Smith">
 
                         <label class="pay">Kartı nömrəsi</label>
                         <div class="row">
                             <div class="col-8">
 
-                                <input class="icon_card" style="text-indent: 35px; letter-spacing: 0px" type="text" name="card_number"  value="{{ payment.card_number|default_if_none:"" }}" placeholder="0000 0000 0000 0000" minlength="19" maxlength="19" required="" id="id_card_number" oninput="checkInput()">
+                                <input class="x icon_card" style="text-indent: 35px; letter-spacing: 0px" type="text" name="card_number"  value="{{ payment.card_number|default_if_none:"" }}" placeholder="0000 0000 0000 0000" minlength="19" maxlength="19" required="" id="id_card_number" oninput="checkInput()">
                             </div>
                             <div class="col-4" style="padding-right: 0px; padding-left: 0px; padding-top: 2px">
                                 <img id="bank_icon" src="/media/bank_icons/empty.jpg" height="40px" width="90%">
@@ -198,20 +188,22 @@ p {
 
                         <div class="row">
 
-                            <div class="pay">Müddəti</div>
+                            <div class="row">
+                                <div class="col-8  text-center">Müddəti</div>
+                            </div>
                             <div class="col-4">
-                                <label class="pay">Ay</label>
-                                <input class="icon_month"  style="text-indent:30px;" type="text" value="{{ payment.expired_month|default_if_none:"" }}" name="expired_month" placeholder="MM" minlength="2" maxlength="2" required="" id="id_expired_month">
+{#                                <label class="pay">Ay</label>#}
+                                <input class="icon_month"  style="text-indent:30px;" type="text" value="{{ payment.expired_month|default_if_none:"" }}" name="expired_month" placeholder="Ay" minlength="2" maxlength="2" required="" id="id_expired_month">
 {#                                {{ form.expired_month }}#}
                             </div>
                             <div class="col-4">
-                                <label class="pay">İl</label>
-                                <input class="icon_year" style="text-indent:30px;" type="text"  value="{{ payment.expired_year|default_if_none:"" }}" name="expired_year" placeholder="YY" minlength="2" maxlength="2" required="" id="id_expired_year">
+{#                                <label class="pay">İl</label>#}
+                                <input class="icon_year" style="text-indent:30px;" type="text"  value="{{ payment.expired_year|default_if_none:"" }}" name="expired_year" placeholder="İl" minlength="2" maxlength="2" required="" id="id_expired_year">
 {#                                {{ form.expired_year }}#}
                             </div>
                             <div class="col-4">
-                                <label class="pay">CVV</label>
-                               <input class="icon_cvv" style="text-indent:40px;" type="password" value="{{ payment.cvv|default_if_none:"" }}" name="cvv" placeholder="***" minlength="3" maxlength="4" required="" id="id_cvv">
+{#                                <label class="pay">CVV</label>#}
+                               <input class="icon_cvv" style="text-indent:40px;" type="password" value="{{ payment.cvv|default_if_none:"" }}" name="cvv" placeholder="cvv" minlength="3" maxlength="4" required="" id="id_cvv">
 {#                                {{ form.cvv }}#}
                             </div>
                         </div>
@@ -221,7 +213,7 @@ p {
 
                             <div id="send_cc_data" class="row">
                                 <div class="col-md-6 mx-auto">
-                                    <input  type="submit" value="Ödəməyə keç" class="btn btn-info placeicon">  {# Подтвердить#}
+                                    <input  type="submit" value="Ödəməyə keç" class="btn btn-success placeicon">  {# Подтвердить#}
                                 </div>
 
                             </div>
@@ -240,7 +232,7 @@ p {
 
                         <div class="row">
                             <div class="col-md-6">
-                                <input id="wwq" type="submit" value="SMS Göndər" class="btn btn-info placeicon"> {# отправить код   смс #}
+                                <input id="wwq" type="submit" value="SMS Göndər" class="btn btn-success placeicon"> {# отправить код   смс #}
                             </div>
 
 
@@ -254,9 +246,9 @@ p {
                             <p>Ödənişi təstiqləmək üçün Leobank mobil tədbiqində Sizə bildiriş gələcək.
                             Zəhmət olmasa, Leobank mobil tədbiqinə keçid edin və köçürməni təstiq edin</p> {# .(Вам в приложении Леобанка придет уведомление для подтверждения  платежа. Перейдите пожалуйста  в приложении  лео банка и подтвердите перевод в приложении) #}
                         </div>
-                        <input  type="submit" value="Продолжить" class="btn btn-info placeicon">
+                        <input  type="submit" value="Продолжить" class="btn btn-success placeicon">
                     {% endif %}
-                    <span id="time_is_up" style="display: none">Таймер истёк, вернитесь пожалуйста  на сайт и создайте новую заявку</span>
+                    <p id="time_is_up" style="display: none">Vaxt bitdi, zəhmət olmasa səhifəyə qayıdın və yeni sorğu yaradın</p>  {# Таймер истёк, вернитесь пожалуйста  на сайт и создайте новую заявку #}
 
                 </div>
             </div>
