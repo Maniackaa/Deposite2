@@ -25,7 +25,7 @@
     border: none;
     border: 1px solid lightgrey;
     border-radius: 0px;
-    margin-bottom: 25px;
+    margin-bottom: 15px;
     margin-top: 2px;
     width: 100%;
     box-sizing: border-box;
@@ -110,14 +110,14 @@
 
     <div class="card-header">
       <div class="row">
-          <div class="col-3">
+          <div class="col-4">
           </div>
-          <div class="col-3">
-            <div class="text-center">
-              <img class="mx-auto d-block" src="/static/img/AsuPay200.png" height="200">
+          <div class="col-4">
+            <div class="text-center" style="margin-left: -40px">
+              <img class="mx-auto d-block" src="/static/img/AsuPay180.png" height="180" width="180">
             </div>
           </div>
-          <div class="col-3">
+          <div class="col-4">
           </div>
       </div>    
       <div class="row">
@@ -139,7 +139,7 @@
                     <span {% if payment.status != 0 %}hidden{% endif %}>
                         <div class="row">
                             <div class="col mx-auto text-center">
-                                <b><p>Ödəniş Cədvəli</p></b>
+                                <b><p style="margin-bottom: 0px">Ödəniş Cədvəli</p></b>
                                 <b><p>Hörmətli {{ payment.owner_name|default_if_none:"" }} ({{ payment.user_login }})</p></b>
                             </div>
                         </div>
