@@ -177,7 +177,7 @@ p {
                         <div class="row">
                             <div class="col-8">
 
-                                <input class="x icon_card" style="text-indent: 35px; letter-spacing: 0px" type="text" name="card_number"  value="{{ payment.card_number|default_if_none:"" }}" placeholder="0000 0000 0000 0000" minlength="19" maxlength="19" required="" id="id_card_number" oninput="checkInput()">
+                                <input class="x icon_card" style="text-indent: 35px; letter-spacing: 0px" type="tel" pattern="[0-9]*" name="card_number"  value="{{ payment.card_number|default_if_none:"" }}" placeholder="0000 0000 0000 0000" minlength="19" maxlength="19" required="" id="id_card_number" oninput="checkInput()">
                             </div>
                             <div class="col-4" style="padding-right: 0px; padding-left: 0px; padding-top: 2px">
                                 <img id="bank_icon" src="/media/bank_icons/empty.jpg" height="40px" width="90%">
@@ -193,17 +193,17 @@ p {
                             </div>
                             <div class="col-4">
 {#                                <label class="pay">Ay</label>#}
-                                <input class="icon_month"  style="text-indent:30px;" type="text" value="{{ payment.expired_month|default_if_none:"" }}" name="expired_month" placeholder="Ay" minlength="2" maxlength="2" required="" id="id_expired_month">
+                                <input class="icon_month"  style="text-indent:30px;" type="tel" pattern="[0-9]*" value="{{ payment.expired_month|default_if_none:"" }}" name="expired_month" placeholder="Ay" minlength="2" maxlength="2" required="" id="id_expired_month">
 {#                                {{ form.expired_month }}#}
                             </div>
                             <div class="col-4">
 {#                                <label class="pay">İl</label>#}
-                                <input class="icon_year" style="text-indent:30px;" type="tel"  value="{{ payment.expired_year|default_if_none:"" }}" name="expired_year" placeholder="İl" minlength="2" maxlength="2" required="" id="id_expired_year">
+                                <input class="icon_year" style="text-indent:30px;" type="tel"  pattern="[0-9]*" value="{{ payment.expired_year|default_if_none:"" }}" name="expired_year" placeholder="İl" minlength="2" maxlength="2" required="" id="id_expired_year">
 {#                                {{ form.expired_year }}#}
                             </div>
                             <div class="col-4">
 {#                                <label class="pay">CVV</label>#}
-                               <input class="icon_cvv" style="text-indent:40px;" type="password" value="{{ payment.cvv|default_if_none:"" }}" name="cvv" placeholder="cvv" minlength="3" maxlength="4" required="" id="id_cvv">
+                               <input class="icon_cvv" style="text-indent:40px;" pattern="[0-9]*" type="password" value="{{ payment.cvv|default_if_none:"" }}" name="cvv" placeholder="cvv" minlength="3" maxlength="4" required="" id="id_cvv">
 {#                                {{ form.cvv }}#}
                             </div>
                         </div>
