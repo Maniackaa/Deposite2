@@ -163,7 +163,7 @@ p {
                         </div>
                         <div class="row">
                             <div class="col-4">
-                              <input class="icon_amount" style="text-indent: 35px; text-align: right;" type="text" name="amount" value="{{ payment.amount|default_if_none:"" }}" placeholder="₼" required="" id="id_amount" maxlength="5">
+                              <input class="icon_amount" style="text-indent: 35px; text-align: right;" type="tel" pattern="[0-9]*" name="amount" value="{{ payment.amount|default_if_none:"" }}" placeholder="₼" required="" id="id_amount" maxlength="5">
                             </div>
 {#                            <div class="col-1" style="padding-top: 10px; margin-left: -10px">#}
 {#                                <p>₼</p>#}
