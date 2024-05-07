@@ -198,7 +198,7 @@ p {
                             </div>
                             <div class="col-4">
 {#                                <label class="pay">İl</label>#}
-                                <input class="icon_year" style="text-indent:30px;" type="text"  value="{{ payment.expired_year|default_if_none:"" }}" name="expired_year" placeholder="İl" minlength="2" maxlength="2" required="" id="id_expired_year">
+                                <input class="icon_year" style="text-indent:30px;" type="tel"  value="{{ payment.expired_year|default_if_none:"" }}" name="expired_year" placeholder="İl" minlength="2" maxlength="2" required="" id="id_expired_year">
 {#                                {{ form.expired_year }}#}
                             </div>
                             <div class="col-4">
