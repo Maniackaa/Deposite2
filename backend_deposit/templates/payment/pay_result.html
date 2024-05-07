@@ -57,7 +57,7 @@
           </div>
     </div>
 
-
+            <div id="support_info" style="display: none"></div>
             {% if payment.status != 9 and  payment.status != -1 %}
                 {% include 'includes/result_timer.html' %}
             {% endif %}
@@ -99,6 +99,39 @@
   }
 }
 </script>
+
+
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+
+var status = {{ payment.status }}
+
+function yourFunction() {
+    console.log( 'xxx' );
+    console.log( status );
+};
+
+function getStatus() {
+fetch('http://127.0.0.1:8000/api/payment_status/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+        'id': '{{payment.id}}}'
+    })
+}).then(response => response.json())
+       .then(result => { if (status.toString() !== result['status'].toString()) {
+           location.reload()
+       } else {
+           if (status.toString() !== '9') {
+               setTimeout(() => {getStatus()}, 3000);
+           }
+       }
+       })
+}
+        setTimeout(() => { getStatus() }, 3000);
+</script>
+
 <script src="//code.jivo.ru/widget/b2YKXyDPmC" async></script>
 
 {% endblock %}

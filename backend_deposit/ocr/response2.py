@@ -73,21 +73,20 @@ async def main():
     _, binary = cv2.threshold(pay, black, white, cv2.THRESH_BINARY)
     # cv2.imshow('imname', pay)
     # cv2.waitKey(0)
-    string = pytesseract.image_to_string(img, lang='rus', config='--psm 6 --oem 0')
+    string = pytesseract.image_to_string(img, timeout=10, lang='rus', config='--psm 6 --oem 0')
     # print(img.shape)
 
     bal = img[1230:1300, :]
     # cv2.imshow('imname', bal)
     # cv2.waitKey(0)
     _, binary =  cv2.threshold(bal, black, white, cv2.THRESH_BINARY)
-    string2 = pytesseract.image_to_string(binary, lang='eng', config='--psm 7 --oem 2')
+    string2 = pytesseract.image_to_string(binary, timeout=10, lang='eng', config='--psm 7 --oem 2')
     print(string, string2)
 
     cv2.imwrite('coverted.jpg', binary)
     file = open(path, 'rb')
     text = await create_response_part(file.read(), black=black, white=white)
     print(text)
-
 
 
 if __name__ == '__main__':

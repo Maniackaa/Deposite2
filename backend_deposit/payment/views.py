@@ -55,18 +55,20 @@ def get_phone_script(card_num) -> PhoneScript:
         logger.error(err)
 
 
-TIMER_SECONDS = 300
-TIMER_SMS_SECONDS = 120
-
-
 def get_time_remaining(pay: Payment) -> tuple[datetime.timedelta, int]:
-
-    if pay.cc_data_input_time:
+    TIMER_SECONDS = 300
+    TIMER_SMS_SECONDS = 120
+    STATUS_WAIT_TIMER = 600
+    if pay.card_data and json.loads(f'{pay.card_data}').get('sms_code'):
+        time_remaining = pay.cc_data_input_time + datetime.timedelta(seconds=STATUS_WAIT_TIMER) - timezone.now()
+        limit = STATUS_WAIT_TIMER
+    elif pay.cc_data_input_time:
         time_remaining = pay.cc_data_input_time + datetime.timedelta(seconds=TIMER_SMS_SECONDS) - timezone.now()
         limit = TIMER_SMS_SECONDS
     else:
         time_remaining = pay.create_at + datetime.timedelta(seconds=TIMER_SECONDS) - timezone.now()
         limit = TIMER_SECONDS
+
     logger.debug(pay.cc_data_input_time)
     logger.debug(time_remaining)
     return time_remaining, limit
@@ -96,8 +98,8 @@ def get_time_remaining_data(pay: Payment) -> dict:
             'minutes': 0,
             'seconds': 0,
             'total_seconds': 0,
-            'limit': TIMER_SECONDS,
-            'time_passed': TIMER_SECONDS
+            'limit': 0,
+            'time_passed': 0
 
         }
     print(data)

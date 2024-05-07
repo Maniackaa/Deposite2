@@ -55,7 +55,7 @@ def bytes_to_str(file_bytes, black=180, white=255, lang='rus'):
         img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
         img = img[100:, :]
         _, binary = cv2.threshold(img, black, white, cv2.THRESH_BINARY)
-        string = pytesseract.image_to_string(binary, lang=lang, config='--oem 1')
+        string = pytesseract.image_to_string(binary, lang=lang, config='--oem 1', timeout=10)
         # string = pytesseract.image_to_string(binary, lang=lang)
         string = string.replace('\n', ' ')
         return string
@@ -239,6 +239,6 @@ def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, str
     config = f'--psm {psm} --oem {oem}'
     if char_whitelist:
         config += f'-c tessedit_char_whitelist="{char_whitelist}"'
-    response_text = (pytesseract.image_to_string(img, lang=lang, config=config)).strip()
+    response_text = (pytesseract.image_to_string(img, lang=lang, timeout=10, config=config)).strip()
     logger.info(response_text)
     return response_text

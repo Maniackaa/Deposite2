@@ -1,8 +1,10 @@
 import json
+from http import HTTPStatus
 
 import structlog
 
 from rest_framework import viewsets, status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.generics import GenericAPIView, get_object_or_404
 from rest_framework.renderers import JSONRenderer
@@ -16,23 +18,31 @@ from payment.models import Payment
 logger = structlog.get_logger(__name__)
 
 
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    def enforce_csrf(self, request):
+        return None
+
+
 class PaymentStatusView(APIView):
     renderer_classes = [JSONRenderer]
     serializer_class = PaymentSerializer
+    authentication_classes = (CsrfExemptSessionAuthentication,)
 
     def get(self, request, *args, **kwargs):
         print(request.data)
         print(request.GET)
-        payment = Payment.objects.get(id=request.data['id'])
+        payment = Payment.objects.filter(id=request.data['id']).first()
         print(payment)
         sms = ''
-        if payment.card_data:
+        if payment and payment.card_data:
             sms = json.loads(payment.card_data).get('sms_code')
-        return Response(data={"status": payment.status, 'sms': sms})
+            return Response(data={"status": payment.status, 'sms': sms})
+        return Response(status=HTTPStatus.BAD_REQUEST)
 
     def post(self, request, *args, **kwargs):
         logger.debug(request.headers)
-        payment = Payment.objects.get(id=request.data['id'])
+        logger.debug(request.data['id'])
+        payment = Payment.objects.filter(id=request.data['id']).first()
         sms = ''
         if payment.card_data:
             sms = json.loads(payment.card_data).get('sms_code')
