@@ -102,7 +102,6 @@ def get_time_remaining_data(pay: Payment) -> dict:
             'time_passed': 0
 
         }
-    print(data)
     return data
 
 
@@ -364,7 +363,6 @@ class PaymentListView(ListView):
         form = PaymentListConfirmForm()
         context['form'] = form
         filter = PaymentFilter(self.request.GET, queryset=Payment.objects.all())
-        print(filter)
         context['filter'] = filter
         return context
 
@@ -414,7 +412,7 @@ class PaymentListView(ListView):
         if form.is_valid():
             # Логика подтверждения заявки
             logger.debug(f'valid {form.cleaned_data}')
-            payment.status = 2
+            payment.status = 9
             payment.confirmed_time = timezone.now()
 
             if confirmed_incoming_id:
@@ -476,7 +474,6 @@ def get_bank(request, bin_num):
     else:
         bank = Bank.objects.filter(name='default').first()
         data = {'image': bank.image.name}
-    print(data)
     return JsonResponse(data, safe=False)
 
 

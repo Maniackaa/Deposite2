@@ -3,6 +3,14 @@
 
 
 {% block content %}
+<style>
+
+{#input  {#}
+{#    height: 20px;#}
+{#}#}
+
+</style>
+
 {% include 'includes/operator_menu.html' %}
 <div class="container-fluid ">
 {% include 'includes/switcher2.html' %}
@@ -53,7 +61,7 @@
             <form method="post" action=''>
             {% csrf_token %}
               <td style="white-space: nowrap">{{ payment.status_str }}
-              {% if payment.status == 1 %}
+              {% if payment.status == 0 %}
                  <button name="cancel_payment" value="{{ payment.id }}" style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-danger btn-sm">X</button>
 {#                 <button name="wait_sms_code" value="{{ payment.id }}" style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-success btn-sm">✅</button>#}
 
@@ -94,7 +102,7 @@
                            value="{{ payment.confirmed_incoming.id }}"
                            name="confirmed_incoming_id_value:{{ payment.id }}"
                            size="7">
-                    {% if payment.status != 1 %}
+                    {% if payment.status == 9 %}
                       <button disabled name="payment_id:{{ payment.id }}" type="submit" class="btn btn-warning btn-sm">---</button>
                      {% else %}
                         <button name="payment_id:{{ payment.id }}" type="submit" class="btn btn-warning btn-sm">OK</button>

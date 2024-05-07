@@ -175,7 +175,6 @@ class Payment(models.Model):
         if not self.phone_script_data:
             return ''
         data = json.loads(self.phone_script_data)
-        print(data)
         query = urllib.parse.urlencode(data)
         return query
 
