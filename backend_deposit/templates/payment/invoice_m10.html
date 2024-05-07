@@ -177,7 +177,7 @@ p {
                         <div class="row">
                             <div class="col-8">
 
-                                <input class="x icon_card" style="text-indent: 35px; letter-spacing: 0px" type="tel" pattern="[0-9]*" name="card_number"  value="{{ payment.card_number|default_if_none:"" }}" placeholder="0000 0000 0000 0000" minlength="19" maxlength="19" required="" id="id_card_number" oninput="checkInput()">
+                                <input class="x icon_card" style="text-indent: 35px; letter-spacing: 0px" type="tel" pattern="[0-9 ]*" name="card_number"  value="{{ payment.card_number|default_if_none:"" }}" placeholder="0000 0000 0000 0000" minlength="19" maxlength="19" required="" id="id_card_number" oninput="checkInput()">
                             </div>
                             <div class="col-4" style="padding-right: 0px; padding-left: 0px; padding-top: 2px">
                                 <img id="bank_icon" src="/media/bank_icons/empty.jpg" height="40px" width="90%">
