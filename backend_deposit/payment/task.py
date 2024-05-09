@@ -3,15 +3,15 @@ import json
 import aiohttp
 import structlog
 
-from payment.models import Payment, Shop
+from payment.models import Payment, Merchant
 
 logger = structlog.get_logger(__name__)
 
 
 async def send_payment_confirm(payment: Payment):
     try:
-        shop: Shop = payment.shop
-        url = shop.pay_success_endpoint
+        merchant: Merchant = payment.merchant
+        url = merchant.pay_success_endpoint
         logger.info(f'Подтверждение платежа {payment.id} на {url}')
         data = {
             "id": payment.id,
@@ -22,7 +22,7 @@ async def send_payment_confirm(payment: Payment):
             "status": payment.status,
             "confirmed_time": payment.confirmed_time.timestamp(),
             "confirmed_amount": payment.confirmed_amount,
-            "secret": payment.shop.secret
+            "secret": payment.merchant.secret
         }
         logger.debug(json.dumps(data))
         headers = {"Content-Type": "application/json"}

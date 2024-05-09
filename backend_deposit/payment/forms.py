@@ -1,3 +1,5 @@
+import uuid
+
 from django import forms
 from django.core.exceptions import ValidationError
 
@@ -17,6 +19,21 @@ class InvoiceForm(forms.ModelForm):
                   'phone',
                   'screenshot',
                   )
+
+
+class InvoiceTestForm(forms.ModelForm):
+    amount = forms.CharField(widget=forms.TextInput(attrs={'placeholder': '₼',}), required=False)
+    owner_name = forms.CharField(label='owner_name',
+                                 widget=forms.TextInput(), required=False)
+
+    user_login = forms.CharField(label='user_login',
+                                 widget=forms.TextInput(), required=False)
+    merchant_id = forms.CharField(initial='2', required=True)
+    order_id = forms.CharField(required=True)
+
+    class Meta:
+        model = Payment
+        fields = ('amount', 'owner_name', 'user_login')
 
 
 class InvoiceM10Form(forms.ModelForm):

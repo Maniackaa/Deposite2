@@ -65,10 +65,10 @@
     <div class="row">
             <div class="row text-center">
             {% if payment.confirmed_amount %}
-              <span>Подтвержденная сумма: {{ payment.confirmed_amount }}</span><br>
-                            {% if payment.shop.host %}
-              <span><a href="{{ payment.shop.host }}">Вернуться в магазин</a></span><br>
-            {% endif %}
+              <span>Təstiqlənmiş məbləğ: {{ payment.confirmed_amount }} ₼</span><br> {# Подтвержденная сумма:  #}
+                {% if payment.merchant.host %}
+                  <span><a href="{{ payment.merchant.host }}">Yenidən səhifəyə qayıtmaq</a></span><br> {# Вернуться на сайт #}
+                {% endif %}
             {% endif %}
           </div>
     </div>

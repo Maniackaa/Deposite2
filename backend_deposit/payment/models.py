@@ -16,7 +16,7 @@ from deposit.models import Incoming
 logger = structlog.get_logger(__name__)
 
 
-class Shop(models.Model):
+class Merchant(models.Model):
     name = models.CharField('Название', max_length=100)
     is_active = models.BooleanField(default=False)
     host = models.URLField(null=True, blank=True)
@@ -90,7 +90,7 @@ class Payment(models.Model):
         self.cached_status = self.status
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, max_length=36, db_index=True, unique=True,)
-    shop = models.ForeignKey('Shop', on_delete=models.CASCADE, null=True)
+    merchant = models.ForeignKey('Merchant', on_delete=models.CASCADE, null=True)
     order_id = models.CharField(max_length=36, db_index=True, unique=True, null=True, blank=True)
     user_login = models.CharField(max_length=36)
     owner_name = models.CharField(max_length=100, null=True, blank=True)

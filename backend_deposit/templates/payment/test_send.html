@@ -2,14 +2,21 @@
 {% block title %}Тестовая{% endblock %}
 {% block content %}
       <div class="col-md-4 mx-auto">
-        <a href="/invoice/?shop_id=1&order_id={{ uid }}&amount=300&user_login=some_name_user&pay_type=card-to-card">Новый card-to-card</a><br>
-      <a href="/invoice/?shop_id=1&order_id={{ uid }}&amount=5&owner_name=John Dou&user_login=user_22216456&pay_type=card-to-m10">Новый card-to-m10</a>
+        <a href="/invoice/?merchant_id=1&order_id={{ uid }}&amount=300&user_login=some_name_user&pay_type=card-to-card">Новый card-to-card</a><br>
+      <a href="/invoice/?merchant_id=1&order_id={{ uid }}&amount=5&owner_name=John Dou&user_login=user_22216456&pay_type=card-to-m10">Новый card-to-m10</a>
       </div>
 
-shop_id' , 'order_id', 'amount', 'pay_type'<br>
+merchant_id' , 'order_id', 'amount', 'pay_type'<br>
 {{ host }}<br>
 
-{{ host}}/invoice/?shop_id=1&order_id=xxxx-yyyy4jr3-zzz334&amount=500&user_login=some_name_user&pay_type=card-to-card
+{{ host}}/invoice/?merchant_id=1&order_id=xxxx-yyyy4jr3-zzz334&amount=500&user_login=some_name_user&pay_type=card-to-card
     <script src="//code.jivo.ru/widget/b2YKXyDPmC" async></script>
+
+<form method="post" action=''>
+    {% csrf_token %}
+    {{ form.as_p }}
+     <button name="" type="submit" class="btn btn-warning btn-sm">---</button>
+</form>
+
 {% endblock %}
 

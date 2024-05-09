@@ -18,11 +18,12 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, FormView, UpdateView, ListView
 
+from core.global_func import hash_gen
 from deposit.models import Incoming
 from payment import forms
 from payment.filters import PaymentFilter
-from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm, InvoiceM10Form
-from payment.models import Payment, PayRequisite, Shop, CreditCard, PhoneScript, Bank
+from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm, InvoiceM10Form, InvoiceTestForm
+from payment.models import Payment, PayRequisite, Merchant, CreditCard, PhoneScript, Bank
 
 logger = structlog.get_logger(__name__)
 
@@ -111,7 +112,7 @@ def invoice(request, *args, **kwargs):
     Parameters
     ----------
     args
-        shop_id: id платежной системы
+        merchant_id: id платежной системы
         order_id: внешний идентификатор
         user_id
         amount: сумма платежа
@@ -120,26 +121,38 @@ def invoice(request, *args, **kwargs):
     -------
     """
     if request.method == 'GET':
-        shop_id = request.GET.get('shop_id')
+        merchant_id = request.GET.get('merchant_id')
         order_id = request.GET.get('order_id')
         user_login = request.GET.get('user_login')
         owner_name = request.GET.get('owner_name')
-        amount = request.GET.get('amount')
+        amount = request.GET.get('amount') or None
         pay_type = request.GET.get('pay_type')
+        signature = request.GET.get('signature')
         query_params = request.GET.urlencode()
         logger.debug(f'GET {args} {kwargs} {request.GET.dict()}'
                      f' {request.META.get("HTTP_REFERER")}')
-        required_key = ['shop_id', 'order_id', 'user_login', 'pay_type']
+        required_values = [merchant_id, order_id, pay_type]
+        #Проверка сигнатуры
+        try:
+            merch = Merchant.objects.get(pk=merchant_id)
+            string_value = f'{merchant_id}{order_id}'
+            merch_hash = hash_gen(string_value, merch.secret)
+            assert signature == merch_hash
+
+        except Exception as err:
+            logger.warning(err)
+            return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Wrong signature',
+                                          content='Wrong signature')
+
         # Проверяем наличие всех данных для создания платежа
-        for key in required_key:
-            if key not in request.GET:
-                return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not enough info for create pay',
+        if not all(required_values):
+            return HttpResponseBadRequest(status=HTTPStatus.BAD_REQUEST, reason='Not enough info for create pay',
                                               content='Not enough info for create pay')
         logger.debug('Key ok')
 
         try:
             payment, status = Payment.objects.get_or_create(
-                shop_id=shop_id,
+                merchant_id=merchant_id,
                 order_id=order_id,
                 user_login=user_login,
                 amount=amount,
@@ -179,7 +192,7 @@ def pay_to_card_create(request, *args, **kwargs):
     Parameters
     ----------
     args
-        shop_id: id платежной системы
+        merchant_id: id платежной системы
         order_id: внешний идентификатор
         user_id
         amount: сумма платежа
@@ -189,14 +202,14 @@ def pay_to_card_create(request, *args, **kwargs):
     """
 
     if request.method == 'GET':
-        shop_id = request.GET.get('shop_id')
+        merchant_id = request.GET.get('merchant_id')
         order_id = request.GET.get('order_id')
         user_login = request.GET.get('user_login')
         amount = request.GET.get('amount')
         pay_type = request.GET.get('pay_type')
-        logger.debug(f'GET {request.GET.dict()} {shop_id} {order_id} {user_login} {amount} {pay_type}'
+        logger.debug(f'GET {request.GET.dict()} {merchant_id} {order_id} {user_login} {amount} {pay_type}'
                      f' {request.META.get("HTTP_REFERER")}')
-        required_key = ['shop_id', 'order_id', 'user_login', 'amount', 'pay_type']
+        required_key = ['merchant_id', 'order_id', 'user_login', 'amount', 'pay_type']
         # Проверяем наличие всех данных для создания платежа
         for key in required_key:
             if key not in request.GET:
@@ -205,7 +218,7 @@ def pay_to_card_create(request, *args, **kwargs):
         logger.debug('Key ok')
         try:
             payment, status = Payment.objects.get_or_create(
-                shop_id=shop_id,
+                merchant_id=merchant_id,
                 order_id=order_id,
                 user_login=user_login,
                 amount=amount,
@@ -491,10 +504,22 @@ def test(request, pk, *args, **kwargs):
 def invoice_test(request, *args, **kwargs):
     http_host = request.META['HTTP_HOST']
     print(http_host)
+    new_uid = uuid.uuid4()
+    form = InvoiceTestForm(initial={'order_id': new_uid})
+
+    if request.method == 'POST':
+        print('post')
+        request_dict = request.POST.dict()
+        request_dict.pop('csrfmiddlewaretoken')
+        x = [f'{k}={v}' for k, v in request_dict.items()]
+        merch = Merchant.objects.get(pk=request_dict['merchant_id'])
+        string_value = f'{request_dict["merchant_id"]}{request_dict["order_id"]}'
+        signature = hash_gen(string_value, merch.secret)
+        return redirect(reverse('payment:pay_check') + '?' + '&'.join(x) + '&pay_type=card-to-m10' + f'&signature={signature}')
+
     return render(request,
                   template_name='payment/test_send.html',
-                  context={'host': http_host, 'uid': uuid.uuid4()})
-
+                  context={'host': http_host, 'uid': uuid.uuid4(), 'form': form})
 
 def java(request):
     pay: Payment = Payment.objects.first()  # Retrieve the first pay object
@@ -540,7 +565,7 @@ def send_request(request, *args, **kwargs):
 
     context = {'http_host': request.META['HTTP_HOST']}
     logger.debug(http_host)
-    shop: Shop = Shop.objects.get(pk=1)
+    merchant: Merchant = Merchant.objects.get(pk=1)
     print('--------------')
     # url = 'http://45.67.228.39/receive_request/'
     # url = 'http://127.0.0.1:8000/receive_request/'

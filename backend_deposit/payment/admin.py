@@ -3,7 +3,7 @@ from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
 from django_better_admin_arrayfield.forms.fields import DynamicArrayField
 from django_better_admin_arrayfield.forms.widgets import DynamicArrayWidget
 
-from payment.models import CreditCard, PayRequisite, Payment, Shop, PhoneScript, Bank
+from payment.models import CreditCard, PayRequisite, Payment, Merchant, PhoneScript, Bank
 
 
 class CreditCardAdmin(admin.ModelAdmin):
@@ -19,12 +19,12 @@ class PayRequisiteAdmin(admin.ModelAdmin):
 
 class PaymentAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'shop', 'order_id', 'amount', 'confirmed_amount', 'confirmed_time', 'pay_requisite',  'screenshot',
+        'id', 'merchant', 'order_id', 'amount', 'confirmed_amount', 'confirmed_time', 'pay_requisite',  'screenshot',
         'create_at', 'status', 'change_time', 'confirmed_time', 'confirmed_incoming'
     )
 
 
-class ShopAdmin(admin.ModelAdmin):
+class MerchantAdmin(admin.ModelAdmin):
     pass
 
 
@@ -44,6 +44,6 @@ class BankAdmin(admin.ModelAdmin, DynamicArrayMixin):
 admin.site.register(CreditCard, CreditCardAdmin)
 admin.site.register(PayRequisite, PayRequisiteAdmin)
 admin.site.register(Payment, PaymentAdmin)
-admin.site.register(Shop, ShopAdmin)
+admin.site.register(Merchant, MerchantAdmin)
 admin.site.register(PhoneScript, PhoneScriptAdmin)
 admin.site.register(Bank, BankAdmin)

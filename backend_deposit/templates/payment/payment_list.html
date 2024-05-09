@@ -27,7 +27,7 @@
      <tr class="">
            <th>id</th>
            <th>T рег</th>
-           <th>Shop</th>
+           <th>Merchant</th>
            <th>Сумм</th>
            <th>Статус</th>
            <th>Подтв.<br>Сумм</th>
@@ -52,7 +52,7 @@
                 {% endif %}
             </td>
             <td>{{ payment.create_at|date:"d.m H:i" }}</td>
-            <td>{{ payment.shop.name}}</td>
+            <td>{{ payment.merchant.name}}</td>
             {% if payment.screenshot %}
               <td><a target="_blank" href="/media/{{ payment.screenshot }}">{{ payment.amount }}</a></td>
             {% else %}
