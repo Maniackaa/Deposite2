@@ -1,9 +1,8 @@
 from django.contrib import admin
 from django.urls import path, include
-from django.contrib.auth import views as auth_views
-# urlpatterns = [
-    # path('admin/', admin.site.urls),
-    # path('api/', include('api.urls')),
+
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+
 urlpatterns = [
     path('', include('deposit.urls', namespace='deposit')),
     path('', include('payment.urls', namespace='payment')),
@@ -12,6 +11,14 @@ urlpatterns = [
     path('ocr/', include('ocr.urls', namespace='ocr')),
     path("__debug__/", include("debug_toolbar.urls")),
     path('api/', include('api.urls')),
+
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='docs'),
+    path(
+        'api/redoc/',
+        SpectacularRedocView.as_view(url_name='schema'),
+        name='redoc'
+    ),
 ]
 
 

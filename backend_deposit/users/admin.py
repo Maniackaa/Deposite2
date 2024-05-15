@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 
-from users.models import Profile
+from users.models import Profile, WhiteListMerchant
 
 User = get_user_model()
 
@@ -82,7 +82,7 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ('is_superuser', 'groups')
     fieldsets = (
         (None, {'fields': ('username', 'email', 'password')}),
-        ('Personal info', {'fields': ()}),
+        ('Personal info', {'fields': ('role',)}),
         ('Permissions', {'fields': ('is_staff', 'is_active', "groups", "user_permissions",)}),
     )
     # add_fieldsets is not a standard ModelAdmin attribute. UserAdmin
@@ -104,6 +104,11 @@ class ProfileAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'first_name', 'last_name', 'view_bad_warning')
     list_display_links = ('id', 'user')
 
+class WhiteListMerchantAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'email')
+    list_display_links = ('id', 'name')
+
 
 admin.site.register(User, UserAdmin)
 admin.site.register(Profile, ProfileAdmin)
+admin.site.register(WhiteListMerchant, WhiteListMerchantAdmin)

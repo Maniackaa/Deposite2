@@ -9,7 +9,7 @@ app_name = 'deposit'
 urlpatterns = [
     # Главная страница
     # path('', views.index, name='index'),
-    path('', views.home, name='index'),
+    # path('', views.home, name='index'),
     # path('deposit_confirm/<str:phone>/<int:pay>/', views.deposit_confirm, name='deposit_confirm'),
     # path('deposit_confirm/', views.deposit_confirm, name='confirm'),
     # path('index', views.index, name='index'),

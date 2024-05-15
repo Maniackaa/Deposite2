@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Список заказов{% endblock %}
+
+
+{% block content %}
+    {% include 'includes/user_menu.html' %}
+     {% include 'includes/paginator.html' %}
+     <div class="container-fluid ">
+     <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+     <thead class="">
+     <tr class="">
+           <th>id</th>
+           <th>T рег</th>
+           <th>Merchant</th>
+           <th>Сумм</th>
+           <th>Статус</th>
+           <th>Подтв.<br>Сумм</th>
+           <th>T подтв</th>
+           <th>T изм</th>
+           <th>Подтв. Сумм</th>
+         <th>id платежа</th>
+       </tr>
+     </thead>
+     <tbody style="text-align: end" >
+         {% for payment in filter.qs %}
+         <tr title="{{ payment.id }}" id="payment{{ payment.short_id }}"
+                 {% if payment.status == -1 %}
+                    class="table-secondary"
+                 {% elif payment.confirmed_time%}
+                     class="table-success"
+                 {% endif %}>
+
+            <td><a class="changelink" href="{% url 'payment:payment_edit' payment.id %}">{{ payment.short_id }}</a>
+                {% if payment.comment %}
+                  *
+                {% endif %}
+            </td>
+            <td>{{ payment.create_at|date:"d.m H:i" }}</td>
+            <td>{{ payment.merchant.name}}</td>
+            {% if payment.screenshot %}
+              <td><a target="_blank" href="/media/{{ payment.screenshot }}">{{ payment.amount }}</a></td>
+            {% else %}
+              <td>{{ payment.amount }}</td>
+            {% endif %}
+
+              <td style="white-space: nowrap">{{ payment.status_str }}
+
+
+              </td>
+            </form>
+
+            <td>{{ payment.confirmed_amount|default_if_none:""  }}</td>
+            <td>{{ payment.confirmed_time|default_if_none:"-"  }}</td>
+            <td>{{ payment.change_time }}</td>
+
+
+
+         </tr>
+         {% endfor %}
+
+     </tbody>
+   </table>
+   </div>
+   {% include 'includes/paginator.html' %}
+
+
+
+{% endblock %}

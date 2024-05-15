@@ -1,0 +1,29 @@
+{% load static %}
+{% with request.resolver_match.view_name as view_name %}
+{% with request.resolver_match.app_name as app_name %}
+<div class="container">
+  <nav class="navbar navbar-expand-md bg-body-tertiary">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'payment:menu' %}">Меню</a>
+          </li>
+          {% if user.is_authenticated %}
+          <li class="nav-item">
+            <a class="nav-link" href="">Пользователь: {{ user.username }}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'users:logout' %}">Выйти</a>
+          </li>
+        {% else %}
+          <li class="nav-item">
+              <a class="nav-link" href="{% url 'users:login' %}">Войти</a>
+          </li>
+          <li class="nav-item">
+              <a class="nav-link" href="{% url 'users:signup' %}">Регистрация</a>
+          </li>
+        {% endif %}
+      </ul>
+  </nav>
+</div>
+{% endwith %}
+{% endwith %}

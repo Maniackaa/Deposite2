@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Меню{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-md-auto">
+            {% include 'includes/user_menu.html' %}
+            {% include 'includes/messages.html' %}
+            {% if user.is_staff %}
+                <a class="nav-link" href="{% url 'deposit:incomings' %}">Платежи</a>
+                <a class="nav-link" href="{% url 'payment:payment_list' %}">Пополнения</a>
+            {% endif %}
+
+
+            {% if user.role == 'merchant' %}
+
+                <a class="" href="{% url 'payment:merchant_orders' %}">Заказы</a><br>
+                <a class="" href="{% url 'payment:create_merchant' %}">Создать Merchant</a><br>
+                {% for merchant in merchants %}
+                    <div class="card">
+                    {{ merchant.id }}. {{ merchant.name }}
+                        <div class="row">
+                            <div class="col-6">
+                                <a class="" href="{% url 'payment:merchant_detail' merchant.id %}">Подробно</a>
+                            </div>
+                            <div class="col-6">
+                                <a class="" href="{% url 'payment:merchant_delete' merchant.id %}">Удалить</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Мерч{% endblock %}
+{% block content %}
+  <div class="container">
+    <div class="row">
+      <div class="col-md-auto">
+        {{ object }}
+        <form method="POST">
+            {% csrf_token %}
+            {% include 'includes/form_fields.html' %}
+            <button type="submit" class="btn btn-warning btn-sm">Save</button>
+            <a href="{% url 'payment:menu' %}" class="btn btn-info btn-sm">Canel</a>
+
+        </form>
+      </div>
+     </div>
+  </div>
+
+{% endblock %}
+

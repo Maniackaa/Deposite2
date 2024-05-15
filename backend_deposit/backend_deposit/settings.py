@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import pytz
@@ -6,6 +7,8 @@ import structlog
 from celery.schedules import crontab
 from dotenv import load_dotenv
 from structlog.typing import WrappedLogger, EventDict
+
+from templates.api.integration_texts import instruction
 
 load_dotenv()
 
@@ -34,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
+    'rest_framework_simplejwt',
     'sorl.thumbnail',
     'colorfield',
     'debug_toolbar',
@@ -47,6 +52,7 @@ INSTALLED_APPS = [
     'django_filters',
     'corsheaders',
     'django_better_admin_arrayfield',
+    'drf_spectacular',
 ] + MY_APPS
 
 MIDDLEWARE = [
@@ -121,14 +127,14 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
-LANGUAGE_CODE = 'ru-RU'
+# LANGUAGE_CODE = 'ru-RU'
+LANGUAGE_CODE = 'en-us'
 
 # TIME_ZONE = 'UTC'
 TIME_ZONE = os.getenv('TIMEZONE')
 # TZ = pytz.timezone(TIME_ZONE)
 
 USE_I18N = True
-
 USE_TZ = True
 
 
@@ -151,7 +157,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.User'
 LOGIN_URL = 'users:login'
-LOGIN_REDIRECT_URL = 'deposit:index'
+LOGIN_REDIRECT_URL = 'payment:menu'
 LOGOUT_REDIRECT_URL = 'users:login'
 
 # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
@@ -160,12 +166,13 @@ EMAIL_FILE_PATH = MEDIA_ROOT / 'email'
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
 
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
 
     'DEFAULT_RENDERER_CLASSES': [
@@ -180,9 +187,27 @@ REST_FRAMEWORK = {
     ],
 
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "ALGORITHM": "HS256",
+    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+    "USER_ID_FIELD": "id",
+}
 
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'API Documentation',
+    'DESCRIPTION': f'Integration with asu-payme.com {instruction}',
+    'VERSION': '0.0.1',
+    'SERVE_INCLUDE_SCHEMA': True,
+    # OTHER SETTINGS
+    'PREPROCESSING_HOOKS': ["backend_deposit.excluded_path.custom_preprocessing_hook"]
+}
 
 LOGGING = {
     "version": 1,

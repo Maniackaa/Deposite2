@@ -1,32 +1,46 @@
+import datetime
 import json
 import logging
 import uuid
 
 import requests
 import structlog
+from django.contrib.auth import get_user_model
 
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.db.models.functions import Lower
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django_better_admin_arrayfield.models.fields import ArrayField
 
+from core.global_func import hash_gen
 from deposit.models import Incoming
+from payment.task import send_merch_webhook
 
 logger = structlog.get_logger(__name__)
+
+User = get_user_model()
 
 
 class Merchant(models.Model):
     name = models.CharField('Название', max_length=100)
+    owner = models.ForeignKey(to=User, related_name='merchants', on_delete=models.CASCADE,)
     is_active = models.BooleanField(default=False)
-    host = models.URLField(null=True, blank=True)
-    secret = models.CharField('Секретная фраза', max_length=100, null=True, blank=True)
+    host = models.URLField('Адрес для отправки вэбхук')
+    secret = models.CharField('Your secret key', max_length=256)
     # Endpoints
-    pay_success_endpoint = models.URLField(null=True, blank=True)
+    pay_success_endpoint = models.URLField('Url for redirect user back to your site', null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.id}. {self.name} {self.host}'
+
+    class Meta:
+        ordering = ('id',)
 
 
 class CreditCard(models.Model):
-    card_number = models.CharField('Номер карты', max_length=16)
+    card_number = models.CharField('Номер карты', max_length=19)
     owner_name = models.CharField('Имя владельца', max_length=100, null=True, blank=True)
     cvv = models.CharField(max_length=4, null=True, blank=True)
     card_type = models.CharField('Система карты', max_length=100)
@@ -62,6 +76,8 @@ class PayRequisite(models.Model):
     card = models.ForeignKey(CreditCard, on_delete=models.CASCADE, null=True, blank=True)
     is_active = models.BooleanField(default=False)
     info = models.CharField('Инструкция', null=True, blank=True)
+    min_amount = models.FloatField(default=0)
+    max_amount = models.FloatField(default=10000)
 
     def __repr__(self):
         string = f'{self.__class__.__name__}({self.id})'
@@ -74,14 +90,14 @@ class PayRequisite(models.Model):
 
 class Payment(models.Model):
     PAYMENT_STATUS = (
-        (-1, '-1. Отклонен'),
-        (0, '0. Заготовка'),
-        (3, '3. Ввел CC.'),
-        (4, '4. Отправлено боту'),
-        (5, '5. Ожидание смс'),
-        (6, '6. Бот отработал'),
-        (7, '7. Ожидание подтверждения'),
-        (9, '9. Подтвержден'),
+        (-1, '-1. Decline'),
+        (0, '0. Created'),
+        (3, '3. CardData input.'),
+        (4, '4. Send to work'),
+        (5, '5. Wait Sms'),
+        (6, '6. Work complited'),
+        (7, '7. Await confirm'),
+        (9, '9. Confirmed'),
     )
 
     def __init__(self, *args, **kwargs) -> None:
@@ -90,13 +106,14 @@ class Payment(models.Model):
         self.cached_status = self.status
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, max_length=36, db_index=True, unique=True,)
-    merchant = models.ForeignKey('Merchant', on_delete=models.CASCADE, null=True)
-    order_id = models.CharField(max_length=36, db_index=True, unique=True, null=True, blank=True)
-    user_login = models.CharField(max_length=36)
+    merchant = models.ForeignKey('Merchant', on_delete=models.CASCADE)
+    order_id = models.CharField(max_length=36, db_index=True)
+    amount = models.IntegerField('Сумма заявки', null=True)
+
+    user_login = models.CharField(max_length=36, null=True, blank=True)
     owner_name = models.CharField(max_length=100, null=True, blank=True)
-    amount = models.IntegerField('Сумма заявки', validators=[MinValueValidator(5)], null=True)
     pay_requisite = models.ForeignKey('PayRequisite', on_delete=models.CASCADE, null=True, blank=True)
-    pay_type = models.CharField('Тип платежа', choices=PAY_TYPE, null=True, blank=True)
+    pay_type = models.CharField('Тип платежа', choices=PAY_TYPE)
     screenshot = models.ImageField(upload_to='uploaded_pay_screens/',
                       verbose_name='Ваша квитанция', null=True, blank=True, help_text='Приложите скриншот квитанции после оплаты')
     create_at = models.DateTimeField('Время добавления в базу', auto_now_add=True)
@@ -110,8 +127,8 @@ class Payment(models.Model):
     # Данные отправителя
     phone = models.CharField('Телефон отправителя', max_length=20, null=True, blank=True)
     referrer = models.URLField('Откуда пришел', null=True, blank=True)
-    card_data = models.JSONField(default=str)
-    phone_script_data = models.JSONField(default=dict)
+    card_data = models.JSONField(default=str, blank=True)
+    phone_script_data = models.JSONField(default=str, blank=True)
 
     # Подтверждение:
     confirmed_incoming = models.OneToOneField(verbose_name='Платеж', to=Incoming,
@@ -215,22 +232,55 @@ class Bank(models.Model):
     name = models.CharField('Наименование', unique=True)
     bins = ArrayField(base_field=models.IntegerField(), default=list, blank=True)
     script = models.ForeignKey('PhoneScript', on_delete=models.CASCADE)
+    instruction = models.CharField('Инструкция', null=True, blank=True)
     image = models.ImageField('Иконка банка', upload_to='bank_icons', null=True, blank=True)
-
-
-# @receiver(pre_save, sender=Payment)
-# def pre_save_pay(sender, instance: Payment, raw, using, update_fields, *args, **kwargs):
-#     logger.debug(f'pre_save_status = {instance.status} cashed: {instance.cached_status}')
 
 
 # @receiver(pre_save, sender=PhoneScript)
 # def after_save_script(sender, instance: PhoneScript, raw, using, update_fields, *args, **kwargs):
 #     instance.bins = sorted(instance.bins)
 
+@receiver(pre_save, sender=Payment)
+def pre_save_pay(sender, instance: Payment, raw, using, update_fields, *args, **kwargs):
+    logger.debug(f'pre_save_status = {instance.status} cashed: {instance.cached_status}')
+    # Если статус изменился на 9 (потвержден):
+    if instance.status == 9 and instance.cached_status != 9:
+        if not instance.confirmed_time:
+            instance.confirmed_time = datetime.datetime.now()
+
 
 @receiver(post_save, sender=Payment)
 def after_save_pay(sender, instance: Payment, created, raw, using, update_fields, *args, **kwargs):
     logger.debug(f'post_save_status = {instance.status}  cashed: {instance.cached_status}')
-    # Если статус изменился с 2 на 3 (потвержден):
-    if instance.status == 2 and instance.cached_status == 1:
-        logger.debug('Выполняем действие полсле подтверждения платежа')
+    # Если статус изменился с на 9 (потвержден):
+    if instance.status == 9 and instance.cached_status != 9:
+        logger.info('Выполняем действие полсле подтверждения платежа')
+        data = {
+            "id": str(instance.id),
+            "order_id": instance.order_id,
+            "user_login": instance.user_login,
+            "amount": instance.amount,
+            "create_at": instance.create_at.isoformat(),
+            "status": instance.status,
+            "confirmed_time": instance.confirmed_time.isoformat(),
+            "confirmed_amount": instance.confirmed_amount,
+            "signature": hash_gen(
+                # merchant_id + id + confirmed_amount + secret_key
+                f'{instance.merchant.id}{str(instance.id)}{instance.confirmed_amount}',
+                instance.merchant.secret
+            )
+        }
+        result = send_merch_webhook(url=instance.merchant.host, data=data)
+        logger.info(f'answer: {result}')
+    
+    # Отправка вэбхука если статус изменился на 5 - ожидание смс:
+    if instance.status == 5 and instance.cached_status != 5:
+        data = {
+            'order_id': instance.order_id,
+            'id': str(instance.id),
+            'status': 5,
+            'signature': hash_gen(f'{instance.order_id}{str(instance.id)}5', instance.merchant.secret)
+        }
+        result = send_merch_webhook(url=instance.merchant.host, data=data)
+        logger.info(f'answer: {result}')
+        

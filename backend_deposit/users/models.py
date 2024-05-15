@@ -5,11 +5,16 @@ from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin, Group
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from deposit.models import Message
 from users.managers import UserManager
+
+
+class WhiteListMerchant(models.Model):
+    name = models.CharField('Наименование', unique=True)
+    email = models.EmailField(unique=True)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -19,11 +24,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     STAFF = "staff"
     ADMIN = "admin"
     MODERATOR = "editor"
+    MERCHANT = "merchant"
     ROLES = (
         (USER, "Пользователь"),
         (ADMIN, "Администратор"),
         (STAFF, "Оператор"),
         (MODERATOR, "Корректировщик"),
+        (MERCHANT, "Мерчант"),
     )
 
     USERNAME_FIELD = 'username'
@@ -57,7 +64,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
 
     def __str__(self):
         return self.username
@@ -78,9 +85,22 @@ class User(AbstractBaseUser, PermissionsMixin):
             group_list.append(group.get('name'))
         return group_list
 
+    def is_white(self):
+        print('WhiteListMerchant:', WhiteListMerchant.objects.all())
+        print(self.email)
+        return WhiteListMerchant.objects.filter(email=self.email).exists()
+
     @admin.display(boolean=True, description='Видит уведомления?')
     def bad_warning(self):
         return self.profile.view_bad_warning
+
+
+@receiver(pre_save, sender=User)
+def pre_save_user(sender, instance: User, raw, using, update_fields, *args, **kwargs):
+    print(WhiteListMerchant.objects.all())
+    if instance.is_white():
+        instance.is_active = 1
+        instance.role = 'merchant'
 
 
 @receiver(post_save, sender=User)

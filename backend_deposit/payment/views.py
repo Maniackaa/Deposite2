@@ -7,6 +7,8 @@ from http import HTTPStatus
 
 import requests
 import structlog
+from django.contrib.auth.decorators import login_required
+from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import PermissionDenied
 
 from django.http import HttpResponse, QueryDict, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest, \
@@ -16,16 +18,28 @@ from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import CreateView, DetailView, FormView, UpdateView, ListView
+from django.views.generic import CreateView, DetailView, FormView, UpdateView, ListView, DeleteView
 
 from core.global_func import hash_gen
 from deposit.models import Incoming
 from payment import forms
 from payment.filters import PaymentFilter
-from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm, InvoiceM10Form, InvoiceTestForm
+from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm, InvoiceM10Form, InvoiceTestForm, \
+    MerchantForm
 from payment.models import Payment, PayRequisite, Merchant, CreditCard, PhoneScript, Bank
+from payment.permissions import AuthorRequiredMixin
 
 logger = structlog.get_logger(__name__)
+
+
+def menu(request, *args, **kwargs):
+    template = 'payment/menu.html'
+    user = request.user
+    context = {}
+    if user.is_authenticated:
+        merchants = Merchant.objects.filter(owner=user)
+        context = {'merchants': merchants}
+    return render(request, template_name=template, context=context)
 
 
 def get_pay_requisite(pay_type: str) -> PayRequisite:
@@ -478,15 +492,17 @@ class PaymentEdit(UpdateView, ):
             return super(PaymentEdit, self).form_valid(form)
 
 
+def get_bank_from_bin(bin_num) -> Bank:
+    bank = Bank.objects.filter(bins__contains=[bin_num]).first()
+    if not bank:
+        bank = Bank.objects.filter(name='default').first()
+    return bank
+
+
 def get_bank(request, bin_num):
     bin_num = int(bin_num.replace(' ', ''))
-    bank = Bank.objects.filter(bins__contains=[bin_num]).first()
-
-    if bank:
-        data = {'image': bank.image.name}
-    else:
-        bank = Bank.objects.filter(name='default').first()
-        data = {'image': bank.image.name}
+    bank = get_bank_from_bin(bin_num)
+    data = {'image': bank.image.name}
     return JsonResponse(data, safe=False)
 
 
@@ -627,4 +643,50 @@ def receive_request(request, *args, **kwargs):
     print(json.loads(data))
     return HttpResponse(status=HTTPStatus.OK)
 
+
+class MerchantCreate(CreateView):
+    form_class = MerchantForm
+    template_name = 'payment/merchant.html'
+    success_url = reverse_lazy('payment:menu')
+
+    def form_valid(self, form):
+        if form.is_valid():
+            form.instance.owner = self.request.user
+            form.save()
+        return super().form_valid(form)
+
+
+class MerchantOrders(ListView):
+    template_name = 'payment/merchant_orders.html'
+    model = Payment
+    filter = PaymentFilter
+    context_object_name = 'payments'
+
+    def get_queryset(self):
+        user = self.request.user
+        payments = Payment.objects.filter(merchant__owner=user)
+        return payments
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = PaymentListConfirmForm()
+        context['form'] = form
+        filter = PaymentFilter(self.request.GET, queryset=Payment.objects.all())
+        context['filter'] = filter
+        return context
+
+
+class MerchantDetail(AuthorRequiredMixin, DetailView, UpdateView,):
+    template_name = 'payment/merchant.html'
+    model = Merchant
+    form = MerchantForm
+    success_url = reverse_lazy('payment:menu')
+    fields = ('name', 'host', 'pay_success_endpoint', 'secret')
+
+
+class MerchantDelete(AuthorRequiredMixin, SuccessMessageMixin, DeleteView):
+    template_name = 'payment/merchant_confirm_delete.html'
+    success_url = reverse_lazy('payment:menu')
+    model = Merchant
+    success_message = 'Delete complete'
 

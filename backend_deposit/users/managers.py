@@ -4,9 +4,9 @@ from django.contrib.auth.base_user import BaseUserManager
 # from django.contrib.auth.models import AbstractUser
 
 
-
 class UserManager(BaseUserManager):
     use_in_migrations = True
+
     def _create_user(self, email, username, password, **extra_fields):
         print('_create_user')
         """
@@ -39,6 +39,7 @@ class UserManager(BaseUserManager):
         print('create_superuser')
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
         if extra_fields.get('is_superuser') is not True:

@@ -3,7 +3,7 @@ import uuid
 from django import forms
 from django.core.exceptions import ValidationError
 
-from payment.models import Payment, CreditCard
+from payment.models import Payment, CreditCard, Merchant
 
 
 class InvoiceForm(forms.ModelForm):
@@ -108,6 +108,12 @@ class PaymentListConfirmForm(forms.ModelForm):
                   'confirmed_amount',
                   'confirmed_incoming',
         )
+
+
+class MerchantForm(forms.ModelForm):
+    class Meta:
+        model = Merchant
+        fields = ('name', 'host', 'secret', 'pay_success_endpoint')
 
 
 class PaymentForm(forms.ModelForm):
