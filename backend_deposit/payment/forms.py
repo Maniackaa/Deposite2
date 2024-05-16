@@ -99,7 +99,6 @@ class InvoiceM10Form(forms.ModelForm):
             raise ValidationError('Qeyd etdiyiniz ay yalnışdır')
 
 
-
 class PaymentListConfirmForm(forms.ModelForm):
 
     class Meta:

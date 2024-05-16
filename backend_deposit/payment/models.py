@@ -9,7 +9,6 @@ from django.contrib.auth import get_user_model
 
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from django.db.models.functions import Lower
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django_better_admin_arrayfield.models.fields import ArrayField
@@ -26,7 +25,6 @@ User = get_user_model()
 class Merchant(models.Model):
     name = models.CharField('Название', max_length=100)
     owner = models.ForeignKey(to=User, related_name='merchants', on_delete=models.CASCADE,)
-    is_active = models.BooleanField(default=False)
     host = models.URLField('Адрес для отправки вэбхук')
     secret = models.CharField('Your secret key', max_length=256)
     # Endpoints
@@ -65,7 +63,7 @@ class CreditCard(models.Model):
 
 
 PAY_TYPE = (
-        ('card-to-card', 'card-to-card'),
+        # ('card-to-card', 'card-to-card'),
         ('card-to-m10', 'card-to-m10'),
     )
 
@@ -136,6 +134,7 @@ class Payment(models.Model):
     confirmed_amount = models.IntegerField('Подтвержденная сумма заявки', null=True, blank=True)
     comment = models.CharField('Комментарий', max_length=1000, null=True, blank=True)
     response_status_code = models.IntegerField(null=True, blank=True)
+    source = models.CharField(max_length=5, default='form', null=True, blank=True)
 
     def __str__(self):
         string = f'{self.__class__.__name__} {self.id}.'
@@ -198,6 +197,46 @@ class Payment(models.Model):
     def short_id(self):
         return f'{str(self.id)[-6:]}'
 
+    def get_hash(self):
+        if self.status == -1:
+            return hash_gen(f'{str(self.id)}{self.order_id}{self.status}', self.merchant.secret)
+        if self.status == 9:
+            return hash_gen(f'{str(self.id)}{self.order_id}{self.confirmed_amount}{self.status}', self.merchant.secret)
+        if self.status in [3, 5]:
+            card_data = json.loads(self.card_data)
+            return hash_gen(f'{card_data["card_number"]}', self.merchant.secret)
+
+    def webhook_data(self):
+        if self.status == 9:
+            data = {
+                "id": str(self.id),
+                "order_id": self.order_id,
+                "user_login": self.user_login,
+                "amount": self.amount,
+                "create_at": self.create_at.isoformat(),
+                "status": self.status,
+                "confirmed_time": self.confirmed_time.isoformat(),
+                "confirmed_amount": self.confirmed_amount,
+                "signature": self.get_hash()
+            }
+        elif self.status == 5:
+            data = {
+                'order_id': self.order_id,
+                'id': str(self.id),
+                'status': 5,
+                'signature': self.get_hash()
+            }
+        elif self.status == -1:
+            data = {
+                'order_id': self.order_id,
+                'id': str(self.id),
+                'status': 5,
+                'signature': self.get_hash()
+            }
+        else:
+            data = {}
+        return data
+
     class Meta:
         ordering = ('-create_at',)
 
@@ -252,35 +291,16 @@ def pre_save_pay(sender, instance: Payment, raw, using, update_fields, *args, **
 @receiver(post_save, sender=Payment)
 def after_save_pay(sender, instance: Payment, created, raw, using, update_fields, *args, **kwargs):
     logger.debug(f'post_save_status = {instance.status}  cashed: {instance.cached_status}')
-    # Если статус изменился с на 9 (потвержден):
+    # Если статус изменился на 9 (потвержден):
     if instance.status == 9 and instance.cached_status != 9:
         logger.info('Выполняем действие полсле подтверждения платежа')
-        data = {
-            "id": str(instance.id),
-            "order_id": instance.order_id,
-            "user_login": instance.user_login,
-            "amount": instance.amount,
-            "create_at": instance.create_at.isoformat(),
-            "status": instance.status,
-            "confirmed_time": instance.confirmed_time.isoformat(),
-            "confirmed_amount": instance.confirmed_amount,
-            "signature": hash_gen(
-                # merchant_id + id + confirmed_amount + secret_key
-                f'{instance.merchant.id}{str(instance.id)}{instance.confirmed_amount}',
-                instance.merchant.secret
-            )
-        }
-        result = send_merch_webhook(url=instance.merchant.host, data=data)
+        data = instance.webhook_data()
+        result = send_merch_webhook.delay(url=instance.merchant.host, data=data)
         logger.info(f'answer: {result}')
     
-    # Отправка вэбхука если статус изменился на 5 - ожидание смс:
-    if instance.status == 5 and instance.cached_status != 5:
-        data = {
-            'order_id': instance.order_id,
-            'id': str(instance.id),
-            'status': 5,
-            'signature': hash_gen(f'{instance.order_id}{str(instance.id)}5', instance.merchant.secret)
-        }
-        result = send_merch_webhook(url=instance.merchant.host, data=data)
+    # Отправка вэбхука если статус изменился на 5 - ожидание смс и api:
+    if instance.source == 'api' and instance.status == 5 and instance.cached_status != 5:
+        data = instance.webhook_data()
+        result = send_merch_webhook.delay(url=instance.merchant.host, data=data)
         logger.info(f'answer: {result}')
         

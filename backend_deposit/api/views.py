@@ -1,58 +1,24 @@
 import json
 
 import structlog
-from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample, OpenApiResponse, extend_schema_view
 
 from rest_framework import viewsets, status, generics, serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action, api_view
 from rest_framework.generics import GenericAPIView, get_object_or_404, CreateAPIView, UpdateAPIView
-from rest_framework.permissions import AllowAny
-from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework import mixins
-from rest_framework.views import APIView
+
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from api.permissions import PaymentOwnerOrStaff, IsStaff
-from api.serializers import UserRegSerializer, PaymentCreateSerializer, PaymentInputCardSerializer, \
-    PaymentInputSmsCodeSerializer, DummyDetailSerializer, PaymentStaffSerializer
-from core.global_func import hash_gen
+from api.serializers import PaymentCreateSerializer, PaymentInputCardSerializer, \
+    PaymentInputSmsCodeSerializer, PaymentStaffSerializer
 from payment.models import Payment
-from payment.task import send_merch_webhook
 from payment.views import get_phone_script, get_bank_from_bin
 
 logger = structlog.get_logger(__name__)
-
-
-User = get_user_model()
-
-
-# @extend_schema(tags=['Users App'])
-# class UsersViewSet(
-#     mixins.CreateModelMixin,
-#     mixins.ListModelMixin,
-#     mixins.RetrieveModelMixin,
-#     viewsets.GenericViewSet,
-# ):
-#     serializer_class = UserRegSerializer
-#     queryset = User.objects.all()
-#     permission_classes = (AllowAny,)
-#
-#     def retrieve(self, request, *args, **kwargs):
-#         instance = self.get_object()
-#         serializer = self.get_serializer(instance)
-#         return Response(serializer.data)
-#
-#
-# @extend_schema(tags=['Users App'])
-# class RegView(CreateAPIView):
-#     permission_classes = (AllowAny,)
-#     serializer_class = UserRegSerializer
-#
-#     def post(self, request, *args, **kwargs):
-#         return super().post(request, *args, **kwargs)
 
 
 class ResponseCreate(serializers.Serializer):
@@ -80,14 +46,25 @@ class PaymentViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, viewset
     authentication_classes = [JWTAuthentication]
     permission_classes = [PaymentOwnerOrStaff]
 
-    @extend_schema(tags=['Payment check'])
+    @extend_schema(tags=['Payment check'],
+                   request=[
+                       OpenApiExample(
+                           "Bad response",
+                           value={
+                               "amount": ["Ensure this value is greater than or equal to 1."]},
+                           status_codes=[400],
+                           response_only=False,
+                       ),
+                   ])
+
+
     def retrieve(self, request, *args, **kwargs):
         """Просмотр данных о платеже"""
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return Response(data={'id': instance.id, 'status': instance.status}, status=status.HTTP_200_OK)
 
-    @extend_schema(tags=['Payment process'], request=PaymentCreateSerializer, summary="Создание платежа",
+    @extend_schema(tags=['API Payment process'], request=PaymentCreateSerializer, summary="Создание платежа",
                    description='Отправка данных для создания платежа',
 
                    responses={
@@ -126,7 +103,11 @@ class PaymentViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, viewset
             return Response({'status': 'success', 'id': serializer.data['id']}, status=status.HTTP_201_CREATED, headers=headers)
         return Response({'status': 'error'}, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(tags=['Payment process'], summary="Отправка даных карты",
+    def perform_create(self, serializer):
+        serializer.save(source='api')
+
+    @extend_schema(tags=['API Payment process'], summary="Отправка даных карты",
+                   # description="После ввода предоставленных данных карты будет отправлен post-запрос: {'order_id': , 'id': id, 'status': 5,  'signature': }",
                    request=PaymentInputCardSerializer,
                    responses={status.HTTP_200_OK: OpenApiResponse(
                            response=PaymentInputCardSerializer,
@@ -175,19 +156,18 @@ class PaymentViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, viewset
             sms_required = phone_script.step_2_required
             payment.card_data = json.dumps(card_data)
             payment.save()
-            signature = hash_gen(card_number, payment.merchant.secret)
             return Response(data={
                 'sms_required': sms_required,
                 'instruction': bank.instruction,
                 'bank_icon': url,
-                'signature': signature
+                'signature': payment.get_hash()
             }, status=status.HTTP_200_OK)
         return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(tags=['Payment process'],
+    @extend_schema(tags=['API Payment process'],
                    request=PaymentInputSmsCodeSerializer,
                    summary="Отправка кода подтверждения",
-                   description="Необходим если sms_required=True",
+                   description="Необходим если sms_required=True. После ввода предоставленных данных карты будет отправлен информирующий post-запрос:<br>{'order_id': 'string', 'id': '4caed007-2d31-489c-9f3d-a2af6ccf07e4', 'status': 5,  'signature': hash('sha256', 'card_number' + 'secret_key')}",
                    responses={status.HTTP_200_OK: OpenApiResponse(
                        response=ResponseInputSms,
                        examples=[
@@ -197,6 +177,12 @@ class PaymentViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, viewset
                                    "status": "success",
                                },
                                status_codes=[200],
+                               response_only=False,
+                           ),
+                           OpenApiExample(
+                               "Bad response",
+                               value={"sms_code": ["Ensure this field has no more than 6 characters."]},
+                               status_codes=[400],
                                response_only=False,
                            ),
                        ])},
@@ -227,9 +213,7 @@ class PaymentInputSmsCode(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     serializer_class = PaymentInputSmsCodeSerializer
     queryset = Payment.objects.all()
     permission_classes = [PaymentOwnerOrStaff]
-    http_method_names = ['patch']
-
-
+    http_method_names = ['put']
 
 
 # class CsrfExemptSessionAuthentication(SessionAuthentication):
@@ -255,15 +239,3 @@ class PaymentStatusView(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, view
     def partial_update(self, request, *args, **kwargs):
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
-
-    # def retrieve(self, request, *args, **kwargs):
-    #     print(request.data)
-    #     payment = Payment.objects.filter(id=request.data['id']).first()
-    #     print(payment)
-    #     sms = ''
-    #     if payment and payment.card_data:
-    #         sms = json.loads(payment.card_data).get('sms_code')
-    #         return Response(data={"status": payment.status, 'sms': sms})
-    #
-    #     return Response(data={"status": payment.status})
-

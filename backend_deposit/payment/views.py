@@ -28,6 +28,7 @@ from payment.forms import InvoiceForm, PaymentListConfirmForm, PaymentForm, Invo
     MerchantForm
 from payment.models import Payment, PayRequisite, Merchant, CreditCard, PhoneScript, Bank
 from payment.permissions import AuthorRequiredMixin
+from payment.task import send_merch_webhook
 
 logger = structlog.get_logger(__name__)
 
@@ -690,3 +691,27 @@ class MerchantDelete(AuthorRequiredMixin, SuccessMessageMixin, DeleteView):
     model = Merchant
     success_message = 'Delete complete'
 
+
+def merchant_test_webhook(request, *args, **kwargs):
+    print(request.POST)
+    print(args, kwargs)
+    order_id = str(uuid.uuid4())
+    pk = str(uuid.uuid4())
+    merchant_id = request.POST.get('decline') or request.POST.get('accept')
+    merchant = Merchant.objects.get(pk=merchant_id)
+    payment = Payment(merchant=merchant,
+                      id=pk,
+                      order_id=order_id,
+                      amount=random.randrange(10, 3000),
+                      create_at=(datetime.datetime.now() - datetime.timedelta(minutes=1)),
+                      )
+    if 'decline' in request.POST:
+        payment.status = -1
+        data = payment.webhook_data()
+    else:
+        payment.confirmed_amount = random.randrange(10, 3000)
+        payment.status = 9
+        payment.confirmed_time = datetime.datetime.now()
+        data = payment.webhook_data()
+    send_merch_webhook.delay(merchant.host, data)
+    return JsonResponse(json.dumps(data), safe=False)

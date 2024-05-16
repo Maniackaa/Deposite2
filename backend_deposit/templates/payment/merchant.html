@@ -10,6 +10,14 @@
             {% include 'includes/form_fields.html' %}
             <button type="submit" class="btn btn-warning btn-sm">Save</button>
             <a href="{% url 'payment:menu' %}" class="btn btn-info btn-sm">Canel</a>
+        </form>
+<hr>
+          <p>Test webhook. Send random data and correct signature</p>
+          <form method="POST" action="{% url 'payment:merchant_test_webhook' %}">
+            {% csrf_token %}
+
+            <button name='accept' value='{{  form.instance.id }}' type="submit" class="btn btn-warning btn-sm">Test Accept Webhook</button>
+            <button name='decline' value = '{{  form.instance.id }}' type="submit" class="btn btn-warning btn-sm">Test Decline Webhook</button>
 
         </form>
       </div>
