@@ -162,6 +162,90 @@ def screen(request: Request):
                             charset='utf-8')
 
 
+def analyse_sms_text_and_save(text, imei, sms_id, *args, **kwargs):
+    errors = []
+    patterns = {
+        'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
+        # 'sms2': r'.*Mebleg:(.+) AZN.*\nKart:(.*)\nTarix:(.*)\nMerchant:(.*)\nBalans:(.*) .*',
+        'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*Kart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
+        'sms3': r'^.+[medaxil|mexaric] (.+?) AZN (.*)(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+Balance: (.+?) AZN.*',
+        'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
+        'sms5': r'.*Mebleg:(.+) AZN.*\n.*(\*\*\*.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
+        'sms6': r'.*Mebleg:(.+) AZN.*\nHesaba medaxil: (.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
+        'sms7': r'(.+) AZN.*\n(.+)\nBalans (.+) AZN\nKart:(.+)',
+        'sms8': r'.*Mebleg: (.+) AZN.*Merchant: (.*)\sBalans: (.*) AZN',
+        'sms9': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*)AZN',
+        'sms10': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil (.*) AZN\nBALANCE\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)',
+        'sms11': r'Odenis\n(.*) AZN \n(.*\n.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
+        'sms12': r'(\d\d\.\d\d\.\d\d \d\d:\d\d)(.*)AZ Card: (.*) amount:(.*)AZN.*Balance:(.*)AZN',
+
+    }
+    response_func = {
+        'sms1': response_sms1,
+        'sms2': response_sms2,
+        'sms3': response_sms3,
+        'sms4': response_sms4,
+        'sms5': response_sms5,
+        'sms6': response_sms6,
+        'sms7': response_sms7,
+        'sms8': response_sms8,
+        'sms9': response_sms9,
+        'sms10': response_sms10,
+        'sms11': response_sms11,
+        'sms12': response_sms12,
+
+    }
+    fields = ['response_date', 'recipient', 'sender', 'pay', 'balance',
+              'transaction', 'type']
+    text_sms_type = ''
+    responsed_pay = {}
+
+    for sms_type, pattern in patterns.items():
+        search_result = re.findall(pattern, text)
+        if search_result:
+            logger.debug(f'Найдено: {sms_type}: {search_result}')
+            text_sms_type = sms_type
+            responsed_pay: dict = response_func[text_sms_type](fields, search_result[0])
+            errors = responsed_pay.pop('errors')
+            break
+
+    # Добавим получателя если его нет
+    if not responsed_pay.get('recipient'):
+        responsed_pay['recipient'] = imei
+    if text_sms_type:
+        logger.info(f'Сохраняем в базу{responsed_pay}')
+        if text_sms_type in ['sms8', 'sms7']:
+            # Шаблоны без времени
+            threshold = datetime.datetime.now(tz=TZ) - datetime.timedelta(hours=12)
+            is_duplicate = Incoming.objects.filter(
+                sender=responsed_pay.get('sender'),
+                pay=responsed_pay.get('pay'),
+                balance=responsed_pay.get('balance'),
+                register_date__gte=threshold
+            ).exists()
+        else:
+            is_duplicate = Incoming.objects.filter(
+                response_date=responsed_pay.get('response_date'),
+                sender=responsed_pay.get('sender'),
+                pay=responsed_pay.get('pay'),
+                balance=responsed_pay.get('balance')
+            ).exists()
+
+        if is_duplicate:
+            logger.info('Дубликат sms:\n\n{text}')
+            msg = f'Дубликат sms:\n\n{text}'
+            send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
+        else:
+            created = Incoming.objects.create(**responsed_pay, worker=imei)
+            logger.info(f'Создан: {created}')
+
+    else:
+        logger.info(f'Неизвестный шаблон\n{text}')
+        new_trash = TrashIncoming.objects.create(text=text, worker=imei)
+        logger.info(f'Добавлено в мусор: {new_trash}')
+    return {'response': HttpResponse(sms_id), 'errors': errors}
+
+
 @api_view(['POST'])
 def sms(request: Request):
     """
@@ -185,86 +269,47 @@ def sms(request: Request):
         text = post.get('message')
         sms_id = post.get('id')
         imei = post.get('imei')
-        patterns = {
-            'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
-            # 'sms2': r'.*Mebleg:(.+) AZN.*\nKart:(.*)\nTarix:(.*)\nMerchant:(.*)\nBalans:(.*) .*',
-            'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*Kart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
-            'sms3': r'^.+[medaxil|mexaric] (.+?) AZN (.*)(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+Balance: (.+?) AZN.*',
-            'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
-            'sms5': r'.*Mebleg:(.+) AZN.*\n.*(\*\*\*.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
-            'sms6': r'.*Mebleg:(.+) AZN.*\nHesaba medaxil: (.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
-            'sms7': r'(.+) AZN.*\n(.+)\nBalans (.+) AZN\nKart:(.+)',
-            'sms8': r'.*Mebleg: (.+) AZN.*Merchant: (.*)\sBalans: (.*) AZN',
-            'sms9': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*)AZN',
-            'sms10': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil (.*) AZN\nBALANCE\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)',
-            'sms11': r'Odenis\n(.*) AZN \n(.*\n.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
-            'sms12': r'(\d\d\.\d\d\.\d\d \d\d:\d\d)(.*)AZ Card: (.*) amount:(.*)AZN.*Balance:(.*)AZN',
+        result = analyse_sms_text_and_save(text, imei, sms_id)
+        response = result.get('response')
+        errors = result.get('errors')
+        return response
 
-        }
-        response_func = {
-            'sms1': response_sms1,
-            'sms2': response_sms2,
-            'sms3': response_sms3,
-            'sms4': response_sms4,
-            'sms5': response_sms5,
-            'sms6': response_sms6,
-            'sms7': response_sms7,
-            'sms8': response_sms8,
-            'sms9': response_sms9,
-            'sms10': response_sms10,
-            'sms11': response_sms11,
-            'sms12': response_sms12,
 
-        }
-        fields = ['response_date', 'recipient', 'sender', 'pay', 'balance',
-                  'transaction', 'type']
-        text_sms_type = ''
-        responsed_pay = {}
+    except Exception as err:
+        logger.info(f'Неизвестная ошибка при распознавании сообщения: {err}')
+        logger.error(f'Неизвестная ошибка при распознавании сообщения: {err}\n', exc_info=True)
+        raise err
+    finally:
+        if errors:
+            msg = f'Ошибки при распознавании sms:\n{errors}\n\n{text}'
+            send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
 
-        for sms_type, pattern in patterns.items():
-            search_result = re.findall(pattern, text)
-            if search_result:
-                logger.debug(f'Найдено: {sms_type}: {search_result}')
-                text_sms_type = sms_type
-                responsed_pay: dict = response_func[text_sms_type](fields, search_result[0])
-                errors = responsed_pay.pop('errors')
-                break
 
-        # Добавим получателя если его нет
-        if not responsed_pay.get('recipient'):
-            responsed_pay['recipient'] = imei
-        if text_sms_type:
-            logger.info(f'Сохраняем в базу{responsed_pay}')
-            if text_sms_type in ['sms8', 'sms7']:
-                # Шаблоны без времени
-                threshold = datetime.datetime.now(tz=TZ) - datetime.timedelta(hours=12)
-                is_duplicate = Incoming.objects.filter(
-                    sender=responsed_pay.get('sender'),
-                    pay=responsed_pay.get('pay'),
-                    balance=responsed_pay.get('balance'),
-                    register_date__gte=threshold
-                ).exists()
-            else:
-                is_duplicate = Incoming.objects.filter(
-                    response_date=responsed_pay.get('response_date'),
-                    sender=responsed_pay.get('sender'),
-                    pay=responsed_pay.get('pay'),
-                    balance=responsed_pay.get('balance')
-                ).exists()
-
-            if is_duplicate:
-                logger.info('Дубликат sms:\n\n{text}')
-                msg = f'Дубликат sms:\n\n{text}'
-                send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
-            else:
-                created = Incoming.objects.create(**responsed_pay, worker=imei)
-                logger.info(f'Создан: {created}')
-
-        else:
-            logger.info(f'Неизвестный шаблон\n{text}')
-            new_trash = TrashIncoming.objects.create(text=text, worker=imei)
-            logger.info(f'Добавлено в мусор: {new_trash}')
-        return HttpResponse(sms_id)
+@api_view(['POST'])
+def sms_forwarder(request: Request):
+    """
+    Прием sms_forwarder
+    """
+    errors = []
+    text = ''
+    try:
+        host = request.META["HTTP_HOST"]  # получаем адрес сервера
+        user_agent = request.META.get("HTTP_USER_AGENT")  # получаем данные бразера
+        forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+        path = request.path
+        logger.info(f'request.data: {request.data},'
+                     f' host: {host},'
+                     f' user_agent: {user_agent},'
+                     f' path: {path},'
+                     f' forwarded: {forwarded}')
+        post = request.POST
+        text = post.get('message')
+        sms_id = post.get('id')
+        imei = post.get('imei')
+        result = analyse_sms_text_and_save(text, imei, sms_id)
+        response = result.get('response')
+        errors = result.get('errors')
+        return response
 
     except Exception as err:
         logger.info(f'Неизвестная ошибка при распознавании сообщения: {err}')
