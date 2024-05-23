@@ -285,7 +285,7 @@ def sms(request: Request):
             send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
 
 
-@api_view(['GET'])
+@api_view(['POST'])
 def sms_forwarder(request: Request):
     """
     Прием sms_forwarder
@@ -302,10 +302,10 @@ def sms_forwarder(request: Request):
                      f' user_agent: {user_agent},'
                      f' path: {path},'
                      f' forwarded: {forwarded}')
-        get = request.GET
-        text = get.get('message')
-        sms_id = get.get('id')
-        imei = get.get('imei')
+        post = request.POST
+        text = post.get('message')
+        sms_id = post.get('id')
+        imei = post.get('imei')
         result = analyse_sms_text_and_save(text, imei, sms_id)
         response = result.get('response')
         errors = result.get('errors')
