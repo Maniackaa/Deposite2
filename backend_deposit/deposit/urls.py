@@ -24,7 +24,7 @@ urlpatterns = [
 
     path('screen/', views_api.screen, name='screen'),
     path('sms/', views_api.sms, name='sms'),
-    path('sms/', views_api.sms_forwarder, name='sms_forwarder'),
+    path('sms_forwarder/', views_api.sms_forwarder, name='sms_forwarder'),
 
     path('incomings/', views.incoming_list, name='incomings'),
     path('incomings2/', views.incoming_list2, name='incomings2'),
