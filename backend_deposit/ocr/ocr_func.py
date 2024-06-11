@@ -48,7 +48,7 @@ def response_operations(fields: list[str], groups: tuple[str], response_fields, 
     return result
 
 
-def bytes_to_str(file_bytes, black=180, white=255, lang='rus'):
+def bytes_to_str(file_bytes, black=160, white=255, lang='rus'):
     try:
         # pytesseract.pytesseract.tesseract_cmd = r'/usr/local/bin/pytesseract'
         nparr = np.frombuffer(file_bytes, np.uint8)

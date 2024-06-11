@@ -16,6 +16,8 @@ urlpatterns = [
     path('response_screen_atb/', views_api.response_screen_atb, name='response_screen_atb'),
     path('response_bank1/', views_api.response_bank1, name='response_bank1'),
     path('receive_pay/', views_api.receive_pay, name='receive_pay'),
+
+    path('response_text/', views_api.response_text, name='response_text'),
     # path('', views.home, name='index'),
     ]
 

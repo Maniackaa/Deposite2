@@ -42,6 +42,34 @@ def create_screen(request: Request):
 
 
 @api_view(['POST'])
+def response_text(request: Request):
+    """
+    УДАЛЕННОЕ Распознование изображения и возврат распозанного pay
+    id, black, white
+    """
+    try:
+        logger.debug('response_text')
+        black = int(request.data.get('black'))
+        white = int(request.data.get('white'))
+        image = request.data.get('image')
+        file_bytes = image.file.read()
+        text = bytes_to_str(file_bytes, black=black, white=white)
+        if text:
+            logger.debug(f'Распознан текст: {text}')
+            pay = screen_text_to_pay(text)
+            logger.debug(f'Распознан pay: {pay}')
+            return JsonResponse(data=pay)
+        else:
+            return JsonResponse(data={})
+
+    # Ошибка при обработке
+    except Exception as err:
+        logger.info(f'Ошибка при обработке скрина: {err}')
+        logger.error(err, exc_info=True)
+        logger.debug(f'{request.data}')
+        return JsonResponse(data={'error': err})
+
+@api_view(['POST'])
 def response_screen(request: Request):
     """
     УДАЛЕННОЕ Распознование изображения и возврат распозанного pay
