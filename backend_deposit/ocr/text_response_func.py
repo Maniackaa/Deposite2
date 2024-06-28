@@ -389,7 +389,7 @@ def response_sms12(fields, groups) -> dict[str, str | float]:
 
 def response_sms13(fields, groups) -> dict[str, str | float]:
     """
-    Функия распознавания шаблона 11
+    Функия распознавания шаблона 13
     Odenis: 34.00 AZN BAKU CITY 5239**8563 19:17 28.06.24 BALANCE 0.96 AZN
     :param fields: ['recipient', 'sender', 'pay', 'balance', 'type']
     :param groups: ('1.00', 'M10 TOP UP BAKI AZERBAIJAN', '4169**2259', '16:47 13.03.24', '5.57')
@@ -406,7 +406,7 @@ def response_sms13(fields, groups) -> dict[str, str | float]:
     sms_type = 'sms13'
     try:
         result = response_operations(fields, groups, response_fields, sms_type)
-        result['pay'] = -result['pay']
+        result['pay'] = result['pay']
         return result
     except Exception as err:
         err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
