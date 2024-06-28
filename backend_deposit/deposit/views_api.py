@@ -16,7 +16,8 @@ from deposit.models import BadScreen, Incoming, TrashIncoming, Setting
 from ocr.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
 from ocr.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
-    response_sms6, response_sms7, response_sms8, response_sms9, response_sms10, response_sms11, response_sms12
+    response_sms6, response_sms7, response_sms8, response_sms9, response_sms10, response_sms11, response_sms12, \
+    response_sms13
 
 logger = logging.getLogger(__name__)
 TZ = pytz.timezone(TIME_ZONE)
@@ -178,6 +179,7 @@ def analyse_sms_text_and_save(text, imei, sms_id, *args, **kwargs):
         'sms10': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil (.*) AZN\nBALANCE\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)',
         'sms11': r'Odenis\n(.*) AZN \n(.*\n.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
         'sms12': r'(\d\d\.\d\d\.\d\d \d\d:\d\d)(.*)AZ Card: (.*) amount:(.*)AZN.*Balance:(.*)AZN',
+        'sms13': r'Odenis:(.*) AZN (.*) (\d\d\d\d\*\*\d\d\d\d) (\d\d:\d\d \d\d\.\d\d.\d\d) BALANCE (.*) AZN'
 
     }
     response_func = {
@@ -193,6 +195,7 @@ def analyse_sms_text_and_save(text, imei, sms_id, *args, **kwargs):
         'sms10': response_sms10,
         'sms11': response_sms11,
         'sms12': response_sms12,
+        'sms13': response_sms13,
 
     }
     fields = ['response_date', 'recipient', 'sender', 'pay', 'balance',

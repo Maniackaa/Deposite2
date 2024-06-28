@@ -39,7 +39,7 @@ def do_if_macros_broken():
                            text=f'Макрос не активен',
                            type='macros',
                            author=User.objects.get(username='Admin'))
-    send_message_tg('Макрос не активен более 10 секунд', settings.ALARM_IDS)
+    send_message_tg('Макрос не активен более 15 секунд', settings.ALARM_IDS)
 
 
 @shared_task(priority=1)
@@ -61,7 +61,7 @@ def check_macros():
     else:
         last_message_time = datetime.datetime(2000, 1, 1)
     delta = find_time_between_good_screen(last_good_screen_time)
-    if last_message_time < last_good_screen_time and delta > 10:
+    if last_message_time < last_good_screen_time and delta > 15:
         logger.info(f'Время больше 10')
         do_if_macros_broken()
         last_message_time_obj.value = datetime.datetime.now().isoformat()
