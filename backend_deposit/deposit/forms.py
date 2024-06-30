@@ -197,3 +197,10 @@ class IncomingSearchForm(forms.Form):
     only_empty = forms.BooleanField(widget=CheckboxInput(), label='Только неподтвержденные', required=False)
     pay = forms.FloatField(required=False)
     sort_by_sms_time = forms.BooleanField(widget=CheckboxInput(), label='Сортировка по времени чека', required=False)
+
+
+class CheckSmsForm(forms.Form):
+    text = forms.CharField(widget=forms.Textarea(attrs={'cols': '20', 'rows': 10}))
+
+    class Meta:
+        fields = ('text', )

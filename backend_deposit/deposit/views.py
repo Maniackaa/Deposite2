@@ -21,7 +21,8 @@ from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, d
     day_reports_orm
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
-                           IncomingForm, MyFilterForm, IncomingSearchForm)
+                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm)
+from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
     MessageRead
@@ -653,3 +654,17 @@ class MessageListView(ListView):
     def post(self, *args):
         print('post', self, args)
         return super().get(*args)
+
+
+@staff_member_required(login_url='users:login')
+def check_sms(request):
+    # Проверка шаблона sms
+    context = {}
+    form = CheckSmsForm(request.POST or None)
+    template = 'deposit/check_sms.html'
+    context['form'] = form
+    if form.is_valid():
+        text = form.cleaned_data['text'].replace('\r\n', '\n')
+        responsed_pay = response_sms_template(text)
+        context['responsed_pay'] = responsed_pay
+    return render(request, template, context)

@@ -47,6 +47,8 @@ urlpatterns = [
 
     path('messages/<int:pk>/', views.MessageView.as_view(), name='message_view'),
     path('messages/', views.MessageListView.as_view(), name='messages'),
+
+    path('check_sms/', views.check_sms, name='check_sms'),
     ]
 
 if settings.DEBUG:
