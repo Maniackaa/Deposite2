@@ -55,7 +55,7 @@ def date_response(data_text: str) -> datetime.datetime:
 # date_response('2023-08-19 12:30:14')
 # print(date_response('03/10/23 19:55:27'))
 # print(date_response('03.10.23 20:54'))
-
+# print(date_response('20:08 30.06.24'))
 
 def response_operations(fields: list[str], groups: tuple[str], response_fields, sms_type: str) -> dict:
     result = dict.fromkeys(fields)
@@ -404,6 +404,35 @@ def response_sms13(fields, groups) -> dict[str, str | float]:
         'balance':       {'pos': 4, 'func': float_digital},
     }
     sms_type = 'sms13'
+    try:
+        result = response_operations(fields, groups, response_fields, sms_type)
+        result['pay'] = result['pay']
+        return result
+    except Exception as err:
+        err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
+        raise err
+
+
+def response_sms14(fields, groups) -> dict[str, str | float]:
+    """
+    Функия распознавания шаблона 14
+    Medaxil: 1.10 AZN
+    5239**1098
+    20:08 30.06.24
+    BALANCE
+    9.30 AZN
+    :param fields: ['recipient', 'pay', 'balance', 'type']
+    :return: dict[str, str | float]
+    """
+    logger.debug(f'fields:{fields} groups:{groups}')
+    response_fields = {
+        'response_date': {'pos': 2, 'func': date_response},
+        # 'sender':        {'pos': 1},
+        'recipient':     {'pos': 1},
+        'pay':           {'pos': 0, 'func': float_digital},
+        'balance':       {'pos': 3, 'func': float_digital},
+    }
+    sms_type = 'sms14'
     try:
         result = response_operations(fields, groups, response_fields, sms_type)
         result['pay'] = result['pay']
