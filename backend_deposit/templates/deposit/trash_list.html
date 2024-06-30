@@ -26,7 +26,7 @@
                 <tr class="text-start">
                   <td>{{ obj.pk }}</td>
                   <td>{{ obj.register_date }}</td>
-                  <td>{{ obj.text }}</td>
+                  <td>{{ obj.text|linebreaks }}</td>
                 </tr>
               {% endfor %}
           </tbody>

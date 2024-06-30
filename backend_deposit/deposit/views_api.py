@@ -238,7 +238,7 @@ def analyse_sms_text_and_save(text, imei, sms_id, *args, **kwargs):
             ).exists()
 
         if is_duplicate:
-            logger.info('Дубликат sms:\n\n{text}')
+            logger.info(f'Дубликат sms:\n\n{text}')
             msg = f'Дубликат sms:\n\n{text}'
             send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
         else:
