@@ -206,7 +206,6 @@ def response_sms_template(text):
               'transaction', 'type']
     text_sms_type = ''
     responsed_pay = {}
-    print(text)
     for sms_type, pattern in patterns.items():
         search_result = re.findall(pattern, text)
         if search_result:
@@ -236,7 +235,8 @@ def analyse_sms_text_and_save(text, imei, sms_id, *args, **kwargs):
         'sms12': r'(\d\d\.\d\d\.\d\d \d\d:\d\d)(.*)AZ Card: (.*) amount:(.*)AZN.*Balance:(.*)AZN',
         # 'sms13': r'Odenis:(.*) AZN (.*) (\d\d\d\d\*\*\d\d\d\d) (\d\d:\d\d \d\d\.\d\d.\d\d) BALANCE (.*) AZN',
         'sms13': r'Odenis: (.*) AZN\n(.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
-        'sms14': r'^.+[medaxil|mexaric]: (.+?) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*'
+        'sms14': r'^.+[medaxil|mexaric]: (.+?) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
+        'sms15': r'Medaxil C2C: (.+?) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*'
 
     }
     response_func = {
@@ -254,6 +254,7 @@ def analyse_sms_text_and_save(text, imei, sms_id, *args, **kwargs):
         'sms12': response_sms12,
         'sms13': response_sms13,
         'sms14': response_sms14,
+        'sms15': response_sms15,
 
     }
     fields = ['response_date', 'recipient', 'sender', 'pay', 'balance',
@@ -327,7 +328,8 @@ def sms(request: Request):
                      f' forwarded: {forwarded}')
 
         post = request.POST
-        text = post.get('message')
+        text = post.get('message').replace('\r\n', '\n')
+        print(repr(text))
         sms_id = post.get('id')
         imei = post.get('imei')
         result = analyse_sms_text_and_save(text, imei, sms_id)
@@ -364,7 +366,7 @@ def sms_forwarder(request: Request):
                      f' path: {path},'
                      f' forwarded: {forwarded}')
         post = request.POST
-        text = post.get('message')
+        text = post.get('message').replace('\r\n', '\n')
         sms_id = post.get('id')
         imei = post.get('imei')
         result = analyse_sms_text_and_save(text, imei, sms_id)
