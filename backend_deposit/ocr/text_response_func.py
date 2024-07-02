@@ -34,6 +34,7 @@ def date_response(data_text: str) -> datetime.datetime:
         '%d.%m.%y %H:%M',
         '%H:%M %d.%m.%y',
         '%d %B %Y %H:%M',
+        '%d %B %Y%H:%M',
     ]
     for date_format in formats:
         try:
