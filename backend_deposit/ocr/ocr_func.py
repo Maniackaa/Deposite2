@@ -112,8 +112,8 @@ def response_m10new(fields, groups) -> dict[str, str | float]:
     response_fields = {
         'first':            {'pos': 0},
         'response_date':    {'pos': 3, 'func': date_response},
-        'recipient':        {'pos': 4},
-        'sender':           {'pos': 5},
+        'recipient':        {'pos': 5},
+        'sender':           {'pos': 4},
         'pay':              {'pos': 1, 'func': lambda x: float(''.join([c if c in ['.', '-'] or c.isdigit() else '' for c in x]))},
         'transaction':      {'pos': 6, 'func': int},
         'status':           {'pos': 2},
