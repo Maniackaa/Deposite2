@@ -2,7 +2,7 @@ import logging
 import re
 
 
-from ocr.ocr_func import response_m10, response_m10_short
+from ocr.ocr_func import response_m10, response_m10_short, response_m10new
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +15,12 @@ def screen_text_to_pay(text):
     patterns = {
         'm10': r'.*(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d).*Получатель (.*) Отправитель (.*) Код транзакции (\d+) Сумма (.+) Статус (.*) .*8',
         'm10_short': r'.*(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d).* (Пополнение.*) Получатель (.*) Код транзакции (\d+) Сумма (.+) Статус (\S+).*',
+        'm10new': r'first: (.+)[\n]+amount: (.+)[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]+Date (.+)[\n]+Sender (.+)[\n]+Recipient (.+)[\n]+.*ID (.+)'
     }
     response_func = {
         'm10': response_m10,
         'm10_short': response_m10_short,
+        'm10new': response_m10new,
     }
     fields = ['response_date', 'recipient', 'sender', 'pay', 'balance',
               'transaction', 'type', 'status']
@@ -28,7 +30,7 @@ def screen_text_to_pay(text):
     status = ''
     for sms_type, pattern in patterns.items():
         logger.debug(f'Проверяем паттерн {sms_type}')
-        search_result = re.findall(pattern, text)
+        search_result = re.findall(pattern, text, flags=re.I)
         logger.debug(f'{search_result}: {bool(search_result)}')
         if search_result:
             logger.debug(f'Найдено: {sms_type}: {search_result}')

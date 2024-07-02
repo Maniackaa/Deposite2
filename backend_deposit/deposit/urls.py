@@ -22,7 +22,8 @@ urlpatterns = [
     path('deposits_pending/', views.deposits_list_pending, name='deposits_pending'),
     path('deposits/<int:pk>/', views.deposit_edit, name='deposit_edit'),
 
-    path('screen/', views_api.screen, name='screen'),
+    path('screen/', views_api.screen_new, name='screen'),
+    # path('screen_new/', views_api.screen_new, name='screen_new'),
     path('sms/', views_api.sms, name='sms'),
     path('sms_forwarder/', views_api.sms_forwarder, name='sms_forwarder'),
 

@@ -247,3 +247,77 @@ def receive_pay(request: Request):
     except Exception as err:
         logger.error(err, exc_info=True)
         return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=err)
+
+
+@api_view(['POST'])
+def response_only_text(request: Request):
+    """
+    """
+    try:
+        black = int(request.data.get('black', 175))
+        white = int(request.data.get('white', 255))
+        logger.info(request.data.get('lang'))
+        lang = request.data.get('lang', 'eng')
+        oem = int(request.data.get('oem', 0))
+        psm = int(request.data.get('psm', 6))
+        char_whitelist = request.data.get('char_whitelist', '+- :;*0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя')
+        # oem = 0
+        # psm = 7
+        image = request.data.get('image')
+        image_bytes = image.file.read()
+        logger.info(f'Параметры response_screen_m10: {black}-{white} {lang} {oem} {psm} {len(image_bytes)}b')
+        # char_whitelist = '+- :;*0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+        # char_whitelist = '+- :;*0123456789'
+        text = response_text_from_image(image_bytes, y_start=0, y_end=100, black=black, white=white,
+                                        oem=oem, psm=psm, lang=lang, strip=True,
+                                        char_whitelist=char_whitelist).strip()
+        return HttpResponse(status=HTTPStatus.OK, reason=json.dumps(text, ensure_ascii=True), charset='utf-8')
+
+    # Ошибка при обработке
+    except Exception as err:
+        logger.info(f'Ошибка при обработке response_screen_atb: {err}')
+        logger.error(err, exc_info=True)
+        return HttpResponse(status=HTTPStatus.BAD_REQUEST,
+                            reason=json.dumps({'error': str(err)}, ensure_ascii=True), charset='utf-8')
+
+
+@api_view(['POST'])
+def response_m10new(request: Request):
+    """
+    Новое Распознавание банка м10 - возвращает текст
+    """
+    try:
+        black = int(request.data.get('black', 182))
+        white = int(request.data.get('white', 255))
+        logger.info(request.data.get('lang'))
+        lang = request.data.get('lang', 'eng')
+        oem = int(request.data.get('oem', 0))
+        psm = int(request.data.get('psm', 6))
+        image = request.data.get('image')
+        image_bytes = image.file.read()
+        logger.info(f'Параметры response_screen_m10: {black}-{white} {lang} {oem} {psm} {len(image_bytes)}b')
+        char_whitelist = '+- :;*•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+        first_stoke = response_text_from_image(image_bytes, y_start=4, y_end=10, x_start=10, x_end=100,
+                                               black=black, white=white,
+                                               oem=oem, psm=psm, lang=lang, strip=False,
+                                               char_whitelist=char_whitelist).strip()
+        amount = response_text_from_image(image_bytes, y_start=12, y_end=29,
+                                               black=black, white=white,
+                                               oem=oem, psm=psm, lang=lang, strip=False,
+                                               char_whitelist=char_whitelist).strip()
+        info = response_text_from_image(image_bytes, y_start=29, y_end=62,
+                                               black=black, white=white,
+                                               oem=oem, psm=4, lang=lang, strip=False,
+                                               char_whitelist=char_whitelist).strip()
+        text = f'first: {first_stoke}\namount: {amount}\n{info}'
+
+        logger.debug(f'text: {text}')
+        result = [first_stoke, convert_atb_value(amount), info, text]
+        x = screen_text_to_pay(text)
+        return HttpResponse(status=HTTPStatus.OK, reason=json.dumps([str(x), result], ensure_ascii=True), charset='utf-8')
+
+    # Ошибка при обработке
+    except Exception as err:
+        logger.info(f'Ошибка при обработке response_screen_atb: {err}')
+        logger.error(err, exc_info=True)
+        return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=json.dumps({'error': str(err)}, ensure_ascii=True), charset='utf-8')

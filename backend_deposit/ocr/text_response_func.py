@@ -29,27 +29,22 @@ def date_response(data_text: str) -> datetime.datetime:
         return response_data
     except ValueError:
         pass
-    try:
-        native_datetime = datetime.datetime.strptime(data_text.strip(), '%d/%m/%y %H:%M:%S') - datetime.timedelta(hours=1)
-        response_data = tz.localize(native_datetime)
-        return response_data
-    except ValueError:
-        pass
-    try:
-        native_datetime = datetime.datetime.strptime(data_text.strip(), '%d.%m.%y %H:%M') - datetime.timedelta(hours=1)
-        response_data = tz.localize(native_datetime)
-        return response_data
-    except ValueError:
-        pass
-    try:
-        native_datetime = datetime.datetime.strptime(data_text.strip(), '%H:%M %d.%m.%y') - datetime.timedelta(hours=1)
-        response_data = tz.localize(native_datetime)
-        return response_data
-    except ValueError:
-        pass
-    except Exception as err:
-        err_log.error(f'Ошибка распознавания даты из текста: {err}')
-        raise err
+    formats = [
+        '%d/%m/%y %H:%M:%S',
+        '%d.%m.%y %H:%M',
+        '%H:%M %d.%m.%y',
+        '%d %B %Y %H:%M',
+    ]
+    for date_format in formats:
+        try:
+            native_datetime = datetime.datetime.strptime(data_text.strip(), date_format) - datetime.timedelta(hours=1)
+            response_data = tz.localize(native_datetime)
+            return response_data
+        except ValueError:
+            pass
+        except Exception as err:
+            err_log.error(f'Ошибка распознавания даты из текста: {err}')
+            raise err
 
 
 # date_response('2023-08-19 12:30:14')

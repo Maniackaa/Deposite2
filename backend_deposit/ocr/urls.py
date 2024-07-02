@@ -18,6 +18,8 @@ urlpatterns = [
     path('receive_pay/', views_api.receive_pay, name='receive_pay'),
 
     path('response_text/', views_api.response_text, name='response_text'),
+    path('response_only_text/', views_api.response_only_text, name='response_only_text'),
+    path('response_m10new/', views_api.response_m10new, name='response_m10new'),
     # path('', views.home, name='index'),
     ]
 

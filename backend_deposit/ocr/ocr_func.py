@@ -11,6 +11,7 @@ from backend_deposit.settings import TIME_ZONE
 
 from backend_deposit import settings
 from deposit.models import Deposit, Incoming, SITE_VAR
+from ocr.text_response_func import date_response
 
 TZ = pytz.timezone(TIME_ZONE)
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ def response_operations(fields: list[str], groups: tuple[str], response_fields, 
     result = dict.fromkeys(fields)
     result['type'] = sms_type
     errors = []
+    print(fields, groups, response_fields)
     for key, options in response_fields.items():
         try:
             value = groups[options['pos']].strip().replace(',', '')
@@ -45,6 +47,7 @@ def response_operations(fields: list[str], groups: tuple[str], response_fields, 
 
     errors.extend(get_unrecognized_field_error_text(response_fields, result))
     result['errors'] = errors
+    print(result)
     return result
 
 
@@ -94,6 +97,33 @@ def response_m10(fields, groups) -> dict[str, str | float]:
     try:
         result = response_operations(fields, groups, response_fields, sms_type)
         logger.debug(result)
+        return result
+    except Exception as err:
+        logger.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
+        raise err
+
+
+def response_m10new(fields, groups) -> dict[str, str | float]:
+    """
+    Функия распознавания шаблона m10new
+    [('Bank of Baku', '-2157.00 m', 'Success', '02 July 2024,13:23', '+994 51 346 79 61', '5315 99 ------ 3934', '340552097')]
+    """
+    # logger.debug('Преобразование текста m10 в pay')
+    response_fields = {
+        'first':            {'pos': 0},
+        'response_date':    {'pos': 3, 'func': date_response},
+        'recipient':        {'pos': 4},
+        'sender':           {'pos': 5},
+        'pay':              {'pos': 1, 'func': lambda x: float(''.join([c if c in ['.', '-'] or c.isdigit() else '' for c in x]))},
+        'transaction':      {'pos': 6, 'func': int},
+        'status':           {'pos': 2},
+    }
+    sms_type = 'm10new'
+    try:
+        result = response_operations(fields, groups, response_fields, sms_type)
+        logger.debug(result)
+        if result.get('pay') >= 0:
+            result['sender'] = result['first']
         return result
     except Exception as err:
         logger.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
@@ -198,7 +228,7 @@ def make_after_save_deposit(instance):
         logger.error(err, exc_info=True)
 
 
-def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, strip=False, black=90, white=250, lang='eng',
+def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, x_start=None, x_end=None, strip=False, black=90, white=250, lang='eng',
                              oem=0, psm=6, char_whitelist=None) -> str:
     """
     Функция распознает переданный файл (байты) или путь.
@@ -224,12 +254,14 @@ def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, str
         img = cv2.imdecode(np.fromfile(source, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
     else:
         img = cv2.imdecode(np.frombuffer(source, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
-    height, widht = img.shape
+    height, width = img.shape
     if y_start and y_end:
         if strip:
-            img = img[int(y_start / 100 * height):int(y_end / 100 * height), int(20 / 100 * widht):int(80 / 100 * widht)]
+            img = img[int(y_start / 100 * height):int(y_end / 100 * height), int(20 / 100 * width):int(80 / 100 * width)]
         else:
             img = img[int(y_start / 100 * height):int(y_end / 100 * height), :]
+    if x_start and x_end:
+        img = img[:, int(x_start / 100 * width):int(x_end / 100 * width)]
     _, binary = cv2.threshold(img, black, white, cv2.THRESH_BINARY)
     # cv2.imwrite('preview.jpg', binary)
     # cv2.imshow('imname', img)
@@ -237,6 +269,6 @@ def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, str
     config = f'--psm {psm} --oem {oem}'
     if char_whitelist:
         config += f'-c tessedit_char_whitelist="{char_whitelist}"'
-    response_text = (pytesseract.image_to_string(img, lang=lang, config=config, timeout=10)).strip()
+    response_text = (pytesseract.image_to_string(binary, lang=lang, config=config, timeout=10)).strip()
     logger.info(response_text)
     return response_text
