@@ -122,7 +122,8 @@ def response_m10new(fields, groups) -> dict[str, str | float]:
     try:
         result = response_operations(fields, groups, response_fields, sms_type)
         logger.debug(result)
-        if result.get('pay') >= 0:
+        pay = result.get('pay')
+        if pay and pay >= 0:
             result['sender'] = result['first']
         return result
     except Exception as err:

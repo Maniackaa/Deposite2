@@ -15,7 +15,7 @@ def screen_text_to_pay(text):
     patterns = {
         'm10': r'.*(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d).*Получатель (.*) Отправитель (.*) Код транзакции (\d+) Сумма (.+) Статус (.*) .*8',
         'm10_short': r'.*(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d).* (Пополнение.*) Получатель (.*) Код транзакции (\d+) Сумма (.+) Статус (\S+).*',
-        'm10new': r'first: (.+)[\n]+amount: (.+)[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]+Date (.+)[\n]+Sender (.+)[\n]+Recipient (.+)[\n]+.*ID (.+)'
+        'm10new': r'first: (.+)[\n]+amount:.*?\n*(.*\d\.\d.*)[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]+Date (.+)[\n]+Sender (.+)[\n]+Recipient (.+)[\n]+.*ID (.+)'
     }
     response_func = {
         'm10': response_m10,

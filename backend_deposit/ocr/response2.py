@@ -61,7 +61,7 @@ async def main():
     # pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
     pytesseract.pytesseract.tesseract_cmd = tespatch.as_posix()
 
-    path = BASE_DIR / 'test' / 'ocr_test' / 'bdata3.jpg'
+    path = BASE_DIR / 'test' / 'ocr_test' / 'x.jpg'
     for black in range(172, 173):
         # black = 175
         white = 255
@@ -73,9 +73,9 @@ async def main():
         # img = cv2.imdecode(np.frombuffer(screen.image.file.read(), dtype=np.uint8), cv2.COLOR_RGB2GRAY)
         img = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
         print(img.shape)
-        first_stoke = img[100:250, 150:]
+        first_stoke = img[120:250, 150:]
         amount = img[300:700, :]
-        cv2.imshow('imname', amount)
+        cv2.imshow('imname', first_stoke)
         cv2.waitKey(0)
         info = img[700:1500, :]
         _, binary = cv2.threshold(info, black, white, cv2.THRESH_BINARY)

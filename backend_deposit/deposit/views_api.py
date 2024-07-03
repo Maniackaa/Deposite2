@@ -58,7 +58,7 @@ def screen_new(request: Request):
                                 charset='utf-8')
         logger.info(f'Параметры response_screen_m10: {black}-{white} {lang} {oem} {psm} {len(image_bytes)}b')
         char_whitelist = '+- :;*•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
-        first_stoke = response_text_from_image(image_bytes, y_start=4, y_end=10, x_start=10, x_end=100,
+        first_stoke = response_text_from_image(image_bytes, y_start=5, y_end=10, x_start=10, x_end=100,
                                                black=black, white=white,
                                                oem=oem, psm=psm, lang=lang, strip=False,
                                                char_whitelist=char_whitelist).strip()
@@ -66,7 +66,7 @@ def screen_new(request: Request):
                                           black=black, white=white,
                                           oem=oem, psm=psm, lang=lang, strip=False,
                                           char_whitelist=char_whitelist).strip()
-        info = response_text_from_image(image_bytes, y_start=29, y_end=62,
+        info = response_text_from_image(image_bytes, y_start=29, y_end=70,
                                         black=black, white=white,
                                         oem=oem, psm=4, lang=lang, strip=False,
                                         char_whitelist=char_whitelist).strip()
