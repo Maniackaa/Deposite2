@@ -131,6 +131,39 @@ def response_m10new(fields, groups) -> dict[str, str | float]:
         raise err
 
 
+def response_m10new_short(fields, groups) -> dict[str, str | float]:
+    """
+    Функия распознавания шаблона m10new short
+    first: MiIIiON
+    amount: +45.00 m
+    Top—up
+    Status Success
+    Date 04 July 2024, 14:11
+    m10 wallet +994 51 346 79 61
+    Transaction ID 342689004
+    """
+    response_fields = {
+        'first':            {'pos': 0},
+        'response_date':    {'pos': 3, 'func': date_response},
+        'recipient':        {'pos': 4},
+        # 'sender':           {'pos': 4},
+        'pay':              {'pos': 1, 'func': lambda x: float(''.join([c if c in ['.', '-'] or c.isdigit() else '' for c in x]))},
+        'transaction':      {'pos': 5, 'func': int},
+        'status':           {'pos': 2},
+    }
+    sms_type = 'm10new_short'
+    try:
+        result = response_operations(fields, groups, response_fields, sms_type)
+        logger.debug(result)
+        pay = result.get('pay')
+        if pay and pay >= 0:
+            result['sender'] = result['first']
+        return result
+    except Exception as err:
+        logger.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
+        raise err
+
+
 def response_m10_short(fields, groups) -> dict[str, str | float]:
     """
     Функия распознавания шаблона m10_short
