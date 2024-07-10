@@ -67,6 +67,7 @@ services:
     volumes:
       - static:/app/collected_static/
       - media:/app/media/
+      - ./backend_deposit/media:/app/media
       - ./logs/backend_deposit:/app/logs
 #      - ./backend_deposit:/app
     entrypoint: bash /app/entrypoint.sh

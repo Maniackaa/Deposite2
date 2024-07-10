@@ -35,6 +35,7 @@ urlpatterns = [
     path('incomings_filter/', views.IncomingFiltered.as_view(), name='incomings_filter'),
     path('my_filter/', views.my_filter, name='my_filter'),
     path('incomings_search/', views.IncomingSearch.as_view(), name='incomings_search'),
+    path('incoming_checks/', views.IncomingCheckList.as_view(), name='incoming_checks'),
     path('bank_color/', views.ColorBankCreate.as_view(), name='bank_color'),
 
     path('get_posts/', views.get_last, name='get_last'),
@@ -50,6 +51,7 @@ urlpatterns = [
     path('messages/', views.MessageListView.as_view(), name='messages'),
 
     path('check_sms/', views.check_sms, name='check_sms'),
+    path('check_screen/', views.check_screen, name='check_screen'),
     ]
 
 if settings.DEBUG:

@@ -1,6 +1,7 @@
 import datetime
 import logging
 from pathlib import Path
+from sys import platform
 
 import cv2
 import numpy as np
@@ -282,8 +283,9 @@ def response_text_from_image(source: Path | bytes, y_start=None, y_end=None, x_s
     -------
 
     """
-    # tespatch = Path('C:/') / 'Program Files' / 'Tesseract-OCR' / 'tesseract.exe'
-    # pytesseract.pytesseract.tesseract_cmd = tespatch.as_posix()
+    if platform == 'win32':
+        tespatch = Path('C:/') / 'Program Files' / 'Tesseract-OCR' / 'tesseract.exe'
+        pytesseract.pytesseract.tesseract_cmd = tespatch.as_posix()
     if isinstance(source, Path):
         img = cv2.imdecode(np.fromfile(source, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
     else:

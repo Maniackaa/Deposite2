@@ -4,7 +4,7 @@ from rangefilter.filters import DateRangeFilterBuilder, DateRangeQuickSelectList
     NumericRangeFilterBuilder, DateTimeRangeFilterBuilder
 
 from deposit.models import Incoming, BadScreen, Deposit, ColorBank, TrashIncoming, IncomingChange, CreditCard, Message, \
-    MessageRead
+    MessageRead, RePattern, IncomingCheck
 
 
 class TrashIncomingAdmin(admin.ModelAdmin):
@@ -65,6 +65,13 @@ class MessageAdmin(admin.ModelAdmin):
     )
     list_display_links = ('id', 'created', 'title', )
 
+class IncomingCheckAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'change_time', 'incoming', 'birpay_id', 'user', 'operator', 'pay_operator', 'pay_birpay'
+    )
+
+class RePatternAdmin(admin.ModelAdmin):
+    pass
 
 admin.site.register(Incoming, IncomingAdmin)
 admin.site.register(TrashIncoming, TrashIncomingAdmin)
@@ -75,3 +82,5 @@ admin.site.register(IncomingChange, IncomingChangeAdmin)
 admin.site.register(CreditCard, CreditCardAdmin)
 admin.site.register(Message, MessageAdmin)
 admin.site.register(MessageRead)
+admin.site.register(IncomingCheck, IncomingCheckAdmin)
+admin.site.register(RePattern, RePatternAdmin)

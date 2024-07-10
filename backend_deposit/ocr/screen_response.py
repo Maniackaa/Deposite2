@@ -1,7 +1,7 @@
 import logging
 import re
 
-
+from deposit.models import RePattern
 from ocr.ocr_func import response_m10, response_m10_short, response_m10new, response_m10new_short
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,11 @@ def screen_text_to_pay(text):
         'm10new': r'first: (.+)[\n]+amount:.*[\n]*([+-].*)m.*[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]*Date (.+)[\n]+Sender (.+)[\n]*Recipient (.+)[\n]+.*ID (.+)',
         'm10new_short': r'first: (.+)[\n]+amount:.*([+-].*)m.*[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]+Date (.+)[\n]+m10 wallet (.+)[\n]+.*ID (.+)'
     }
+
+    db_patterns = RePattern.objects.all()
+    for db_pattern in db_patterns:
+        patterns.update({db_pattern.name: db_pattern.pattern})
+
     response_func = {
         'm10': response_m10,
         'm10_short': response_m10_short,

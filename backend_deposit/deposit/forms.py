@@ -11,7 +11,7 @@ from django.db import connection
 from django.db.models import Subquery, Q
 from django.forms import CheckboxInput
 
-from .models import Deposit, Incoming, ColorBank
+from .models import Deposit, Incoming, ColorBank, BadScreen
 from .widgets import MinimalSplitDateTimeMultiWidget
 
 logger = logging.getLogger(__name__)
@@ -204,3 +204,16 @@ class CheckSmsForm(forms.Form):
 
     class Meta:
         fields = ('text', )
+
+
+class CheckScreenForm(forms.Form):
+    # screen = forms.ImageField(help_text="Upload image: ", required=False)
+
+    screen = forms.ModelChoiceField(
+        queryset=BadScreen.objects.order_by('-id').all(),
+        blank=True,
+        required=False,
+    )
+
+    class Meta:
+        fields = ('screen', )

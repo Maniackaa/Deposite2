@@ -2,8 +2,10 @@ import os
 from pathlib import Path
 
 import pytz
+import structlog
 from celery.schedules import crontab
 from dotenv import load_dotenv
+from structlog.typing import WrappedLogger, EventDict
 
 load_dotenv()
 
@@ -43,6 +45,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django_currentuser.middleware.ThreadLocalUserMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -193,7 +196,7 @@ LOGGING = {
         },
         'rotate': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename':'logs/deposite_rotate.log',
+            'filename': 'logs/deposite_rotate.log',
             'backupCount': 10,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
@@ -263,8 +266,67 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'tasks': {
+            'handlers': ['celery_handler', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     }
 }
+
+
+
+class LogJump:
+    def __init__(
+            self,
+            full_path: bool = False,
+    ) -> None:
+        self.full_path = full_path
+
+    def __call__(
+            self, logger: WrappedLogger, name: str, event_dict: EventDict
+    ) -> EventDict:
+        if self.full_path:
+            file_part = "\n" + event_dict.pop("pathname")
+        else:
+            file_part = event_dict.pop("filename")
+        event_dict["location"] = f'"{file_part}:{event_dict.pop("lineno")}"'
+
+        return event_dict
+
+
+base_structlog_processors = [
+    structlog.contextvars.merge_contextvars,
+    structlog.stdlib.add_logger_name,
+    structlog.stdlib.add_log_level,
+    structlog.stdlib.filter_by_level,
+    # Perform %-style formatting.
+    structlog.stdlib.PositionalArgumentsFormatter(),
+    # Add a timestamp in ISO 8601 format.
+    structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+    structlog.processors.StackInfoRenderer(),
+    # If some value is in bytes, decode it to a unicode str.
+    structlog.processors.UnicodeDecoder(),
+    # Add callsite parameters.
+    structlog.processors.CallsiteParameterAdder(
+        {
+            structlog.processors.CallsiteParameter.FILENAME,
+            structlog.processors.CallsiteParameter.FUNC_NAME,
+            structlog.processors.CallsiteParameter.LINENO,
+        }
+    ),
+]
+
+base_structlog_formatter = [structlog.stdlib.ProcessorFormatter.wrap_for_formatter]
+
+structlog.configure(
+    processors=base_structlog_processors + base_structlog_formatter,  # type: ignore
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
+
+os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_IDS = os.getenv('ADMIN_IDS').split(',')
@@ -274,9 +336,10 @@ USE_THOUSAND_SEPARATOR = True
 
 # Celery settings
 # REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
-# REDIS_URL = 'redis://redis:6739/0'
-CELERY_BROKER_URL = 'redis://redis:6379'
-CELERY_RESULT_BACKEND = 'redis://redis:6379'
+# REDIS_PORT = os.getenv('REDIS_PORT')
+# REDIS_URL = os.getenv('REDIS_URL')
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')
 CELERY_TIMEZONE = TIME_ZONE
 CELERYD_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_work.log")
 CELERYBEAT_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_beat.log")

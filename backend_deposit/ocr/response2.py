@@ -61,7 +61,7 @@ async def main():
     # pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
     pytesseract.pytesseract.tesseract_cmd = tespatch.as_posix()
 
-    path = BASE_DIR / 'test' / 'ocr_test' / 'm.jpg'
+    path = BASE_DIR / 'test' / 'ocr_test' / '60.jpg'
     for black in range(172, 173):
         # black = 175
         white = 255

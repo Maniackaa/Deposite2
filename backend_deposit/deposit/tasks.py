@@ -1,35 +1,24 @@
 import datetime
-import logging
-import time
-from copy import copy
-from pathlib import Path
 
-import cv2
-import numpy as np
-import pytesseract
-import requests
-from celery import shared_task, group, chunks
-from celery.utils.log import get_task_logger
+import structlog
+from celery import shared_task
+
 from django.conf import settings
-from django.contrib.auth import get_user_model
 
-from backend_deposit.settings import LOGGING
+
 from core.global_func import send_message_tg
-from deposit.models import Message, Setting
-from ocr.models import ScreenResponse, ScreenResponsePart
-from ocr.screen_response import screen_text_to_pay
+from deposit.models import *
+from django.apps import apps
 
-User = get_user_model()
-logger = get_task_logger(__name__)
 
-# logger = logging.getLogger('celery')
+logger = structlog.get_logger(__name__)
 
 
 def find_time_between_good_screen(last_good_screen_time) -> int:
     """Находит время сколько прошло с момента прихода распознанного скрина в секундах"""
     now = datetime.datetime.now()
     delta = int((now - last_good_screen_time).total_seconds())
-    logger.info(f'Последний хороший скрин приходил {delta} секунд назад')
+    logger.debug(f'Последний хороший скрин приходил {delta} секунд назад')
     return delta
 
 
@@ -38,7 +27,7 @@ def do_if_macros_broken():
     Message.objects.create(title='Макрос не активен',
                            text=f'Макрос не активен',
                            type='macros',
-                           author=User.objects.get(username='Admin'))
+                           author=settings.AUTH_USER_MODEL.objects.get(username='Admin'))
     send_message_tg('Макрос не активен более 15 секунд', settings.ALARM_IDS)
 
 
@@ -67,3 +56,33 @@ def check_macros():
         last_message_time_obj.value = datetime.datetime.now().isoformat()
         last_message_time_obj.save()
         return True
+
+
+@shared_task(priority=1)
+def check_incoming(pk):
+    """Функция проверки incoming в birpay"""
+    try:
+        logger.info('Проверка опера')
+        IncomingCheck = apps.get_model('deposit', 'IncomingCheck')
+        incoming_check = IncomingCheck.objects.get(pk=pk)
+        logger.info(f'incoming_check: {incoming_check}')
+        check = find_birpay_from_id(birpay_id=incoming_check.birpay_id)
+        logger.info(f'check result: {check}')
+        pay_birpay = check.get('pay')
+        operator = check.get('operator').get('username')
+        incoming_check.pay_birpay = pay_birpay
+        incoming_check.operator = operator
+        incoming_check.save()
+        if pay_birpay != incoming_check.incoming.pay:
+            msg = (
+                f'Заявка {incoming_check.incoming.id} ({incoming_check.birpay_id})\n'
+                f'{incoming_check.incoming.pay} azn\n'
+                f'Платеж: {pay_birpay} azn\n'
+                f'Разница: {incoming_check.incoming.pay - pay_birpay} azn'
+            )
+            send_message_tg(msg, settings.ALARM_IDS)
+
+    except Exception as err:
+        logger.error(err)
+        send_message_tg(f'Ошибка при проверке birpay {pk}', settings.ALARM_IDS)
+

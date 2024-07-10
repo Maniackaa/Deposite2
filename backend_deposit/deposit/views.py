@@ -1,10 +1,18 @@
+import base64
 import datetime
 import json
 import logging
+import os
 import uuid
+from pathlib import Path
+from sys import platform
+from tempfile import NamedTemporaryFile
 from types import NoneType
 
+import django.core.files.storage
+import pytesseract
 import pytz
+import structlog
 from django.db.models.functions import Lag
 
 from django.conf import settings
@@ -21,13 +29,13 @@ from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, d
     day_reports_orm
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
-                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm)
+                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
 from deposit.views_api import response_sms_template
-from ocr.ocr_func import (make_after_save_deposit)
+from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
-    MessageRead
+    MessageRead, RePattern, IncomingCheck
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 err_log = logging.getLogger('error_log')
 
 
@@ -213,6 +221,16 @@ class ShowDeposit(DetailView):
 @staff_member_required(login_url='users:login')
 def incoming_list(request):
     # Список всех платежей и сохранение birpay
+    patterns = {
+        'm10': r'.*(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d).*Получатель (.*) Отправитель (.*) Код транзакции (\d+) Сумма (.+) Статус (.*) .*8',
+        'm10_short': r'.*(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d).* (Пополнение.*) Получатель (.*) Код транзакции (\d+) Сумма (.+) Статус (\S+).*',
+        'm10new': r'first: (.+)[\n]+amount:.*[\n]*([+-].*)m.*[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]*Date (.+)[\n]+Sender (.+)[\n]*Recipient (.+)[\n]+.*ID (.+)',
+        'm10new_short': r'first: (.+)[\n]+amount:.*([+-].*)m.*[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]+Date (.+)[\n]+m10 wallet (.+)[\n]+.*ID (.+)'
+    }
+    db_patterns = RePattern.objects.all()
+    for db_pattern in db_patterns:
+        patterns.update({db_pattern.name: db_pattern.pattern})
+
     if request.method == "POST":
         input_name = list(request.POST.keys())[1]
         pk, options = list(request.POST.keys())[1].split('-')
@@ -329,6 +347,12 @@ class IncomingEmpty(ListView):
             check_balance=F('pay') + Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'balance', 'id']),
         ).order_by('-id').all()
         return empty_incoming
+
+
+class IncomingCheckList(ListView):
+    model = IncomingCheck
+    paginate_by = settings.PAGINATE
+    template_name = 'deposit/incoming_checks_list.html'
 
 
 class IncomingFiltered(ListView):
@@ -667,4 +691,70 @@ def check_sms(request):
         text = form.cleaned_data['text'].replace('\r\n', '\n')
         responsed_pay = response_sms_template(text)
         context['responsed_pay'] = responsed_pay
+    return render(request, template, context)
+
+
+@staff_member_required(login_url='users:login')
+def check_screen(request):
+    # Проверка шаблона sms
+    data = {}
+    black = int(data.get('black', 182))
+    white = int(data.get('white', 255))
+    logger.info(data.get('lang'))
+    lang = data.get('lang', 'eng')
+    oem = int(data.get('oem', 0))
+    psm = int(data.get('psm', 6))
+
+    print(platform == 'win32')
+    logger.debug('asf')
+    context = {}
+    template = 'deposit/check_screen.html'
+    form = CheckScreenForm(request.POST)
+    if request.method == 'POST':
+        print('post')
+        if form.is_valid():
+            print('valid')
+            screen = form.cleaned_data.get('screen')
+            image_bytes = screen.image.read()
+            # char_whitelist = '+- :;*•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+            # xy = {'y_start': 5, 'y_end': 10, 'x_start': 10, 'x_end': 100}
+            # first_stoke = response_text_from_image(image_bytes,
+            #                                        black=black, white=white,
+            #                                        oem=oem, psm=psm, lang=lang, strip=False,
+            #                                        char_whitelist=char_whitelist, **xy).strip()
+            # xy = {'y_start': 12, 'y_end': 29}
+            # amount = response_text_from_image(image_bytes,
+            #                                   black=black, white=white,
+            #                                   oem=oem, psm=psm, lang=lang, strip=False,
+            #                                   char_whitelist=char_whitelist, **xy).strip()
+            # xy = {'y_start': 29, 'y_end': 70}
+            # info = response_text_from_image(image_bytes,
+            #                                 black=black, white=white,
+            #                                 oem=oem, psm=4, lang=lang, strip=False,
+            #                                 char_whitelist=char_whitelist, **xy).strip()
+            # print(first_stoke)
+            # print(amount)
+            # print(info)
+
+            # fs = django.core.files.storage.FileSystemStorage()
+            # filename = fs.save('imname.jpg', screen.image)
+            # file_url = fs.url(filename)
+            # context['file_url'] = file_url
+            context['x'] = 1
+
+
+            # with NamedTemporaryFile() as temp_file:
+            temp_file = NamedTemporaryFile(mode='wb', suffix='.jpg', prefix='prefix_', delete=False)
+            temp_file.write(image_bytes)
+            print(temp_file.name)
+
+            context['file_url'] = temp_file.name
+
+
+
+        else:
+            print(form.errors)
+    context['form'] = form
+
+
     return render(request, template, context)
