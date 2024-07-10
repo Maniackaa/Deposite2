@@ -30,6 +30,7 @@ from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, d
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
+from deposit.permissions import SuperuserOnlyPerm
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
@@ -349,7 +350,7 @@ class IncomingEmpty(ListView):
         return empty_incoming
 
 
-class IncomingCheckList(ListView):
+class IncomingCheckList(SuperuserOnlyPerm, ListView):
     model = IncomingCheck
     paginate_by = settings.PAGINATE
     template_name = 'deposit/incoming_checks_list.html'

@@ -1,11 +1,11 @@
 import datetime
-import time
+import os
 from pprint import pprint
 
 import requests
 
 from backend_deposit.settings import BASE_DIR
-from core.global_func import TZ
+
 
 def get_new_token():
     headers = {
@@ -22,8 +22,8 @@ def get_new_token():
     }
 
     json_data = {
-        'username': 'Operator13_Zajon_AZN',
-        'password': 'rPwCrGEE',
+        'username': os.getenv('BIRPAY_LOGIN'),
+        'password': os.getenv('BIRPAY_PASSWORD'),
     }
 
     response = requests.post('https://birpay-gate.com/api/login_check', headers=headers, json=json_data)
