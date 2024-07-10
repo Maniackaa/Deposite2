@@ -60,7 +60,7 @@ def find_birpay_from_id(birpay_id, results=1):
 
         json_data = {
             'filter': {
-                'merchantTransactionId': 655996411
+                'merchantTransactionId': birpay_id
             },
             'sort': {},
             'limit': {
