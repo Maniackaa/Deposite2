@@ -11,7 +11,7 @@ from deposit.models import *
 from django.apps import apps
 
 
-logger = structlog.get_logger(__name__)
+logger = structlog.get_logger('celery')
 
 
 def find_time_between_good_screen(last_good_screen_time) -> int:
@@ -24,6 +24,7 @@ def find_time_between_good_screen(last_good_screen_time) -> int:
 
 def do_if_macros_broken():
     """Действие если макрос сдох"""
+    Message = apps.get_model('deposit', 'Message')
     Message.objects.create(title='Макрос не активен',
                            text=f'Макрос не активен',
                            type='macros',
@@ -34,6 +35,7 @@ def do_if_macros_broken():
 @shared_task(priority=1)
 def check_macros():
     """Функция проверки работоспособности макроса"""
+    Setting = apps.get_model('deposit', 'Setting')
     logger.info('Проверка макроса')
     now = datetime.datetime.now()
     last_good_screen_time_obj, _ = Setting.objects.get_or_create(name='last_good_screen_time')
@@ -68,21 +70,24 @@ def check_incoming(pk):
         logger.info(f'incoming_check: {incoming_check}')
         check = find_birpay_from_id(birpay_id=incoming_check.birpay_id)
         logger.info(f'check result: {check}')
-        pay_birpay = check.get('pay')
-        operator = check.get('operator').get('username')
-        incoming_check.pay_birpay = pay_birpay
-        incoming_check.operator = operator
-        incoming_check.save()
-        if pay_birpay != incoming_check.incoming.pay:
-            msg = (
-                f'Заявка {incoming_check.incoming.id} ({incoming_check.birpay_id})\n'
-                f'{incoming_check.incoming.pay} azn\n'
-                f'Платеж: {pay_birpay} azn\n'
-                f'Разница: {incoming_check.incoming.pay - pay_birpay} azn'
-            )
-            send_message_tg(msg, settings.ALARM_IDS)
+        if check:
+            pay_birpay = check.get('pay')
+            operator = check.get('operator').get('username')
+            incoming_check.pay_birpay = pay_birpay
+            incoming_check.operator = operator
+            incoming_check.save()
+            if pay_birpay != incoming_check.incoming.pay:
+                msg = (
+                    f'Заявка {incoming_check.incoming.id} ({incoming_check.birpay_id})\n'
+                    f'{incoming_check.incoming.pay} azn\n'
+                    f'Платеж: {pay_birpay} azn\n'
+                    f'Разница: {incoming_check.incoming.pay - pay_birpay} azn'
+                )
+                send_message_tg(msg, settings.ALARM_IDS)
+        else:
+            send_message_tg(f'Ошибка при проверке birpay {pk}: ошибка при получении данных', settings.ALARM_IDS)
 
     except Exception as err:
-        logger.error(err)
-        send_message_tg(f'Ошибка при проверке birpay {pk}', settings.ALARM_IDS)
+        logger.error(f'Ошибка при проверке birpay {pk}: {err}')
+        send_message_tg(f'Ошибка при проверке birpay {pk}: {err}', settings.ALARM_IDS)
 

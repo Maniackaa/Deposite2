@@ -3,8 +3,10 @@ import os
 from pprint import pprint
 
 import requests
+import structlog
 
 from backend_deposit.settings import BASE_DIR
+logger = structlog.get_logger('celery')
 
 
 def get_new_token():
@@ -49,6 +51,7 @@ headers = {
 
 
 def find_birpay_from_id(birpay_id, results=1):
+    birpay_id = str(birpay_id).strip()
     try:
         token_file = BASE_DIR / 'token.txt'
         if not token_file.exists():
@@ -76,12 +79,11 @@ def find_birpay_from_id(birpay_id, results=1):
             headers=headers,
             json=json_data,
         )
-        print(response)
 
         if response.status_code == 401:
             # Обновление токена
             token = get_new_token()
-            headers['Authorization']= f'Bearer {token}'
+            headers['Authorization'] = f'Bearer {token}'
             response = requests.post(
                 'https://birpay-gate.com/api/operator/refill_order/find',
                 cookies=cookies,
@@ -90,14 +92,12 @@ def find_birpay_from_id(birpay_id, results=1):
             )
 
         if response.status_code == 200:
-            print(response.text)
             data = response.json()
-            print(data[0])
             # for key, val in data[0].items():
             #     print(f'{key}: {val}')
             #     print('-------------------\n')
             row = data[0]
-            pprint(row)
+            logger.debug(f'Получено по birpay_id {birpay_id}: {row}')
 
             transaction_id = row.get('merchantTransactionId')
             status = row.get('status')
@@ -115,14 +115,13 @@ def find_birpay_from_id(birpay_id, results=1):
                     'pay': pay,
                     'operator': operator,
                 }
-            print(result)
-
             return result
     except Exception as err:
+        logger.error(err)
         raise err
 
 
 if __name__ == '__main__':
     get_new_token()
-    birpay = find_birpay_from_id(655996411)
+    birpay = find_birpay_from_id('656592471    3')
     print(birpay)
