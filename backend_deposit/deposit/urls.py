@@ -36,6 +36,7 @@ urlpatterns = [
     path('my_filter/', views.my_filter, name='my_filter'),
     path('incomings_search/', views.IncomingSearch.as_view(), name='incomings_search'),
     path('incoming_checks/', views.IncomingCheckList.as_view(), name='incoming_checks'),
+    path('incoming_recheck/<int:pk>/', views.incoming_recheck, name='incoming_recheck'),
     path('bank_color/', views.ColorBankCreate.as_view(), name='bank_color'),
 
     path('get_posts/', views.get_last, name='get_last'),

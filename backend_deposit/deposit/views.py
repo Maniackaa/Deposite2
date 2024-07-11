@@ -28,6 +28,7 @@ from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
 from deposit.permissions import SuperuserOnlyPerm
+from deposit.tasks import check_incoming
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
@@ -361,6 +362,10 @@ class IncomingCheckList(SuperuserOnlyPerm, ListView):
     #     logger.critical('Critical IncomingCheckList')
     #     return super().get_context_data(*args, **kwargs)
 
+
+def incoming_recheck(request, pk):
+    result = check_incoming(pk)
+    return JsonResponse(data=result)
 
 class IncomingFiltered(ListView):
     # Отфильтровованные платежи

@@ -60,7 +60,11 @@
              <td>{{ obj.user }}</td>
              <td>{{ obj.operator }}</td>
              <td>{{ obj.pay_operator }}</td>
+             {% if  obj.pay_birpay %}
              <td>{{ obj.pay_birpay }}</td>
+             {% else %}
+             <td><a target="_blank" href="{% url 'deposit:incoming_recheck' obj.id  %}">Обновить</a></td>
+             {% endif %}
 
 
 

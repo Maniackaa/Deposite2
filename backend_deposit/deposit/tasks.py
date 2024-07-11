@@ -90,7 +90,7 @@ def check_incoming(pk):
                 send_message_tg(msg, settings.ALARM_IDS)
         else:
             send_message_tg(f'Ошибка при проверке birpay {pk}: ошибка при получении данных', settings.ALARM_IDS)
-
+        return check
     except Exception as err:
         logger.error(f'Ошибка при проверке birpay {pk}: {err}')
         send_message_tg(f'Ошибка при проверке birpay {pk}: {err}', settings.ALARM_IDS)

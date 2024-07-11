@@ -137,7 +137,7 @@ class IncomingCheck(models.Model):
     pay_birpay = models.FloatField(null=True, blank=True)
 
     class Meta:
-        ordering = ('-create_at',)
+        ordering = ('-id',)
 
 
 @receiver(post_save, sender=Incoming)
