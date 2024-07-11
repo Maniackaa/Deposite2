@@ -24,6 +24,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
+from deposit import tasks
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
@@ -354,12 +355,7 @@ class IncomingCheckList(SuperuserOnlyPerm, ListView):
     template_name = 'deposit/incoming_checks_list.html'
 
     # def get_context_data(self, *args, **kwargs):
-    #     logger = structlog.get_logger(__name__)
-    #     logger.debug('debug IncomingCheckList')
-    #     logger.info('info IncomingCheckList')
-    #     logger.warning('warning IncomingCheckList')
-    #     logger.error('error IncomingCheckList')
-    #     logger.critical('Critical IncomingCheckList')
+    #     tasks.test_task.apply_async(kwargs={'pk': 200, 'count': 0}, countdown=0)
     #     return super().get_context_data(*args, **kwargs)
 
 

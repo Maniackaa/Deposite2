@@ -1,4 +1,6 @@
+import asyncio
 import datetime
+import time
 
 import structlog
 from celery import shared_task
@@ -65,15 +67,24 @@ def check_macros():
 
 
 @shared_task(priority=1)
-def check_incoming(pk):
+def check_incoming(pk, count=0):
     """Функция проверки incoming в birpay"""
     try:
-        logger.info('Проверка опера')
+        logger.info(f'Проверка опера. Попытка {count+1}')
+        check = None
         IncomingCheck = apps.get_model('deposit', 'IncomingCheck')
         incoming_check = IncomingCheck.objects.get(pk=pk)
         logger.info(f'incoming_check: {incoming_check}')
-        check = find_birpay_from_id(birpay_id=incoming_check.birpay_id)
-        logger.info(f'check result: {check}')
+        try:
+            check = find_birpay_from_id(birpay_id=incoming_check.birpay_id)
+        except Exception as err:
+            count += 1
+            logger.debug(f'Неудачных попыток: {count}')
+            if count < 5:
+                check_incoming.apply_async(kwargs={'pk': pk, 'count': count}, countdown=count * 15)
+                return
+
+        logger.info(f'check result {count}: {check}')
         if check:
             pay_birpay = check.get('pay')
             operator = check.get('operator').get('username')
@@ -83,24 +94,28 @@ def check_incoming(pk):
             if pay_birpay != incoming_check.incoming.pay:
                 msg = (
                     f'Заявка {incoming_check.incoming.id} ({incoming_check.birpay_id})\n'
-                    f'{incoming_check.incoming.pay} azn\n'
-                    f'Платеж: {pay_birpay} azn\n'
-                    f'Разница: {incoming_check.incoming.pay - pay_birpay} azn'
+                    f'{pay_birpay} azn\n'
+                    f'Платеж: {incoming_check.incoming.pay} azn\n'
+                    f'Разница: {round(incoming_check.incoming.pay - pay_birpay, 2)} azn'
                 )
                 send_message_tg(msg, settings.ALARM_IDS)
         else:
             send_message_tg(f'Ошибка при проверке birpay {pk}: ошибка при получении данных', settings.ALARM_IDS)
         return check
     except Exception as err:
-        logger.error(f'Ошибка при проверке birpay {pk}: {err}')
-        send_message_tg(f'Ошибка при проверке birpay {pk}: {err}', settings.ALARM_IDS)
+        logger.error(f'Общая ошибка при проверке birpay {pk}: {err}')
+        send_message_tg(f'Общая ошибка при проверке birpay {pk}: {err}', settings.ALARM_IDS)
 
 
-# @shared_task(priority=1)
-# def test_task():
-#     try:
-#         logger.info('test_task2')
-#         send_message_tg('test_task2')
-#         do_if_macros_broken()
-#     except Exception as err:
-#         logger.error(f'test_task erorr: {err}')
+@shared_task(priority=1)
+def test_task(pk, count=0):
+    try:
+        logger.info('test_task2')
+        send_message_tg(f'test_task2: {pk} попытка {count+1}')
+        raise ValueError('xxx')
+
+    except Exception as err:
+        logger.error(f'test_task erorr {count}: {err}')
+        if count < 5:
+            count += 1
+            test_task.apply_async(kwargs={'pk': 100, 'count': count}, countdown=3)
