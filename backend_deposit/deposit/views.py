@@ -4,13 +4,10 @@ import json
 import logging
 import os
 import uuid
-from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
 from types import NoneType
 
-import django.core.files.storage
-import pytesseract
 import pytz
 import structlog
 from django.db.models.functions import Lag
@@ -354,6 +351,15 @@ class IncomingCheckList(SuperuserOnlyPerm, ListView):
     model = IncomingCheck
     paginate_by = settings.PAGINATE
     template_name = 'deposit/incoming_checks_list.html'
+
+    # def get_context_data(self, *args, **kwargs):
+    #     logger = structlog.get_logger(__name__)
+    #     logger.debug('debug IncomingCheckList')
+    #     logger.info('info IncomingCheckList')
+    #     logger.warning('warning IncomingCheckList')
+    #     logger.error('error IncomingCheckList')
+    #     logger.critical('Critical IncomingCheckList')
+    #     return super().get_context_data(*args, **kwargs)
 
 
 class IncomingFiltered(ListView):

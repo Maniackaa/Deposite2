@@ -6,7 +6,7 @@ import requests
 import structlog
 
 from backend_deposit.settings import BASE_DIR
-logger = structlog.get_logger('celery')
+logger = structlog.get_logger('tasks')
 
 
 def get_new_token():
@@ -96,26 +96,26 @@ def find_birpay_from_id(birpay_id, results=1):
             # for key, val in data[0].items():
             #     print(f'{key}: {val}')
             #     print('-------------------\n')
-            row = data[0]
-            logger.debug(f'Получено по birpay_id {birpay_id}: {row}')
-
-            transaction_id = row.get('merchantTransactionId')
-            status = row.get('status')
-            sender = row.get('customerWalletId')
-            requisite = row.get('paymentRequisite')
-            pay = float(row.get('amount'))
-            operator = row.get('operator')
-            created_time = datetime.datetime.fromisoformat(row.get('createdAt'))
-            result = {
-                    'transaction_id': transaction_id,
-                    'status': status,
-                    'sender': sender,
-                    'requisite': requisite,
-                    'created_time': created_time,
-                    'pay': pay,
-                    'operator': operator,
-                }
-            return result
+            logger.debug(f'Получено по birpay_id {birpay_id}: {data}')
+            if data:
+                row = data[0]
+                transaction_id = row.get('merchantTransactionId')
+                status = row.get('status')
+                sender = row.get('customerWalletId')
+                requisite = row.get('paymentRequisite')
+                pay = float(row.get('amount'))
+                operator = row.get('operator')
+                created_time = datetime.datetime.fromisoformat(row.get('createdAt'))
+                result = {
+                        'transaction_id': transaction_id,
+                        'status': status,
+                        'sender': sender,
+                        'requisite': requisite,
+                        'created_time': created_time,
+                        'pay': pay,
+                        'operator': operator,
+                    }
+                return result
     except Exception as err:
         logger.error(err)
         raise err

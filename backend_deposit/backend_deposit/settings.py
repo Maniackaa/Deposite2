@@ -26,10 +26,11 @@ MY_APPS = [
     'mathfilters',
     'celery',
     'django_celery_beat',
+    "django_structlog",
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
-INSTALLED_APPS = [
+INSTALLED_APPS = MY_APPS + [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -40,7 +41,7 @@ INSTALLED_APPS = [
     'sorl.thumbnail',
     'colorfield',
     'debug_toolbar',
-] + MY_APPS
+]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -51,7 +52,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware'
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
+    "django_structlog.middlewares.RequestMiddleware",
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -173,102 +175,87 @@ REST_FRAMEWORK = {
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
 
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'formatters': {
+    "formatters": {
         'default_formatter': {
             'format': '[%(asctime)s] #%(levelname)-8s %(filename)s:%(lineno)d %(module)s/%(funcName)s\n%(message)s',
         },
+        "console": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.dev.ConsoleRenderer(colors=True),
+        },
+        "console_black": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.dev.ConsoleRenderer(colors=False),
+        },
+        "json_formatter": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.processors.JSONRenderer(),
+        },
+
     },
-    'handlers': {
-        # 'file': {
-        #     'level': 'DEBUG',
-        #     'class': 'logging.FileHandler',
-        #     'filename': 'logs/log.log',
-        #     'formatter': 'default_formatter',
-        #
-        # },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'default_formatter',
-        },
-        'rotate': {
+    "handlers": {
+        'all': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/deposite_rotate.log',
-            'backupCount': 10,
+            'filename': 'logs/all_rotate.log',
+            'backupCount': 50,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
             'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
-            'level': 'DEBUG',
-        },
-        'celery_handler': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename':  'logs/celery_tasks.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
+            'formatter': 'console_black',
             'level': 'DEBUG',
         },
         'errors': {
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': 'logs/errors.log',
-            'backupCount': 10,
-            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+            'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
             'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
+            'formatter': 'console_black',
             'level': 'ERROR',
         },
-        'ocr_rotate': {
+        'info': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/ocr_rotate.log',
+            'filename': 'logs/info_rotate.log',
             'backupCount': 10,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
             'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
-            'level': 'DEBUG',
-        },
-        'django_rotate': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/django_rotate.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
-            'level': 'WARNING',
-        }
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'django_rotate'],
-            'level': 'WARNING',
-            'propagate': True
-        },
-        'deposit': {
-            'handlers': ['console', 'rotate', 'errors'],
-            'level': 'DEBUG',
-            'propagate': True
-        },
-        'ocr': {
-            'handlers': ['console', 'ocr_rotate', 'errors'],
-            'level': 'DEBUG',
-            'propagate': True
-        },
-        'celery': {
-            'handlers': ['celery_handler', 'console'],
-            'level': 'DEBUG',
-            'propagate': True,
+            'formatter': 'console_black',
+            'level': 'INFO',
         },
         'tasks': {
-            'handlers': ['celery_handler', 'console'],
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/tasks.log',
+            'backupCount': 10,
+            'maxBytes': 100 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'console_black',
             'level': 'DEBUG',
+        },
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+        },
+        "console_black": {
+            "class": "logging.StreamHandler",
+            "formatter": "console_black",
+        },
+    },
+    'loggers': {
+        "root": {
+            "handlers": ["console_black", 'all', 'errors', 'info'],
+            "level": "DEBUG",
+            'propagate': False,
+        },
+        "tasks": {
+            "handlers": ["console_black", 'tasks'],
+            "level": "DEBUG",
             'propagate': True,
         },
     }
@@ -341,7 +328,7 @@ USE_THOUSAND_SEPARATOR = True
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')
 CELERY_TIMEZONE = TIME_ZONE
-CELERYD_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_work.log")
+# CELERYD_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_work.log")
 CELERYBEAT_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_beat.log")
 CELERYD_HIJACK_ROOT_LOGGER = False
 # CELERY_BEAT_SCHEDULE = {

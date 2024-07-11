@@ -68,7 +68,7 @@ services:
       - static:/app/collected_static/
       - media:/app/media/
       - ./backend_deposit/media:/app/media
-      - ./logs/backend_deposit:/app/logs
+      - ./logs:/app/logs
 #      - ./backend_deposit:/app
     entrypoint: bash /app/entrypoint.sh
 
@@ -77,10 +77,10 @@ services:
     container_name: celery
     build: ./backend_deposit
     restart: always
-    command: celery -A backend_deposit.celery:app worker -l warning -n myworker --concurrency=4 --logfile=logs/celery.log
+    command: celery -A backend_deposit.celery:app worker -l warning -n myworker --concurrency=4
     volumes:
       - media:/app/media/
-      - ./logs/celery:/app/logs
+      - ./logs:/app/logs
     env_file: .env
     depends_on:
       - redis

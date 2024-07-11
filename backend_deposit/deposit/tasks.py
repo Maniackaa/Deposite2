@@ -9,9 +9,9 @@ from django.conf import settings
 from core.global_func import send_message_tg
 from deposit.models import *
 from django.apps import apps
+User = get_user_model()
 
-
-logger = structlog.get_logger('celery')
+logger = structlog.get_logger('tasks')
 
 
 def find_time_between_good_screen(last_good_screen_time) -> int:
@@ -24,12 +24,15 @@ def find_time_between_good_screen(last_good_screen_time) -> int:
 
 def do_if_macros_broken():
     """Действие если макрос сдох"""
-    Message = apps.get_model('deposit', 'Message')
-    Message.objects.create(title='Макрос не активен',
-                           text=f'Макрос не активен',
-                           type='macros',
-                           author=settings.AUTH_USER_MODEL.objects.get(username='Admin'))
-    send_message_tg('Макрос не активен более 15 секунд', settings.ALARM_IDS)
+    try:
+        send_message_tg('Макрос не активен более 15 секунд', settings.ALARM_IDS)
+        Message = apps.get_model('deposit', 'Message')
+        Message.objects.create(title='Макрос не активен',
+                               text=f'Макрос не активен',
+                               type='macros',
+                               author=User.objects.get(username='Admin'))
+    except Exception as err:
+        logger.error(f'Ошибка если макрос сдох: {err}')
 
 
 @shared_task(priority=1)
@@ -52,6 +55,7 @@ def check_macros():
     else:
         last_message_time = datetime.datetime(2000, 1, 1)
     delta = find_time_between_good_screen(last_good_screen_time)
+    logger.debug(f'last_message_time: {last_message_time}\nlast_good_screen_time: {last_good_screen_time}\ndelta:{delta}')
     if last_message_time < last_good_screen_time and delta > 15:
         logger.info(f'Время больше 10')
         do_if_macros_broken()
@@ -91,3 +95,12 @@ def check_incoming(pk):
         logger.error(f'Ошибка при проверке birpay {pk}: {err}')
         send_message_tg(f'Ошибка при проверке birpay {pk}: {err}', settings.ALARM_IDS)
 
+
+# @shared_task(priority=1)
+# def test_task():
+#     try:
+#         logger.info('test_task2')
+#         send_message_tg('test_task2')
+#         do_if_macros_broken()
+#     except Exception as err:
+#         logger.error(f'test_task erorr: {err}')
