@@ -44,6 +44,7 @@
            <th>create_at</th>
            <th>change_time</th>
            <th>birpay_id</th>
+            <th>status</th>
            <th>user</th>
            <th>operator</th>
          <th>pay_operator</th>
@@ -57,6 +58,7 @@
             <td>{{ obj.create_at|date:"d.m H:i" }}</td>
             <td>{{ obj.change_time|date:"d.m H:i" }}</td>
              <td><a href="{% url 'deposit:incoming_edit' obj.incoming.id  %}">{{ obj.birpay_id }}</a></td>
+            <td>{{ obj.status }}</td>
              <td>{{ obj.user }}</td>
              <td>{{ obj.operator }}</td>
              <td>{{ obj.pay_operator }}</td>

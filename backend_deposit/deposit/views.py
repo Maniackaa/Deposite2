@@ -355,7 +355,13 @@ class IncomingCheckList(SuperuserOnlyPerm, ListView):
     template_name = 'deposit/incoming_checks_list.html'
 
     # def get_context_data(self, *args, **kwargs):
-    #     tasks.test_task.apply_async(kwargs={'pk': 200, 'count': 0}, countdown=0)
+    #     incoming = Incoming.objects.get(pk=40)
+    #     print(incoming)
+    #     print(incoming.checks.all())
+    #
+    #     inccheck = IncomingCheck.objects.get(pk=51)
+    #     print(inccheck)
+    #     print(inccheck.incoming)
     #     return super().get_context_data(*args, **kwargs)
 
 

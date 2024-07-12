@@ -85,26 +85,55 @@ def check_incoming(pk, count=0):
                 return
 
         logger.info(f'check result {count}: {check}')
+        msg = ''
         if check:
             pay_birpay = check.get('pay')
-            operator = check.get('operator').get('username')
+            operator = check.get('operator')
+            if operator:
+                operator = operator.get('username')
+            status = check.get('status')
+
             incoming_check.pay_birpay = pay_birpay
             incoming_check.operator = operator
+            incoming_check.status = status
             incoming_check.save()
-            if pay_birpay != incoming_check.incoming.pay:
-                msg = (
-                    f'Заявка {incoming_check.incoming.id} ({incoming_check.birpay_id})\n'
-                    f'{pay_birpay} azn\n'
-                    f'Платеж: {incoming_check.incoming.pay} azn\n'
-                    f'Разница: {round(incoming_check.incoming.pay - pay_birpay, 2)} azn'
-                )
-                send_message_tg(msg, settings.ALARM_IDS)
+            pay_incoming = incoming_check.incoming.pay
+            text_incoming = f'Проверка платежа {incoming_check.incoming.id} на сумму {pay_incoming} azn.\nCheck №{pk} birpay_id: {incoming_check.birpay_id}:\n'
+
+            if status == 0:
+                if pay_incoming == pay_birpay:
+                    # Не подтвержден. Сумма равна
+                    msg = f'{text_incoming}<b>Статус 0</b>'
+                elif pay_birpay < pay_incoming:
+                    # Не подтвержден. Пришло больше чем нужно
+                    msg = f'{text_incoming}<b>Статус 0. Пришло {pay_incoming} azn вместо {pay_birpay} azn (на {pay_incoming - pay_birpay} больше)</b>'
+                else:
+                    # Не подтвержден. Пришло меньше чем нужно
+                    msg = f'{text_incoming}<b>Статус 0. Пришло {pay_incoming} azn вместо {pay_birpay} azn (на {pay_birpay - pay_incoming} меньше)</b>'
+            elif status == -1:
+                # Пришло больше
+                if pay_incoming > pay_birpay:
+                    msg = f'{text_incoming}<b>Статус -1. Лишние {pay_incoming - pay_birpay} azn<>'
+            elif status == 1:
+                # Подтвержден
+                if pay_birpay > pay_incoming:
+                    # Пришло меньше
+                    msg = f'{text_incoming}<b>Статус 1. Не хватает {pay_birpay - pay_incoming} azn {operator}</b>'
+                elif pay_birpay < pay_incoming:
+                    # Пришло больше
+                    msg = f'{text_incoming}<b>Статус 1. Лишние {pay_incoming - pay_birpay} azn {operator}</b>'
+
         else:
-            send_message_tg(f'Ошибка при проверке birpay {pk}: ошибка при получении данных', settings.ALARM_IDS)
+            msg = (
+                f'<b>Ничего не найдено</b> при проверке birpay {pk}\n'
+                f'({incoming_check.birpay_id})\n'
+                f'Платеж {incoming_check.incoming.id} на сумму {incoming_check.incoming.pay} azn'
+            )
+        send_message_tg(msg, settings.ALARM_IDS)
         return check
     except Exception as err:
-        logger.error(f'Общая ошибка при проверке birpay {pk}: {err}')
-        send_message_tg(f'Общая ошибка при проверке birpay {pk}: {err}', settings.ALARM_IDS)
+        logger.error(f'Ошибка при проверке birpay {pk}: {err}')
+        send_message_tg(f'Ошибка при проверке birpay {pk}: {err}', settings.ALARM_IDS)
 
 
 @shared_task(priority=1)

@@ -71,6 +71,7 @@ class Incoming(models.Model):
     birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
 
+
     class Meta:
         permissions = [
             ("can_hand_edit", "Может делать ручные корректировки"),
@@ -129,12 +130,13 @@ class IncomingChange(models.Model):
 class IncomingCheck(models.Model):
     create_at = models.DateTimeField('Время создания', auto_now_add=True, null=True)
     change_time = models.DateTimeField('Время изменения в базе', auto_now=True, null=True)
-    incoming = models.ForeignKey(Incoming, on_delete=models.CASCADE)
+    incoming = models.ForeignKey(Incoming, on_delete=models.CASCADE, related_name='checks')
     birpay_id = models.CharField(max_length=50)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True)
     operator = models.CharField(max_length=50, null=True, blank=True)
     pay_operator = models.FloatField(null=True, blank=True)
     pay_birpay = models.FloatField(null=True, blank=True)
+    status = models.CharField(max_length=10, null=True, blank=True)
 
     class Meta:
         ordering = ('-id',)
