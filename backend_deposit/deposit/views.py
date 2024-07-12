@@ -25,6 +25,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
 from deposit import tasks
+from deposit.filters import IncomingCheckFilter
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
@@ -353,21 +354,23 @@ class IncomingCheckList(SuperuserOnlyPerm, ListView):
     model = IncomingCheck
     paginate_by = settings.PAGINATE
     template_name = 'deposit/incoming_checks_list.html'
+    filter = IncomingCheckFilter
 
-    # def get_context_data(self, *args, **kwargs):
-    #     incoming = Incoming.objects.get(pk=40)
-    #     print(incoming)
-    #     print(incoming.checks.all())
-    #
-    #     inccheck = IncomingCheck.objects.get(pk=51)
-    #     print(inccheck)
-    #     print(inccheck.incoming)
-    #     return super().get_context_data(*args, **kwargs)
+    def get_queryset(self):
+        return IncomingCheckFilter(self.request.GET, queryset=IncomingCheck.objects).qs
+
+    def get_context_data(self, *args, **kwargs):
+        context = super().get_context_data(*args, **kwargs)
+        filter = IncomingCheckFilter(self.request.GET, queryset=self.get_queryset())
+        context['filter'] = filter
+        context['form'] = filter.form
+        return context
 
 
 def incoming_recheck(request, pk):
     result = check_incoming(pk)
     return JsonResponse(data=result)
+
 
 class IncomingFiltered(ListView):
     # Отфильтровованные платежи
@@ -443,7 +446,7 @@ class IncomingSearch(ListView):
         only_empty = self.request.GET.get('only_empty', '')
         pay = self.request.GET.get('pay', 0)
         pk = self.request.GET.get('pk', 1)
-        sort_by_sms_time = self.request.GET.get('sort_by_sms_time', 0)
+        sort_by_sms_time = self.request.GET.get('sort_by_sms_time', 1)
         end_time = None
         tz = pytz.timezone(settings.TIME_ZONE)
         start_time = ''
@@ -495,6 +498,7 @@ class IncomingSearch(ListView):
         request_dict.update({'begin': begin})
         request_dict.update({'end': end})
         search_form = IncomingSearchForm(initial={**request_dict})
+        print('request_dict:', request_dict)
         context['search_form'] = search_form
         last_id = Incoming.objects.order_by('id').last()
         if last_id:

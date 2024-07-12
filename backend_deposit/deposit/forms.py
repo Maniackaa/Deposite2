@@ -189,14 +189,15 @@ class IncomingForm(forms.ModelForm):
 class IncomingSearchForm(forms.Form):
     pk = forms.IntegerField(required=False, label='id')
     search_in = forms.ChoiceField(choices=[
+        ('response_date', 'Время в смс/чеке'),
         ('register_date', 'Время поступления'),
-        ('response_date', 'Время в смс/чеке')
+
     ], label='Поиск по')
     begin = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
     end = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
     only_empty = forms.BooleanField(widget=CheckboxInput(), label='Только неподтвержденные', required=False)
     pay = forms.FloatField(required=False)
-    sort_by_sms_time = forms.BooleanField(widget=CheckboxInput(), label='Сортировка по времени чека', required=False)
+    sort_by_sms_time = forms.ChoiceField(choices=[(1, 'Да'), (0, 'Нет')], label='Сортировка по времени чека', required=False)
 
 
 class CheckSmsForm(forms.Form):

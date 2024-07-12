@@ -71,8 +71,8 @@ class Incoming(models.Model):
     birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
 
-
     class Meta:
+        # ordering = ('id',)
         permissions = [
             ("can_hand_edit", "Может делать ручные корректировки"),
             # ("can_see_bad_warning", "Видит уведомления о новых BadScreen"),

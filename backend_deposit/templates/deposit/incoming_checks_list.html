@@ -9,10 +9,24 @@
 
 
   {% with request.resolver_match.view_name as view_name %}
-    {% if view_name == 'deposit:incomings_filter' %}
-       Ваш фильтр на получателя: {{ user.profile.my_filter }}
-       <a class="changelink" href="{% url 'deposit:my_filter' %}">Изменить</a>
-    {% endif %}
+
+
+  <div class="container">
+      <form method="get">
+        <div class="row">
+
+            {% for field in form  %}
+                <div class="col-auto">
+                <b>{{ field.label_tag }}</b><br>{{ field }}
+                </div>
+            {% endfor %}
+            <div class="row">
+
+            <button class="btn btn-info btn-light" type="submit">Фильтровать {{ filter.qs.count }}</button>
+            </div>
+        </div>
+    </form>
+  </div>
 
     <span class="row justify-content-start">
       <div class="col-6">

@@ -122,6 +122,8 @@ def check_incoming(pk, count=0):
                 elif pay_birpay < pay_incoming:
                     # Пришло больше
                     msg = f'{text_incoming}<b>Статус 1. Лишние {pay_incoming - pay_birpay} azn {operator}</b>'
+            else:
+                msg = f'{text_incoming}<b>Неизвестный статус {status}</b>'
 
         else:
             msg = (
