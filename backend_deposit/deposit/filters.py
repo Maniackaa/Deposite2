@@ -25,7 +25,8 @@ class IncomingCheckFilter(django_filters.FilterSet):
 
     id = django_filters.CharFilter(lookup_expr='icontains')
     operator = django_filters.CharFilter(lookup_expr='icontains')
-    # status = django_filters.MultipleChoiceFilter(choices=Payment.PAYMENT_STATUS)
+    status = django_filters.MultipleChoiceFilter(choices=[('-1', '-1'), ('0', '0'), ('1', '1'), ('2', '2'), ],
+                                                 null_label='Нет статуса')
     # oper1 = django_filters.CharFilter(label='Оператор №', method='my_custom_filter', initial=1, max_length=3)
     # oper2 = django_filters.CharFilter(label='из', method='my_custom_filter2', initial=1)
     create_at = django_filters.DateFilter(label='Дата проверки', field_name='create_at', lookup_expr='contains',
@@ -38,4 +39,4 @@ class IncomingCheckFilter(django_filters.FilterSet):
 
     class Meta:
         model = IncomingCheck
-        fields = ['id', 'birpay_id', 'user', 'operator',]
+        fields = ['id', 'birpay_id', 'user', 'operator', 'status']
