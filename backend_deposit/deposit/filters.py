@@ -7,6 +7,11 @@ from django.db.models.functions import Extract
 from deposit.models import IncomingCheck
 
 
+class MyDateInput(forms.DateInput):
+    input_type = 'date'
+    format = '%Y-%m-%d'
+
+
 class IncomingCheckFilter(django_filters.FilterSet):
 
     def __init__(self, data=None, *args, **kwargs):
@@ -23,8 +28,8 @@ class IncomingCheckFilter(django_filters.FilterSet):
     # status = django_filters.MultipleChoiceFilter(choices=Payment.PAYMENT_STATUS)
     # oper1 = django_filters.CharFilter(label='Оператор №', method='my_custom_filter', initial=1, max_length=3)
     # oper2 = django_filters.CharFilter(label='из', method='my_custom_filter2', initial=1)
-    # create_at = django_filters.DateFilter(field_name='create_at', lookup_expr='contains',
-    #                                       widget=MyDateInput({'class': 'form-control'}))
+    create_at = django_filters.DateFilter(label='Дата проверки', field_name='create_at', lookup_expr='contains',
+                                          widget=MyDateInput({'class': 'form-control'}))
 
     @property
     def qs(self):

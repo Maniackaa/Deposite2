@@ -156,7 +156,7 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
                 birpay_id=incoming.birpay_id,
                 pay_operator=incoming.pay)
             logger.info(f'new_check: {new_check.id} {new_check}')
-            check_incoming.apply_async(kwargs={'pk': new_check.id, 'count': 0}, countdown=15)
+            check_incoming.apply_async(kwargs={'pk': new_check.id, 'count': 0}, countdown=60)
     except Exception as err:
         logger.error(err)
 

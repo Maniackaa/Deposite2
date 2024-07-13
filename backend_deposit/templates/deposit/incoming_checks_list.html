@@ -20,10 +20,17 @@
                 <b>{{ field.label_tag }}</b><br>{{ field }}
                 </div>
             {% endfor %}
+        <div class="col-md-auto">
+            Ститистика:<br>
+            Статус 0: {{ stat.status_0 }}<br>
+            Статус 1: {{ stat.status_1 }}<br>
+            Статус -1: {{ stat.status_decline }}<br>
+            Прочие статусы: {{ stat.status_other }}<br>
+        </div>
             <div class="row">
-
-            <button class="btn btn-info btn-light" type="submit">Фильтровать {{ filter.qs.count }}</button>
+              <button class="btn btn-info btn-light" type="submit">Фильтровать {{ filter.qs.count }}</button>
             </div>
+
         </div>
     </form>
   </div>
@@ -63,6 +70,7 @@
            <th>operator</th>
          <th>pay_operator</th>
          <th>pay_birpay</th>
+         <th>delta</th>
 
        </tr>
      </thead>
@@ -81,6 +89,7 @@
              {% else %}
              <td><a target="_blank" href="{% url 'deposit:incoming_recheck' obj.id  %}">Обновить</a></td>
              {% endif %}
+             <td>{{ obj.delta }}</td>
 
 
 

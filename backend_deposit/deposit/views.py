@@ -16,7 +16,7 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import F, Q, OuterRef, Window, Exists
+from django.db.models import F, Q, OuterRef, Window, Exists, Value
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -357,13 +357,26 @@ class IncomingCheckList(SuperuserOnlyPerm, ListView):
     filter = IncomingCheckFilter
 
     def get_queryset(self):
-        return IncomingCheckFilter(self.request.GET, queryset=IncomingCheck.objects).qs
+        return IncomingCheckFilter(
+            self.request.GET, queryset=IncomingCheck.objects
+            .annotate(delta=F('pay_operator') - F('pay_birpay'))
+        ).qs
 
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)
         filter = IncomingCheckFilter(self.request.GET, queryset=self.get_queryset())
         context['filter'] = filter
         context['form'] = filter.form
+        qs = self.get_queryset()
+        stat = {}
+        status_0 = qs.filter(status=0).count()
+        status_1 = qs.filter(status=1).count()
+        status_decline = qs.filter(status=1).count()
+        stat['status_0'] = status_0
+        stat['status_1'] = status_1
+        stat['status_decline'] = status_decline
+        stat['status_other'] = qs.count() - status_0 - status_1 - status_decline
+        context['stat'] = stat
         return context
 
 
