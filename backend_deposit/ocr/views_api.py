@@ -296,11 +296,11 @@ def response_m10new(request: Request):
         image = request.data.get('image')
         image_bytes = image.file.read()
         logger.info(f'Параметры response_screen_m10: {black}-{white} {lang} {oem} {psm} {len(image_bytes)}b')
-        char_whitelist = '+- :;*•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+        #char_whitelist = '+- :;*•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
         first_stoke = response_text_from_image(image_bytes, y_start=4, y_end=10, x_start=10, x_end=100,
                                                black=black, white=white,
                                                oem=oem, psm=psm, lang=lang, strip=False,
-                                               char_whitelist=char_whitelist).strip()
+                                               char_whitelist=None).strip()
         amount = response_text_from_image(image_bytes, y_start=12, y_end=29,
                                                black=black, white=white,
                                                oem=oem, psm=psm, lang=lang, strip=False,

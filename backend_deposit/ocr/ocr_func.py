@@ -59,6 +59,7 @@ def bytes_to_str(file_bytes, black=160, white=255, lang='rus'):
         # pytesseract.pytesseract.tesseract_cmd = r'/usr/local/bin/pytesseract'
         nparr = np.frombuffer(file_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+        img = img[100:, :]
         _, binary = cv2.threshold(img, black, white, cv2.THRESH_BINARY)
         string = pytesseract.image_to_string(binary, lang=lang, config='--oem 1', timeout=10)
         # string = pytesseract.image_to_string(binary, lang=lang)
