@@ -730,27 +730,6 @@ def check_sms(request):
 @staff_member_required(login_url='users:login')
 def check_screen(request):
     # Проверка шаблона sms
-    logger.debug('Тест')
-    incoming = Incoming.objects.get(pk=40)
-    # tasks.send_screen_to_payment.delay(incoming.id)
-    data = {
-        'recipient': incoming.recipient,
-        'sender': incoming.sender,
-        'pay': incoming.pay,
-        'transaction': incoming.transaction,
-        'response_date': incoming.transaction,
-        'type': incoming.type,
-        'worker': 'copy from Deposite2'
-    }
-    try:
-        retries = Retry(total=5, backoff_factor=3, status_forcelist=[404, 500, 502, 503, 504])
-        http = PoolManager(retries=retries)
-        response = http.request('POST', url=f'https://asu-payme2.com/create_copy_screen/', json=data
-        )
-        print(response)
-    except Exception as err:
-        logger.error(err)
-
     context = {}
     template = 'deposit/check_screen.html'
     form = CheckScreenForm(request.POST)

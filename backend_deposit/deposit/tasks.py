@@ -164,7 +164,7 @@ def send_screen_to_payment(incoming_id):
         'sender': incoming.sender,
         'pay': incoming.pay,
         'transaction': incoming.transaction,
-        'response_date': incoming.transaction,
+        'response_date': str(incoming.response_date),
         'type': incoming.type,
         'worker': 'copy from Deposite2'
     }
