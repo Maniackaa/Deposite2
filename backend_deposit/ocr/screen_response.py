@@ -46,5 +46,5 @@ def screen_text_to_pay(text):
             # errors = responsed_pay.pop('errors')
             # status = responsed_pay.pop('status')
             break
-    responsed_pay['sender'] = ''.join([x for x in responsed_pay['sender'] if x.isdigit() or x in ['+']])
+    responsed_pay['sender'] = ''.join([x for x in responsed_pay.get('sender', '') if x.isdigit() or x in ['+']])
     return responsed_pay
