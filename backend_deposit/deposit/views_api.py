@@ -70,7 +70,7 @@ def screen_new(request: Request):
         info = response_text_from_image(image_bytes, y_start=29, y_end=70,
                                         black=black, white=white,
                                         oem=oem, psm=4, lang=lang, strip=False,
-                                        char_whitelist=char_whitelist).strip()
+                                        char_whitelist=None).strip()
         logger.debug(f'convert_atb_value: {convert_atb_value(amount)}')
         text = f'first: {first_stoke}\namount: {amount}\n{info}'
         logger.debug(f'Распознан текст: {text}')
