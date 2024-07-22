@@ -91,6 +91,14 @@ DATABASES = {
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', ''),
         'PORT': os.getenv('DB_PORT', 5432)
+    },
+    'payment': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('PAYMENT_POSTGRES_DB', 'django'),
+        'USER': os.getenv('PAYMENT_POSTGRES_USER', 'django'),
+        'PASSWORD': os.getenv('PAYMENT_POSTGRES_PASSWORD', ''),
+        'HOST': os.getenv('PAYMENT_DB_HOST', ''),
+        'PORT': os.getenv('PAYMENT_DB_PORT', 5432)
     }
 }
 
@@ -322,15 +330,13 @@ PAGINATE = 100
 USE_THOUSAND_SEPARATOR = True
 
 # Celery settings
-# REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
-# REDIS_PORT = os.getenv('REDIS_PORT')
-# REDIS_URL = os.getenv('REDIS_URL')
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')
 CELERY_TIMEZONE = TIME_ZONE
-# CELERYD_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_work.log")
+CELERYD_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_work.log")
 CELERYBEAT_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_beat.log")
 CELERYD_HIJACK_ROOT_LOGGER = False
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 # CELERY_BEAT_SCHEDULE = {
 #     "check_macros": {
 #         "task": "deposit.tasks.check_macros",

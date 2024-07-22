@@ -8,6 +8,8 @@ import numpy as np
 import pytesseract
 import pytz
 import requests
+import structlog
+
 from backend_deposit.settings import TIME_ZONE
 
 from backend_deposit import settings
@@ -15,7 +17,7 @@ from deposit.models import Deposit, Incoming, SITE_VAR
 from ocr.text_response_func import date_response
 
 TZ = pytz.timezone(TIME_ZONE)
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger('root')
 
 
 def get_unrecognized_field_error_text(response_fields, result):

@@ -32,6 +32,9 @@ class IncomingCheckFilter(django_filters.FilterSet):
     create_at = django_filters.DateFilter(label='Дата проверки', field_name='create_at', lookup_expr='contains',
                                           widget=MyDateInput({'class': 'form-control'}))
 
+    def with_delta(self, queryset, name, value):
+        return queryset.filter(delta__gt=0)
+
     @property
     def qs(self):
         parent = super(IncomingCheckFilter, self).qs

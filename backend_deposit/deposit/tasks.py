@@ -2,11 +2,12 @@ import asyncio
 import datetime
 import time
 
+import requests
 import structlog
 from celery import shared_task
 
 from django.conf import settings
-
+from urllib3 import Retry, PoolManager
 
 from core.global_func import send_message_tg
 from deposit.models import *
@@ -99,29 +100,29 @@ def check_incoming(pk, count=0):
             incoming_check.save()
             pay_incoming = incoming_check.incoming.pay
             text_incoming = f'Проверка платежа {incoming_check.incoming.id} на сумму {pay_incoming} azn.\nCheck №{pk} birpay_id: {incoming_check.birpay_id}:\n'
-
+            delta = round(pay_incoming - pay_birpay, 2)
             if status == 0:
                 if pay_incoming == pay_birpay:
                     # Не подтвержден. Сумма равна
                     msg = f'{text_incoming}<b>Статус 0</b>'
                 elif pay_birpay < pay_incoming:
                     # Не подтвержден. Пришло больше чем нужно
-                    msg = f'{text_incoming}<b>Статус 0. Пришло {pay_incoming} azn вместо {pay_birpay} azn (на {pay_incoming - pay_birpay} больше)</b>'
+                    msg = f'{text_incoming}<b>Статус 0. Пришло {pay_incoming} azn вместо {pay_birpay} azn (на {delta} больше)</b>'
                 else:
                     # Не подтвержден. Пришло меньше чем нужно
-                    msg = f'{text_incoming}<b>Статус 0. Пришло {pay_incoming} azn вместо {pay_birpay} azn (на {pay_birpay - pay_incoming} меньше)</b>'
+                    msg = f'{text_incoming}<b>Статус 0. Пришло {pay_incoming} azn вместо {pay_birpay} azn (на {-delta} меньше)</b>'
             elif status == -1:
                 # Пришло больше
                 if pay_incoming > pay_birpay:
-                    msg = f'{text_incoming}<b>Статус -1. Лишние {pay_incoming - pay_birpay} azn<>'
+                    msg = f'{text_incoming}<b>Статус -1. Лишние {delta} azn<>'
             elif status == 1:
                 # Подтвержден
                 if pay_birpay > pay_incoming:
                     # Пришло меньше
-                    msg = f'{text_incoming}<b>Статус 1. Не хватает {pay_birpay - pay_incoming} azn {operator}</b>'
+                    msg = f'{text_incoming}<b>Статус 1. Не хватает {delta} azn {operator}</b>'
                 elif pay_birpay < pay_incoming:
                     # Пришло больше
-                    msg = f'{text_incoming}<b>Статус 1. Лишние {pay_incoming - pay_birpay} azn {operator}</b>'
+                    msg = f'{text_incoming}<b>Статус 1. Лишние {delta} azn {operator}</b>'
             else:
                 msg = f'{text_incoming}<b>Неизвестный статус {status}</b>'
 
@@ -150,3 +151,28 @@ def test_task(pk, count=0):
         if count < 5:
             count += 1
             test_task.apply_async(kwargs={'pk': 100, 'count': count}, countdown=3)
+
+
+@shared_task(priority=1)
+def send_screen_to_payment(incoming_id):
+    # Отправка копии скрина в смс Payment
+    Incoming = apps.get_model('deposit', 'Incoming')
+    logger.debug(f'Отправка копии скрина в смс Payment: {incoming_id}')
+    incoming: Incoming = Incoming.objects.get(pk=incoming_id)
+    data = {
+        'recipient': incoming.recipient,
+        'sender': incoming.sender,
+        'pay': incoming.pay,
+        'transaction': incoming.transaction,
+        'response_date': incoming.transaction,
+        'type': incoming.type,
+        'worker': 'copy from Deposite2'
+    }
+    try:
+        retries = Retry(total=5, backoff_factor=3, status_forcelist=[500, 502, 503, 504])
+        http = PoolManager(retries=retries)
+        response = http.request('POST', url=f'https://asu-payme.com/create_copy_screen/', json=data
+        )
+        logger.debug(f'response: {response}')
+    except Exception as err:
+        logger.error(err)

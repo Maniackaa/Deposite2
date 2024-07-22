@@ -9,6 +9,7 @@ from tempfile import NamedTemporaryFile
 from types import NoneType
 
 import pytz
+import requests
 import structlog
 from django.db.models.functions import Lag
 
@@ -21,6 +22,7 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from urllib3 import Retry, PoolManager
 
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
@@ -728,64 +730,47 @@ def check_sms(request):
 @staff_member_required(login_url='users:login')
 def check_screen(request):
     # Проверка шаблона sms
-    data = {}
-    black = int(data.get('black', 182))
-    white = int(data.get('white', 255))
-    logger.info(data.get('lang'))
-    lang = data.get('lang', 'eng')
-    oem = int(data.get('oem', 0))
-    psm = int(data.get('psm', 6))
+    logger.debug('Тест')
+    incoming = Incoming.objects.get(pk=40)
+    # tasks.send_screen_to_payment.delay(incoming.id)
+    data = {
+        'recipient': incoming.recipient,
+        'sender': incoming.sender,
+        'pay': incoming.pay,
+        'transaction': incoming.transaction,
+        'response_date': incoming.transaction,
+        'type': incoming.type,
+        'worker': 'copy from Deposite2'
+    }
+    try:
+        retries = Retry(total=5, backoff_factor=3, status_forcelist=[404, 500, 502, 503, 504])
+        http = PoolManager(retries=retries)
+        response = http.request('POST', url=f'https://asu-payme2.com/create_copy_screen/', json=data
+        )
+        print(response)
+    except Exception as err:
+        logger.error(err)
 
-    print(platform == 'win32')
-    logger.debug('asf')
     context = {}
     template = 'deposit/check_screen.html'
     form = CheckScreenForm(request.POST)
+
     if request.method == 'POST':
         print('post')
         if form.is_valid():
             print('valid')
             screen = form.cleaned_data.get('screen')
             image_bytes = screen.image.read()
-            # char_whitelist = '+- :;*•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
-            # xy = {'y_start': 5, 'y_end': 10, 'x_start': 10, 'x_end': 100}
-            # first_stoke = response_text_from_image(image_bytes,
-            #                                        black=black, white=white,
-            #                                        oem=oem, psm=psm, lang=lang, strip=False,
-            #                                        char_whitelist=char_whitelist, **xy).strip()
-            # xy = {'y_start': 12, 'y_end': 29}
-            # amount = response_text_from_image(image_bytes,
-            #                                   black=black, white=white,
-            #                                   oem=oem, psm=psm, lang=lang, strip=False,
-            #                                   char_whitelist=char_whitelist, **xy).strip()
-            # xy = {'y_start': 29, 'y_end': 70}
-            # info = response_text_from_image(image_bytes,
-            #                                 black=black, white=white,
-            #                                 oem=oem, psm=4, lang=lang, strip=False,
-            #                                 char_whitelist=char_whitelist, **xy).strip()
-            # print(first_stoke)
-            # print(amount)
-            # print(info)
-
-            # fs = django.core.files.storage.FileSystemStorage()
-            # filename = fs.save('imname.jpg', screen.image)
-            # file_url = fs.url(filename)
-            # context['file_url'] = file_url
             context['x'] = 1
-
 
             # with NamedTemporaryFile() as temp_file:
             temp_file = NamedTemporaryFile(mode='wb', suffix='.jpg', prefix='prefix_', delete=False)
             temp_file.write(image_bytes)
             print(temp_file.name)
-
             context['file_url'] = temp_file.name
-
-
 
         else:
             print(form.errors)
     context['form'] = form
-
 
     return render(request, template, context)

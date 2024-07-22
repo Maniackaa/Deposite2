@@ -11,6 +11,7 @@ from rest_framework.request import Request
 
 from backend_deposit.settings import TIME_ZONE
 from core.global_func import send_message_tg
+from deposit import tasks
 from ocr.ocr_func import bytes_to_str, make_after_incoming_save, response_text_from_image
 from deposit.models import BadScreen, Incoming, TrashIncoming, Setting
 from ocr.screen_response import screen_text_to_pay
@@ -138,9 +139,13 @@ def screen_new(request: Request):
                 # Логика после сохранения
                 make_after_incoming_save(new_incoming)
 
+                # ОТправляем копию в Payment
+                tasks.send_screen_to_payment.delay(new_incoming.id)
+
                 # Сохраняем в базу-бота телеграм:
                 # logger.debug(f'Пробуем сохранить в базу бота: {new_incoming}')
                 # add_incoming_from_asu_to_bot_db(new_incoming)
+
 
                 return HttpResponse(status=status.HTTP_201_CREATED,
                                     reason='created',
