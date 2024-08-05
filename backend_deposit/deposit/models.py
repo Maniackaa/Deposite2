@@ -62,7 +62,7 @@ class Incoming(models.Model):
     balance = models.FloatField('Баланс', null=True, blank=True)
     transaction = models.BigIntegerField('Транзакция', null=True, unique=True, blank=True)
     type = models.CharField(max_length=20, default='unknown')
-    worker = models.CharField(max_length=50, null=True, default='manual')
+    worker = models.CharField(max_length=50, null=True,blank=True, default='manual')
     image = models.ImageField(upload_to='screens/',
                               verbose_name='скрин', null=True, blank=True)
     birpay_confirm_time = models.DateTimeField('Время подтверждения', null=True, blank=True)
