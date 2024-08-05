@@ -132,3 +132,8 @@ class Profile(models.Model):
     class Meta:
         verbose_name = "Профиль пользователя"
         verbose_name_plural = "Профили пользователей"
+        permissions = [
+            ("base2", "Только база 2"),
+            ("all_base", "Все базы"),
+            # ("can_see_bad_warning", "Видит уведомления о новых BadScreen"),
+        ]

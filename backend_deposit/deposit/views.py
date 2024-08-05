@@ -216,11 +216,6 @@ def deposit_edit(request, pk):
     return render(request, template, context)
 
 
-class ShowDeposit(DetailView):
-    model = Deposit
-    template_name = 'deposit/deposit_edit.html'
-
-
 @staff_member_required(login_url='users:login')
 def incoming_list(request):
     # Список всех платежей и сохранение birpay
@@ -258,16 +253,41 @@ def incoming_list(request):
             return redirect('deposit:incomings')
 
     template = 'deposit/incomings_list.html'
-    incoming_q = Incoming.objects.raw(
-    """
-    SELECT *,
-    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
-    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
-    FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
-    ORDER BY deposit_incoming.id DESC LIMIT 5000;
-    """
-    )
-    last_id = Incoming.objects.order_by('id').last()
+    logger.info(request.user.has_perm('users.base2'))
+    if request.user.has_perm('users.base2') and not request.user.has_perm('users.all_base'):
+        incoming_q = Incoming.objects.raw(
+            """
+            SELECT *,
+            LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
+            LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
+            FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+            WHERE worker = 'base2'
+            ORDER BY deposit_incoming.id DESC LIMIT 5000;
+            """
+        )
+        last_id = Incoming.objects.filter(worker='base2').order_by('id').last()
+    elif not request.user.has_perm('users.base2') and not request.user.has_perm('users.all_base'):
+        incoming_q = Incoming.objects.raw(
+        """
+        SELECT *,
+        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
+        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
+        FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+        WHERE worker != 'base2'
+        ORDER BY deposit_incoming.id DESC LIMIT 5000;
+        """)
+        last_id = Incoming.objects.exclude(worker='base2').order_by('id').last()
+    else:
+        incoming_q = Incoming.objects.raw(
+        """
+        SELECT *,
+        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
+        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
+        FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+        ORDER BY deposit_incoming.id DESC LIMIT 5000;
+        """)
+        last_id = Incoming.objects.order_by('id').last()
+
     if last_id:
         last_id = last_id.id
     # last_bad = BadScreen.objects.order_by('-id').first()
@@ -276,62 +296,6 @@ def incoming_list(request):
     context = {'page_obj': make_page_obj(request, incoming_q),
                'last_id': last_id,
                'last_bad_id': last_bad_id}
-    return render(request, template, context)
-
-
-@staff_member_required(login_url='users:login')
-def incoming_list2(request):
-    # Список всех платежей и сохранение birpay
-    if request.method == "POST":
-        input_name = list(request.POST.keys())[1]
-        pk, options = list(request.POST.keys())[1].split('-')
-        value = request.POST.get(input_name) or ''
-        incoming = Incoming.objects.get(pk=pk)
-        if isinstance(incoming.birpay_id, NoneType):
-            incoming.birpay_id = value
-            incoming.birpay_confirm_time = datetime.datetime.now(tz=pytz.timezone(settings.TIME_ZONE))
-            incoming.save()
-            #Сохраняем историю
-            new_history = IncomingChange(
-                incoming=incoming,
-                user=request.user,
-                val_name='birpay_id',
-                new_val=value
-            )
-            new_history.save()
-
-        if 'filter' in options:
-            return redirect('deposit:incomings_filter')
-        else:
-            return redirect('deposit:incomings')
-
-    template = 'deposit/incomings_list.html'
-    # incoming_q = Incoming.objects.order_by('-id').all()
-    # incoming_q = Incoming.objects.raw(
-    #     "with t1 as (SELECT * FROM deposit_colorbank) "
-    #                                       "SELECT * FROM deposit_incoming LEFT JOIN t1 ON t1.name = deposit_incoming.sender"
-    #                                       " ORDER BY deposit_incoming.id DESC;")
-
-    incoming_q = Incoming.objects.raw(
-    """
-    SELECT *,
-    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by register_date desc, deposit_incoming.response_date desc) as prev_balance,
-    LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by register_date desc, deposit_incoming.response_date desc) + pay as check_balance
-    FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
-    ORDER BY deposit_incoming.id DESC;
-    """
-    )
-
-    last_id = Incoming.objects.order_by('id').last()
-    if last_id:
-        last_id = last_id.id
-    # last_bad = BadScreen.objects.order_by('-id').first()
-    last_bad = Message.objects.filter(type='macros').order_by('-id').first()
-    last_bad_id = last_bad.id if last_bad else last_bad
-    context = {'page_obj': make_page_obj(request, incoming_q),
-               'last_id': last_id,
-               'last_bad_id': last_bad_id
-               }
     return render(request, template, context)
 
 
@@ -349,6 +313,11 @@ class IncomingEmpty(ListView):
             prev_balance=Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'balance', 'id']),
             check_balance=F('pay') + Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'balance', 'id']),
         ).order_by('-id').all()
+        if not self.request.user.has_perm('users.all_base'):
+            if self.request.user.has_perm('users.base2'):
+                empty_incoming = empty_incoming.filter(worker='base2')
+            else:
+                empty_incoming = empty_incoming.exclude(worker='base2')
         return empty_incoming
 
 
@@ -401,16 +370,26 @@ class IncomingFiltered(ListView):
         user_filter3 = self.request.user.profile.my_filter3
         user_filter.extend(user_filter2)
         user_filter.extend(user_filter3)
-        filtered_incoming = Incoming.objects.raw(
-        """
-        SELECT *,
-        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
-        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
-        FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
-        WHERE deposit_incoming.recipient = ANY(%s)
-        ORDER BY deposit_incoming.id DESC
-        """, [user_filter])
-
+        if self.request.user.has_perm('users.base2'):
+            filtered_incoming = Incoming.objects.raw(
+            """
+            SELECT *,
+            LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
+            LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
+            FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+            WHERE deposit_incoming.recipient = ANY(%s) and deposit_incoming.worker = 'base2' 
+            ORDER BY deposit_incoming.id DESC
+            """, [user_filter])
+        else:
+            filtered_incoming = Incoming.objects.raw(
+                """
+                SELECT *,
+                LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
+                LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
+                FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+                WHERE deposit_incoming.recipient = ANY(%s) and deposit_incoming.worker != 'base2' 
+                ORDER BY deposit_incoming.id DESC
+                """, [user_filter])
         # filtered_incoming = Incoming.objects.filter(
         #     recipient__in=user_filter).order_by('-id').all()
         return filtered_incoming
@@ -495,6 +474,12 @@ class IncomingSearch(ListView):
             all_incoming = all_incoming.filter(pay=pay)
         if not begin0 and not end0 and not only_empty and not pay:
             return all_incoming[:0]
+        if self.request.user.has_perm('users.base2'):
+            print('users.base2')
+            all_incoming = all_incoming.filter(worker='base2')
+        else:
+            print('not users.base2')
+            all_incoming = all_incoming.exclude(worker='base2')
         return all_incoming
 
     def get_context_data(self, **kwargs):
@@ -532,6 +517,10 @@ class IncomingTrashList(ListView):
         if not self.request.user.is_staff:
             raise PermissionDenied('Недостаточно прав')
         trash_list = TrashIncoming.objects.order_by('-id').all()
+        if self.request.user.has_perm('users.base2'):
+            trash_list = trash_list.filter(worker='base2')
+        else:
+            trash_list = trash_list.exclude(worker='base2')
         return trash_list
 
 
@@ -567,7 +556,15 @@ class IncomingEdit(UpdateView, ):
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
-        return super().get(request, *args, **kwargs)
+        if request.user.has_perm('users.all_base'):
+            return super().get(request, *args, **kwargs)
+        user = self.request.user
+        is_base2_perm = user.has_perm('users.base2')
+        worker = self.object.worker
+        if worker == 'base2' and is_base2_perm or worker != 'base2' and not is_base2_perm:
+            return super().get(request, *args, **kwargs)
+        else:
+            return HttpResponseForbidden('Не ваша база')
 
     def post(self, request, *args, **kwargs):
         if request.user.has_perm('deposit.can_hand_edit'):
@@ -608,7 +605,15 @@ class ColorBankCreate(CreateView):
 
 def get_last(request):
     """Функция поиска последнего id Incoming и последнего id Message/macros для javascript"""
+    print('get_last')
+    print(request.user)
     all_incomings = Incoming.objects.order_by('id').all()
+    if request.user.has_perm('users.base2'):
+        all_incomings=all_incomings.filter(worker='base2')
+        print(all_incomings)
+    else:
+        all_incomings= all_incomings.exclude(worker='base2')
+
     user_filter = request.GET.get('filter')
     # print('user_filter:', user_filter)
     if user_filter:
@@ -634,6 +639,8 @@ def get_last(request):
 @staff_member_required(login_url='users:login')
 def get_stats(request):
     # Статистика по времени поступления платежа
+    if not request.user.is_superuser:
+        raise PermissionDenied('Недостаточно прав')
 
     template = 'deposit/stats.html'
     page_obj = bad_incomings()
@@ -647,6 +654,8 @@ def get_stats(request):
 @staff_member_required(login_url='users:login')
 def get_stats2(request):
     # Статистика по времени подтверждения платежа
+    if not request.user.is_superuser:
+        raise PermissionDenied('Недостаточно прав')
     template = 'deposit/stats2.html'
     page_obj = bad_incomings()
     cards = cards_report()

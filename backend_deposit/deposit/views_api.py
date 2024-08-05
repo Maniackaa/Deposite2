@@ -380,7 +380,7 @@ def response_sms_template(text):
     return responsed_pay
 
 
-def analyse_sms_text_and_save(text, imei, sms_id, *args, **kwargs):
+def analyse_sms_text_and_save(text, imei, sms_id, worker, *args, **kwargs):
     errors = []
     patterns = {
         'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
@@ -461,12 +461,12 @@ def analyse_sms_text_and_save(text, imei, sms_id, *args, **kwargs):
             msg = f'Дубликат sms:\n\n{text}'
             send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
         else:
-            created = Incoming.objects.create(**responsed_pay, worker=imei)
+            created = Incoming.objects.create(**responsed_pay, worker=worker or imei)
             logger.info(f'Создан: {created}')
 
     else:
         logger.info(f'Неизвестный шаблон\n{text}')
-        new_trash = TrashIncoming.objects.create(text=text, worker=imei)
+        new_trash = TrashIncoming.objects.create(text=text, worker=worker or imei)
         logger.info(f'Добавлено в мусор: {new_trash}')
     return {'response': HttpResponse(sms_id), 'errors': errors}
 
@@ -495,7 +495,8 @@ def sms(request: Request):
         print(repr(text))
         sms_id = post.get('id')
         imei = post.get('imei')
-        result = analyse_sms_text_and_save(text, imei, sms_id)
+        worker = request.data.get('worker')
+        result = analyse_sms_text_and_save(text, imei, sms_id, worker)
         response = result.get('response')
         errors = result.get('errors')
         return response
@@ -532,7 +533,8 @@ def sms_forwarder(request: Request):
         text = post.get('message').replace('\r\n', '\n')
         sms_id = post.get('id')
         imei = post.get('imei')
-        result = analyse_sms_text_and_save(text, imei, sms_id)
+        worker = post.get('worker')
+        result = analyse_sms_text_and_save(text, imei, sms_id, worker)
         response = result.get('response')
         errors = result.get('errors')
         return response
