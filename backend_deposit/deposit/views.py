@@ -273,7 +273,6 @@ def incoming_list(request):
         LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
         LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
         FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
-        WHERE worker != 'base2'
         ORDER BY deposit_incoming.id DESC LIMIT 5000;
         """)
         last_id = Incoming.objects.exclude(worker='base2').order_by('id').last()
