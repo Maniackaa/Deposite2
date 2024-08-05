@@ -45,7 +45,7 @@
            <th>T на чеке</th>
            <th>Получатель</th>
            <th>Отправитель</th>
-         <th>Worker</th>>
+           <th>Worker</th>
            <th>Pay</th>
            <th>Б</th>
            <th>Тр-я</th>
@@ -69,7 +69,7 @@
             <td>{{ incoming.recipient }}</td>
 
             <td style="color: {{ incoming.color_font }}; background: {{ incoming.color_back }}">{{ incoming.sender }}</td>
-            {% if incoming.worker %}
+            {% if incoming.worker == 'base2' %}
              <td style="background-color: crimson">{{ incoming.worker }}</td>
             {% else %}
                 <td>{{ incoming.worker }}</td>

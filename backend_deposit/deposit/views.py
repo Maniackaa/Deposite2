@@ -439,17 +439,25 @@ class IncomingSearch(ListView):
         end1 = self.request.GET.get('end_1', '')
         only_empty = self.request.GET.get('only_empty', '')
         pay = self.request.GET.get('pay', 0)
-        pk = self.request.GET.get('pk', 1)
+        pk = self.request.GET.get('pk', 0)
         sort_by_sms_time = self.request.GET.get('sort_by_sms_time', 1)
         end_time = None
         tz = pytz.timezone(settings.TIME_ZONE)
         start_time = ''
+
         if pk:
             return Incoming.objects.filter(birpay_id__contains=pk)
+
         if sort_by_sms_time:
             all_incoming = Incoming.objects.order_by('-response_date').all()
         else:
             all_incoming = Incoming.objects.order_by('-id').all()
+
+        if not self.request.user.has_perm('users.all_base'):
+            if self.request.user.has_perm('users.base2'):
+                all_incoming = all_incoming.filter(worker='base2')
+            else:
+                all_incoming = all_incoming.exclude(worker='base2')
         if begin0:
             begin = f'{begin0 + " " + begin1}'.strip()
             start_time = datetime.datetime.fromisoformat(begin)
@@ -457,7 +465,6 @@ class IncomingSearch(ListView):
         if end0:
             end_time = datetime.datetime.fromisoformat(f'{end0 + " " + end1}'.strip())
             end_time = tz.localize(end_time)
-
         if search_in == 'response_date':
             if start_time:
                 all_incoming = all_incoming.filter(response_date__gte=start_time).all()
@@ -472,14 +479,10 @@ class IncomingSearch(ListView):
             all_incoming = all_incoming.filter(Q(birpay_id='') | Q(birpay_id=None))
         if pay:
             all_incoming = all_incoming.filter(pay=pay)
+
         if not begin0 and not end0 and not only_empty and not pay:
             return all_incoming[:0]
-        if self.request.user.has_perm('users.base2'):
-            print('users.base2')
-            all_incoming = all_incoming.filter(worker='base2')
-        else:
-            print('not users.base2')
-            all_incoming = all_incoming.exclude(worker='base2')
+
         return all_incoming
 
     def get_context_data(self, **kwargs):
@@ -517,10 +520,10 @@ class IncomingTrashList(ListView):
         if not self.request.user.is_staff:
             raise PermissionDenied('Недостаточно прав')
         trash_list = TrashIncoming.objects.order_by('-id').all()
-        if self.request.user.has_perm('users.base2'):
-            trash_list = trash_list.filter(worker='base2')
-        else:
-            trash_list = trash_list.exclude(worker='base2')
+        # if self.request.user.has_perm('users.base2'):
+        #     trash_list = trash_list.filter(worker='base2')
+        # else:
+        #     trash_list = trash_list.exclude(worker='base2')
         return trash_list
 
 
