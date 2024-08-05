@@ -149,14 +149,15 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
         if instance.cached_birpay_id != instance.birpay_id and instance.birpay_id:
             logger.info(f'Проверяем {instance.birpay_id}')
             incoming = Incoming.objects.get(pk=instance.pk)
-            user = get_current_authenticated_user()
-            new_check, _ = IncomingCheck.objects.get_or_create(
-                user=user,
-                incoming=incoming,
-                birpay_id=incoming.birpay_id,
-                pay_operator=incoming.pay)
-            logger.info(f'new_check: {new_check.id} {new_check}')
-            check_incoming.apply_async(kwargs={'pk': new_check.id, 'count': 0}, countdown=60)
+            if incoming.worker != 'base2':
+                user = get_current_authenticated_user()
+                new_check, _ = IncomingCheck.objects.get_or_create(
+                    user=user,
+                    incoming=incoming,
+                    birpay_id=incoming.birpay_id,
+                    pay_operator=incoming.pay)
+                logger.info(f'new_check: {new_check.id} {new_check}')
+                check_incoming.apply_async(kwargs={'pk': new_check.id, 'count': 0}, countdown=60)
     except Exception as err:
         logger.error(err)
 
