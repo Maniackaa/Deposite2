@@ -279,7 +279,7 @@ def incoming_list(request):
         ORDER BY deposit_incoming.id DESC LIMIT 5000;
         """)
         last_id = Incoming.objects.exclude(worker='base2').order_by('id').last()
-    elif request.user.has_perm('users.all_base'):
+    elif request.user.has_perm('users.all_base') or request.user.is_superuser:
         # support
         incoming_q = Incoming.objects.raw(
         """
@@ -624,10 +624,11 @@ def get_last(request):
     print(request.user)
     all_incomings = Incoming.objects.order_by('id').all()
     if request.user.has_perm('users.base2'):
-        all_incomings=all_incomings.filter(worker='base2')
-        print(all_incomings)
+        all_incomings = all_incomings.filter(worker='base2')
+    elif request.user.has_perm('users.all_base'):
+        pass
     else:
-        all_incomings= all_incomings.exclude(worker='base2')
+        all_incomings = all_incomings.exclude(worker='base2')
 
     user_filter = request.GET.get('filter')
     # print('user_filter:', user_filter)
