@@ -255,6 +255,7 @@ def incoming_list(request):
     template = 'deposit/incomings_list.html'
     logger.info(request.user.has_perm('users.base2'))
     if request.user.has_perm('users.base2') and not request.user.has_perm('users.all_base'):
+        # Опер базы2
         incoming_q = Incoming.objects.raw(
             """
             SELECT *,
@@ -267,16 +268,19 @@ def incoming_list(request):
         )
         last_id = Incoming.objects.filter(worker='base2').order_by('id').last()
     elif not request.user.has_perm('users.base2') and not request.user.has_perm('users.all_base'):
+        # Опер базы не 2
         incoming_q = Incoming.objects.raw(
         """
         SELECT *,
         LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
         LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
         FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+        WHERE worker != 'base2'
         ORDER BY deposit_incoming.id DESC LIMIT 5000;
         """)
         last_id = Incoming.objects.exclude(worker='base2').order_by('id').last()
-    else:
+    elif request.user.has_perm('users.all_base'):
+        # support
         incoming_q = Incoming.objects.raw(
         """
         SELECT *,
