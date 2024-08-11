@@ -18,7 +18,7 @@ from ocr.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
 from ocr.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
     response_sms6, response_sms7, response_sms8, response_sms9, response_sms10, response_sms11, response_sms12, \
-    response_sms13, response_sms14, response_sms15
+    response_sms13, response_sms14, response_sms15, response_sms16
 from ocr.views_api import convert_atb_value
 
 logger = logging.getLogger(__name__)
@@ -326,45 +326,49 @@ def screen(request: Request):
                             charset='utf-8')
 
 
+patterns = {
+    'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
+    # 'sms2': r'.*Mebleg:(.+) AZN.*\nKart:(.*)\nTarix:(.*)\nMerchant:(.*)\nBalans:(.*) .*',
+    # 'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*Kart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
+    'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*.*\n*.*\nKart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
+    'sms3': r'^.+[medaxil|mexaric] (.+?) AZN (.*)(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+Balance: (.+?) AZN.*',
+    'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
+    'sms5': r'.*Mebleg:(.+) AZN.*\n.*(\*\*\*.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
+    'sms6': r'.*Mebleg:(.+) AZN.*\nHesaba medaxil: (.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
+    'sms7': r'(.+) AZN.*\n(.+)\nBalans (.+) AZN\nKart:(.+)',
+    'sms8': r'.*Mebleg: (.+) AZN.*Merchant: (.*)\sBalans: (.*) AZN',
+    'sms9': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*)AZN',
+    'sms10': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil (.*) AZN\nBALANCE\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)',
+    'sms11': r'Odenis\n(.*) AZN \n(.*\n.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
+    'sms12': r'(\d\d\.\d\d\.\d\d \d\d:\d\d)(.*)AZ Card: (.*) amount:(.*)AZN.*Balance:(.*)AZN',
+    # 'sms13': r'Odenis:(.*) AZN (.*) (\d\d\d\d\*\*\d\d\d\d) (\d\d:\d\d \d\d\.\d\d.\d\d) BALANCE (.*) AZN',
+    'sms13': r'Odenis: (.*) AZN\n(.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
+    'sms14': r'^.+[medaxil|mexaric]: (.+?) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
+    'sms15': r'Medaxil C2C: (.+?) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
+    'sms16': r'.*Summa:\s*(.*?) AZN.*\n*.*\n*.*\nKarta:(.*)\n*Data:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*'
+
+}
+response_func = {
+    'sms1': response_sms1,
+    'sms2': response_sms2,
+    'sms3': response_sms3,
+    'sms4': response_sms4,
+    'sms5': response_sms5,
+    'sms6': response_sms6,
+    'sms7': response_sms7,
+    'sms8': response_sms8,
+    'sms9': response_sms9,
+    'sms10': response_sms10,
+    'sms11': response_sms11,
+    'sms12': response_sms12,
+    'sms13': response_sms13,
+    'sms14': response_sms14,
+    'sms15': response_sms15,
+    'sms16': response_sms16,
+}
+
+
 def response_sms_template(text):
-    patterns = {
-        'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
-        # 'sms2': r'.*Mebleg:(.+) AZN.*\nKart:(.*)\nTarix:(.*)\nMerchant:(.*)\nBalans:(.*) .*',
-        'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*Kart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
-        'sms3': r'^.+[medaxil|mexaric] (.+?) AZN (.*)(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+Balance: (.+?) AZN.*',
-        'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
-        'sms5': r'.*Mebleg:(.+) AZN.*\n.*(\*\*\*.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
-        'sms6': r'.*Mebleg:(.+) AZN.*\nHesaba medaxil: (.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
-        'sms7': r'(.+) AZN.*\n(.+)\nBalans (.+) AZN\nKart:(.+)',
-        'sms8': r'.*Mebleg: (.+) AZN.*Merchant: (.*)\sBalans: (.*) AZN',
-        'sms9': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*)AZN',
-        'sms10': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil (.*) AZN\nBALANCE\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)',
-        'sms11': r'Odenis\n(.*) AZN \n(.*\n.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
-        'sms12': r'(\d\d\.\d\d\.\d\d \d\d:\d\d)(.*)AZ Card: (.*) amount:(.*)AZN.*Balance:(.*)AZN',
-        # 'sms13': r'Odenis:(.*) AZN (.*) (\d\d\d\d\*\*\d\d\d\d) (\d\d:\d\d \d\d\.\d\d.\d\d) BALANCE (.*) AZN',
-        'sms13': r'Odenis: (.*) AZN\n(.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
-        'sms14': r'^.+[medaxil|mexaric]: (.+?) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
-        'sms15': r'Medaxil C2C: (.+?) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*'
-
-    }
-    response_func = {
-        'sms1': response_sms1,
-        'sms2': response_sms2,
-        'sms3': response_sms3,
-        'sms4': response_sms4,
-        'sms5': response_sms5,
-        'sms6': response_sms6,
-        'sms7': response_sms7,
-        'sms8': response_sms8,
-        'sms9': response_sms9,
-        'sms10': response_sms10,
-        'sms11': response_sms11,
-        'sms12': response_sms12,
-        'sms13': response_sms13,
-        'sms14': response_sms14,
-        'sms15': response_sms15,
-
-    }
     fields = ['response_date', 'recipient', 'sender', 'pay', 'balance',
               'transaction', 'type']
     text_sms_type = ''
@@ -382,44 +386,6 @@ def response_sms_template(text):
 
 def analyse_sms_text_and_save(text, imei, sms_id, worker, *args, **kwargs):
     errors = []
-    patterns = {
-        'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
-        # 'sms2': r'.*Mebleg:(.+) AZN.*\nKart:(.*)\nTarix:(.*)\nMerchant:(.*)\nBalans:(.*) .*',
-        'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*Kart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
-        'sms3': r'^.+[medaxil|mexaric] (.+?) AZN (.*)(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+Balance: (.+?) AZN.*',
-        'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
-        'sms5': r'.*Mebleg:(.+) AZN.*\n.*(\*\*\*.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
-        'sms6': r'.*Mebleg:(.+) AZN.*\nHesaba medaxil: (.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
-        'sms7': r'(.+) AZN.*\n(.+)\nBalans (.+) AZN\nKart:(.+)',
-        'sms8': r'.*Mebleg: (.+) AZN.*Merchant: (.*)\sBalans: (.*) AZN',
-        'sms9': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*)AZN',
-        'sms10': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil (.*) AZN\nBALANCE\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)',
-        'sms11': r'Odenis\n(.*) AZN \n(.*\n.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
-        'sms12': r'(\d\d\.\d\d\.\d\d \d\d:\d\d)(.*)AZ Card: (.*) amount:(.*)AZN.*Balance:(.*)AZN',
-        # 'sms13': r'Odenis:(.*) AZN (.*) (\d\d\d\d\*\*\d\d\d\d) (\d\d:\d\d \d\d\.\d\d.\d\d) BALANCE (.*) AZN',
-        'sms13': r'Odenis: (.*) AZN\n(.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
-        'sms14': r'^.+[medaxil|mexaric]: (.+?) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
-        'sms15': r'Medaxil C2C: (.+?) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*'
-
-    }
-    response_func = {
-        'sms1': response_sms1,
-        'sms2': response_sms2,
-        'sms3': response_sms3,
-        'sms4': response_sms4,
-        'sms5': response_sms5,
-        'sms6': response_sms6,
-        'sms7': response_sms7,
-        'sms8': response_sms8,
-        'sms9': response_sms9,
-        'sms10': response_sms10,
-        'sms11': response_sms11,
-        'sms12': response_sms12,
-        'sms13': response_sms13,
-        'sms14': response_sms14,
-        'sms15': response_sms15,
-
-    }
     fields = ['response_date', 'recipient', 'sender', 'pay', 'balance',
               'transaction', 'type']
     text_sms_type = ''

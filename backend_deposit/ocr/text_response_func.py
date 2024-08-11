@@ -466,3 +466,30 @@ def response_sms15(fields, groups) -> dict[str, str | float]:
     except Exception as err:
         err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
         raise err
+
+
+def response_sms16(fields, groups) -> dict[str, str | float]:
+    """
+    Uspeshnaya tranzakciya
+    Summa:2.00 AZN
+    Karta:5462*6164
+    Data:11/08/24 17:28:03
+    Merchant:www.birbank.az
+    Balans:7.10 AZN
+    :param fields: ['response_date', 'recipient', 'sender', 'pay', 'balance', 'transaction', 'type']
+    :return: dict[str, str | float]
+    """
+    response_fields = {
+        'response_date':    {'pos': 2, 'func': date_response},
+        'recipient':           {'pos': 1},
+        'sender':             {'pos': 3},
+        'pay':              {'pos': 0, 'func': float_digital},
+        'balance':          {'pos': 4, 'func': float_digital},
+    }
+    sms_type = 'sms16'
+    try:
+        result = response_operations(fields, groups, response_fields, sms_type)
+        return result
+    except Exception as err:
+        err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
+        raise err
