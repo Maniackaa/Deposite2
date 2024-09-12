@@ -18,7 +18,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import F, Q, OuterRef, Window, Exists, Value
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -246,6 +246,8 @@ def incoming_list(request):
                 new_val=value
             )
             new_history.save()
+        else:
+            return HttpResponseBadRequest('Уже отработана')
 
         if 'filter' in options:
             return redirect('deposit:incomings_filter')
