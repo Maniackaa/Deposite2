@@ -22,17 +22,20 @@ urlpatterns = [
     path('deposits_pending/', views.deposits_list_pending, name='deposits_pending'),
     path('deposits/<int:pk>/', views.deposit_edit, name='deposit_edit'),
 
-    path('screen/', views_api.screen, name='screen'),
+    path('screen/', views_api.screen_new, name='screen'),
+    # path('screen_new/', views_api.screen_new, name='screen_new'),
     path('sms/', views_api.sms, name='sms'),
+    path('sms_forwarder/', views_api.sms_forwarder, name='sms_forwarder'),
 
     path('incomings/', views.incoming_list, name='incomings'),
-    path('incomings2/', views.incoming_list2, name='incomings2'),
     path('incomings/<int:pk>/', views.IncomingEdit.as_view(), name='incoming_edit'),
 
     path('incomings_empty/', views.IncomingEmpty.as_view(), name='incomings_empty'),
     path('incomings_filter/', views.IncomingFiltered.as_view(), name='incomings_filter'),
     path('my_filter/', views.my_filter, name='my_filter'),
     path('incomings_search/', views.IncomingSearch.as_view(), name='incomings_search'),
+    path('incoming_checks/', views.IncomingCheckList.as_view(), name='incoming_checks'),
+    path('incoming_recheck/<int:pk>/', views.incoming_recheck, name='incoming_recheck'),
     path('bank_color/', views.ColorBankCreate.as_view(), name='bank_color'),
 
     path('get_posts/', views.get_last, name='get_last'),
@@ -46,6 +49,9 @@ urlpatterns = [
 
     path('messages/<int:pk>/', views.MessageView.as_view(), name='message_view'),
     path('messages/', views.MessageListView.as_view(), name='messages'),
+
+    path('check_sms/', views.check_sms, name='check_sms'),
+    path('check_screen/', views.check_screen, name='check_screen'),
     ]
 
 if settings.DEBUG:

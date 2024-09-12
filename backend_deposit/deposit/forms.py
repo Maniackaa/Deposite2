@@ -1,5 +1,6 @@
 import logging
 import re
+from copy import copy
 
 import colorfield.fields
 from colorfield.fields import ColorField
@@ -7,10 +8,10 @@ from django import forms
 from django.contrib.admin import widgets
 from django.core.exceptions import ValidationError
 from django.db import connection
-from django.db.models import Subquery
+from django.db.models import Subquery, Q
 from django.forms import CheckboxInput
 
-from .models import Deposit, Incoming, ColorBank
+from .models import Deposit, Incoming, ColorBank, BadScreen
 from .widgets import MinimalSplitDateTimeMultiWidget
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ class DepositTransactionForm(forms.ModelForm):
         labels = {'pay_screen': '', 'input_transaction': 'Номер тарнзакции'}
 
 
-def get_choice(recepient_type='non_card'):
+def get_choice(recepient_type='phone'):
     """Функция которая ищет получателя для фильтра в форме"""
     try:
 
@@ -115,12 +116,19 @@ def get_choice(recepient_type='non_card'):
                 #     pk__in=Subquery(q)).order_by('-register_date').all()
                 distinct_recipients = Incoming.objects.filter(
                     pk__in=Subquery(q), recipient__isnull=False).values('recipient').order_by('register_date')
-                if recepient_type == 'non_card':
-                    distinct_recipients = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
-                else:
-                    distinct_recipients = distinct_recipients.exclude(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
-                distinct_recipients = [x for x in distinct_recipients]
-                for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
+                if recepient_type == 'phone':
+                    phone_recipents = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
+                    distinct_recipients = phone_recipents
+                elif recepient_type == 'stars':
+                    stars_recipents = distinct_recipients.filter(recipient__iregex=r'^\*\*\*')
+                    distinct_recipients = stars_recipents
+                elif recepient_type == 'card':
+                    phone_recipents = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
+                    stars_recipents = distinct_recipients.filter(recipient__iregex=r'^\*\*\*')
+                    distinct_recipients = distinct_recipients.filter(~Q(recipient__in=phone_recipents.values('recipient'))).filter(~Q(recipient__in=stars_recipents.values('recipient')))
+                distinct_recipients = copy([x for x in distinct_recipients])
+                # for incoming in sorted(distinct_recipients, key=lambda x: bool(re.findall(r'\d\d\d \d\d \d\d\d \d\d \d\d', x['recipient']))):
+                for incoming in distinct_recipients:
                     result.append((incoming['recipient'], incoming['recipient']))
         return result
     except Exception as err:
@@ -134,11 +142,14 @@ class MyFilterForm(forms.Form):
         # print('**********__init__ MyFilterForm')
         super(MyFilterForm, self).__init__(*args, **kwargs)
         if self.fields.get('my_filter'):
-            self.fields['my_filter'].choices = get_choice('non_card')
-            self.fields['my_filter2'].choices = get_choice('card')
+            self.fields['my_filter'].choices = copy(get_choice('phone'))
+            self.fields['my_filter2'].choices = copy(get_choice('card'))
+            self.fields['my_filter3'].choices = copy(get_choice('stars'))
 
-    my_filter = forms.MultipleChoiceField(choices=get_choice('non_card'), widget=forms.CheckboxSelectMultiple, required=False)
-    my_filter2 = forms.MultipleChoiceField(choices=get_choice('card'), widget=forms.CheckboxSelectMultiple, required=False)
+    my_filter = forms.MultipleChoiceField(choices=copy(get_choice('phone')), widget=forms.CheckboxSelectMultiple, required=False)
+    my_filter2 = forms.MultipleChoiceField(choices=copy(get_choice('card')), widget=forms.CheckboxSelectMultiple, required=False)
+    my_filter3 = forms.MultipleChoiceField(choices=copy(get_choice('stars')), widget=forms.CheckboxSelectMultiple,
+                                           required=False)
 
 
 class ColorBankForm(forms.ModelForm):
@@ -178,11 +189,32 @@ class IncomingForm(forms.ModelForm):
 class IncomingSearchForm(forms.Form):
     pk = forms.IntegerField(required=False, label='id')
     search_in = forms.ChoiceField(choices=[
+        ('response_date', 'Время в смс/чеке'),
         ('register_date', 'Время поступления'),
-        ('response_date', 'Время в смс/чеке')
+
     ], label='Поиск по')
     begin = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
     end = forms.DateTimeField(widget=MinimalSplitDateTimeMultiWidget(), required=False)
     only_empty = forms.BooleanField(widget=CheckboxInput(), label='Только неподтвержденные', required=False)
     pay = forms.FloatField(required=False)
-    sort_by_sms_time = forms.BooleanField(widget=CheckboxInput(), label='Сортировка по времени чека', required=False)
+    sort_by_sms_time = forms.ChoiceField(choices=[(1, 'Да'), (0, 'Нет')], label='Сортировка по времени чека', required=False)
+
+
+class CheckSmsForm(forms.Form):
+    text = forms.CharField(widget=forms.Textarea(attrs={'cols': '20', 'rows': 10}))
+
+    class Meta:
+        fields = ('text', )
+
+
+class CheckScreenForm(forms.Form):
+    # screen = forms.ImageField(help_text="Upload image: ", required=False)
+
+    screen = forms.ModelChoiceField(
+        queryset=BadScreen.objects.order_by('-id').all(),
+        blank=True,
+        required=False,
+    )
+
+    class Meta:
+        fields = ('screen', )

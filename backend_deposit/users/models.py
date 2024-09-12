@@ -1,3 +1,4 @@
+from django.apps import apps
 from django.conf import settings
 from django.contrib import admin
 from django.core.mail import send_mail
@@ -8,7 +9,9 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from deposit.models import Message
+# from deposit.models import Message
+
+
 from users.managers import UserManager
 
 
@@ -57,6 +60,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.username
@@ -110,10 +114,12 @@ class Profile(models.Model):
 
     my_filter = models.JSONField('Фильтр по получателю', default=list, blank=True)
     my_filter2 = models.JSONField('Фильтр по получателю2', default=list, blank=True)
+    my_filter3 = models.JSONField('Фильтр по получателю3', default=list, blank=True)
     view_bad_warning = models.BooleanField(default=False)
 
     @staticmethod
     def all_message_count():
+        Message = apps.get_model('deposit', "Message")
         return Message.objects.exclude(type='macros').count()
 
     def read_message_count(self):
@@ -126,3 +132,8 @@ class Profile(models.Model):
     class Meta:
         verbose_name = "Профиль пользователя"
         verbose_name_plural = "Профили пользователей"
+        permissions = [
+            ("base2", "Только база 2"),
+            ("all_base", "Все базы"),
+            # ("can_see_bad_warning", "Видит уведомления о новых BadScreen"),
+        ]

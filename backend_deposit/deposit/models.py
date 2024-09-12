@@ -11,8 +11,11 @@ from django.dispatch import receiver
 from django.db.models.signals import post_delete, post_save
 from django.utils.html import format_html
 from colorfield.fields import ColorField
+from django_currentuser.middleware import get_current_authenticated_user
 
 from backend_deposit import settings
+from core.birpay_func import find_birpay_from_id
+from deposit.tasks import check_incoming
 
 logger = logging.getLogger(__name__)
 err_log = logging.getLogger('error_log')
@@ -47,6 +50,10 @@ class Setting(models.Model):
 
 class Incoming(models.Model):
 
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.cached_birpay_id = self.birpay_id
+
     register_date = models.DateTimeField('Время добавления в базу', auto_now_add=True)
     response_date = models.DateTimeField('Распознанное время', null=True, blank=True)
     recipient = models.CharField('Получатель', max_length=50, null=True, blank=True)
@@ -55,7 +62,7 @@ class Incoming(models.Model):
     balance = models.FloatField('Баланс', null=True, blank=True)
     transaction = models.BigIntegerField('Транзакция', null=True, unique=True, blank=True)
     type = models.CharField(max_length=20, default='unknown')
-    worker = models.CharField(max_length=50, null=True, default='manual')
+    worker = models.CharField(max_length=50, null=True,blank=True, default='manual')
     image = models.ImageField(upload_to='screens/',
                               verbose_name='скрин', null=True, blank=True)
     birpay_confirm_time = models.DateTimeField('Время подтверждения', null=True, blank=True)
@@ -65,6 +72,7 @@ class Incoming(models.Model):
     comment = models.CharField(max_length=500, null=True, blank=True)
 
     class Meta:
+        # ordering = ('id',)
         permissions = [
             ("can_hand_edit", "Может делать ручные корректировки"),
             # ("can_see_bad_warning", "Видит уведомления о новых BadScreen"),
@@ -75,8 +83,17 @@ class Incoming(models.Model):
             yield field.verbose_name, field.value_to_string(self)
 
     def __str__(self):
-        string = f'Платеж {self.id}. Сумма: {self.pay}. {self.transaction}.  Депозит: {self.confirmed_deposit.id if self.confirmed_deposit else "-"}'
+        string = f'Платеж {self.id}. Сумма: {self.pay} ({self.balance}). {self.transaction}.  Депозит: {self.confirmed_deposit.id if self.confirmed_deposit else "-"}'
         return string
+
+    def phone_serial(self):
+        """Достает серийные номер из пути изображения"""
+        if not self.image:
+            return None
+        from_part = self.image.name.split('_from_')
+        if len(from_part) == 2:
+            return from_part[1][:-4]
+        return 'unknown'
 
 
 class IncomingChange(models.Model):
@@ -108,6 +125,41 @@ class IncomingChange(models.Model):
                 new_comment.save()
         except Exception as err:
             err_log.error(f'Ошибка при сохранении истории: {err}')
+
+
+class IncomingCheck(models.Model):
+    create_at = models.DateTimeField('Время создания', auto_now_add=True, null=True)
+    change_time = models.DateTimeField('Время изменения в базе', auto_now=True, null=True)
+    incoming = models.ForeignKey(Incoming, on_delete=models.CASCADE, related_name='checks')
+    birpay_id = models.CharField(max_length=50)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True)
+    operator = models.CharField(max_length=50, null=True, blank=True)
+    pay_operator = models.FloatField(null=True, blank=True)
+    pay_birpay = models.FloatField(null=True, blank=True)
+    status = models.CharField(max_length=10, null=True, blank=True)
+
+    class Meta:
+        ordering = ('-id',)
+
+
+@receiver(post_save, sender=Incoming)
+def after_save_incoming(sender, instance: Incoming, **kwargs):
+    try:
+        # Если сохранили birpay_id создаем задачу проверки
+        if instance.cached_birpay_id != instance.birpay_id and instance.birpay_id:
+            logger.info(f'Проверяем {instance.birpay_id}')
+            incoming = Incoming.objects.get(pk=instance.pk)
+            if incoming.worker != 'base2':
+                user = get_current_authenticated_user()
+                new_check, _ = IncomingCheck.objects.get_or_create(
+                    user=user,
+                    incoming=incoming,
+                    birpay_id=incoming.birpay_id,
+                    pay_operator=incoming.pay)
+                logger.info(f'new_check: {new_check.id} {new_check}')
+                check_incoming.apply_async(kwargs={'pk': new_check.id, 'count': 0}, countdown=60)
+    except Exception as err:
+        logger.error(err)
 
 
 class Deposit(models.Model):
@@ -191,6 +243,14 @@ class MessageRead(models.Model):
 
     def __str__(self):
         return f'{self.id}. {self.message.id} прочитано {self.user}'
+
+
+class RePattern(models.Model):
+    pattern = models.CharField(max_length=256)
+    name = models.CharField(max_length=32)
+
+    def __str__(self):
+        return self.name
 
 
 @receiver(post_delete, sender=BadScreen)

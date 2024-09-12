@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Проверка смс{% endblock %}
+<meta charset="utf-8" />
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+    <div class="">
+      {% include 'includes/switcher2.html' %}
+    </div>
+
+
+<div class="card container">
+    <div class="row">
+        <div class="col-md-auto">
+            <form method="post">
+                {% include 'includes/form_fields.html' %}
+            {% csrf_token %}
+            <button type="submit">Проверить</button>
+            </form>
+        </div>
+
+        <div class="col-md-auto">
+            {% for k, v in responsed_pay.items %}
+            {{ k }}: {{ v }}<br>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

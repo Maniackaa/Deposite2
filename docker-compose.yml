@@ -72,10 +72,26 @@ services:
   celery:
     build: ./backend_deposit
     restart: always
-    command: celery -A backend_deposit worker -l info -n myworker1
+    command: celery -A backend_deposit worker -l warning -n myworker1  --concurrency=4
     env_file: .env
+    volumes:
+      - media:/app/media/
+      - ./logs/celery:/app/logs
     depends_on:
       - redis
+
+  flower:
+    container_name: flower
+    image: mher/flower
+    build: ./backend_deposit
+    command: celery -A backend_deposit.celery flower --port=5555 --basic-auth=Maniac:password1
+    ports:
+      - 5556:5555
+    env_file: .env
+    depends_on:
+      - backend
+      - redis
+      - celery
 
   celery-beat:
     build: ./backend_deposit

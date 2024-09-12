@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Список платежей{% endblock %}
+
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+<div class="container-fluid ">
+{% include 'includes/switcher2.html' %}
+
+
+  {% with request.resolver_match.view_name as view_name %}
+
+
+  <div class="container">
+      <form method="get">
+        <div class="row">
+
+            {% for field in form  %}
+                <div class="col-auto">
+                <b>{{ field.label_tag }}</b><br>{{ field }}
+                </div>
+            {% endfor %}
+        <div class="col-md-auto">
+            Ститистика:<br>
+            Статус 0: {{ stat.status_0 }}<br>
+            Статус 1: {{ stat.status_1 }}<br>
+            Статус -1: {{ stat.status_decline }}<br>
+            Прочие статусы: {{ stat.status_other }}<br>
+        </div>
+            <div class="row">
+              <button class="btn btn-info btn-light" type="submit">Фильтровать {{ filter.qs.count }}</button>
+            </div>
+
+        </div>
+    </form>
+  </div>
+
+    <span class="row justify-content-start">
+      <div class="col-6">
+        <form method="GET">
+
+          {% if search_form %}
+            {{ search_form.as_p }}
+          {% endif %}
+          <input class="btn btn-success " type="submit" name="date_search" value="Найти">
+       </form>
+      </div>
+      <p id="last_id" hidden>{{ last_id }}</p>
+      <p id="last_bad_id" hidden>{{ last_bad_id }}</p>
+      <p id="filter" hidden>{{ filter }}</p>
+      {% if view_name == 'deposit:incomings' or view_name == 'deposit:incomings_filter' %}
+       <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
+         <!-- Здесь будут отображаться уведомления -->
+        </div>
+      {% endif %}
+    </span>
+
+
+     {% include 'includes/paginator.html' %}
+     <div class="container-fluid ">
+     <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+     <thead class="">
+     <tr class="">
+         <th>id</th>
+           <th>create_at</th>
+           <th>change_time</th>
+           <th>birpay_id</th>
+            <th>status</th>
+           <th>user</th>
+           <th>operator</th>
+         <th>pay_operator</th>
+         <th>pay_birpay</th>
+         <th>delta</th>
+
+       </tr>
+     </thead>
+     <tbody style="text-align: end" >
+         {% for obj in page_obj %}
+            <td>{{ obj.id }}</td>
+            <td>{{ obj.create_at|date:"d.m H:i" }}</td>
+            <td>{{ obj.change_time|date:"d.m H:i" }}</td>
+             <td><a href="{% url 'deposit:incoming_edit' obj.incoming.id  %}">{{ obj.birpay_id }}</a></td>
+            <td>{{ obj.status }}</td>
+             <td>{{ obj.user }}</td>
+             <td>{{ obj.operator }}</td>
+             <td>{{ obj.pay_operator }}</td>
+             {% if  obj.pay_birpay %}
+             <td>{{ obj.pay_birpay }}</td>
+             {% else %}
+             <td><a target="_blank" href="{% url 'deposit:incoming_recheck' obj.id  %}">Обновить</a></td>
+             {% endif %}
+             <td>{{ obj.delta }}</td>
+
+
+
+         </tr>
+         {% endfor %}
+     </tbody>
+   </table>
+   </div>
+   {% include 'includes/paginator.html' %}
+  {% endwith %}
+</div>
+
+{% endblock %}
+
+

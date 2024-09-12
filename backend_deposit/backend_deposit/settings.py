@@ -2,8 +2,10 @@ import os
 from pathlib import Path
 
 import pytz
+import structlog
 from celery.schedules import crontab
 from dotenv import load_dotenv
+from structlog.typing import WrappedLogger, EventDict
 
 load_dotenv()
 
@@ -17,16 +19,18 @@ CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS').split(',')
 MY_APPS = [
     'users.apps.UsersConfig',
     'deposit.apps.DepositConfig',
+    'ocr.apps.OcrConfig',
     'crispy_bootstrap4',
     'rangefilter',
     'spurl',
     'mathfilters',
     'celery',
     'django_celery_beat',
+    "django_structlog",
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
-INSTALLED_APPS = [
+INSTALLED_APPS = MY_APPS + [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -37,17 +41,19 @@ INSTALLED_APPS = [
     'sorl.thumbnail',
     'colorfield',
     'debug_toolbar',
-] + MY_APPS
+]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django_currentuser.middleware.ThreadLocalUserMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware'
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
+    "django_structlog.middlewares.RequestMiddleware",
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -85,6 +91,14 @@ DATABASES = {
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', ''),
         'PORT': os.getenv('DB_PORT', 5432)
+    },
+    'payment': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('PAYMENT_POSTGRES_DB', 'django'),
+        'USER': os.getenv('PAYMENT_POSTGRES_USER', 'django'),
+        'PASSWORD': os.getenv('PAYMENT_POSTGRES_PASSWORD', ''),
+        'HOST': os.getenv('PAYMENT_DB_HOST', ''),
+        'PORT': os.getenv('PAYMENT_DB_PORT', 5432)
     }
 }
 
@@ -157,7 +171,7 @@ REST_FRAMEWORK = {
 
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
+        # 'rest_framework.renderers.BrowsableAPIRenderer',
     ],
 
     'DEFAULT_PARSER_CLASSES': [
@@ -169,78 +183,145 @@ REST_FRAMEWORK = {
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
 
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'formatters': {
+    "formatters": {
         'default_formatter': {
-            # 'format': "%(asctime)s - %(levelname)s - %(funcName)s: %(lineno)d - %(message)s"
             'format': '[%(asctime)s] #%(levelname)-8s %(filename)s:%(lineno)d %(module)s/%(funcName)s\n%(message)s',
         },
+        "console": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.dev.ConsoleRenderer(colors=True),
+        },
+        "console_black": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.dev.ConsoleRenderer(colors=False),
+        },
+        "json_formatter": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.processors.JSONRenderer(),
+        },
+
     },
-    'handlers': {
-        'file': {
+    "handlers": {
+        'all': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/all_rotate.log',
+            'backupCount': 50,
+            'maxBytes': 100 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'console_black',
             'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/log.log',
-            'formatter': 'default_formatter',
-
         },
-        'django_file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/django.log',
-            'formatter': 'default_formatter',
-
+        'errors': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/errors.log',
+            'backupCount': 5,
+            'maxBytes': 100 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'console_black',
+            'level': 'ERROR',
         },
-        'error_file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/error.log',
-            'formatter': 'default_formatter',
-
-        },
-        'console': {
+        'info': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/info_rotate.log',
+            'backupCount': 10,
+            'maxBytes': 100 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'console_black',
             'level': 'INFO',
-            'class': 'logging.StreamHandler',
-            'formatter': 'default_formatter',
         },
-        'rotating_file_handler': {
+        'tasks': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/rotate_file.log',
+            'filename': 'logs/tasks.log',
             'backupCount': 10,
             'maxBytes': 100 * 1024 * 1024,
             'mode': 'a',
             'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
+            'formatter': 'console_black',
+            'level': 'DEBUG',
         },
-        'rotating_file_handler_django': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/rotate_django.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'default_formatter',
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+        },
+        "console_black": {
+            "class": "logging.StreamHandler",
+            "formatter": "console_black",
         },
     },
     'loggers': {
-        'deposit': {
-            'handlers': ['console', 'file', 'rotating_file_handler'],
-            'level': 'DEBUG',
-            'propagate': True
+        "root": {
+            "handlers": ["console_black", 'all', 'errors', 'info'],
+            "level": "DEBUG",
+            'propagate': False,
         },
-        'error_log': {
-            'handlers': ['console', 'error_file'],
-            'level': 'DEBUG',
-            'propagate': True
-        },
-        'django': {
-            'handlers': ['console', 'django_file', 'rotating_file_handler_django'],
-            'level': 'WARNING',
+        "tasks": {
+            "handlers": ["console_black", 'tasks'],
+            "level": "DEBUG",
+            'propagate': True,
         },
     }
 }
+
+
+
+class LogJump:
+    def __init__(
+            self,
+            full_path: bool = False,
+    ) -> None:
+        self.full_path = full_path
+
+    def __call__(
+            self, logger: WrappedLogger, name: str, event_dict: EventDict
+    ) -> EventDict:
+        if self.full_path:
+            file_part = "\n" + event_dict.pop("pathname")
+        else:
+            file_part = event_dict.pop("filename")
+        event_dict["location"] = f'"{file_part}:{event_dict.pop("lineno")}"'
+
+        return event_dict
+
+
+base_structlog_processors = [
+    structlog.contextvars.merge_contextvars,
+    structlog.stdlib.add_logger_name,
+    structlog.stdlib.add_log_level,
+    structlog.stdlib.filter_by_level,
+    # Perform %-style formatting.
+    structlog.stdlib.PositionalArgumentsFormatter(),
+    # Add a timestamp in ISO 8601 format.
+    structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+    structlog.processors.StackInfoRenderer(),
+    # If some value is in bytes, decode it to a unicode str.
+    structlog.processors.UnicodeDecoder(),
+    # Add callsite parameters.
+    structlog.processors.CallsiteParameterAdder(
+        {
+            structlog.processors.CallsiteParameter.FILENAME,
+            structlog.processors.CallsiteParameter.FUNC_NAME,
+            structlog.processors.CallsiteParameter.LINENO,
+        }
+    ),
+]
+
+base_structlog_formatter = [structlog.stdlib.ProcessorFormatter.wrap_for_formatter]
+
+structlog.configure(
+    processors=base_structlog_processors + base_structlog_formatter,  # type: ignore
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
+
+os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_IDS = os.getenv('ADMIN_IDS').split(',')
@@ -249,11 +330,13 @@ PAGINATE = 100
 USE_THOUSAND_SEPARATOR = True
 
 # Celery settings
-# REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
-# REDIS_URL = 'redis://redis:6739/0'
-CELERY_BROKER_URL = 'redis://redis:6379'
-CELERY_RESULT_BACKEND = 'redis://redis:6379'
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')
 CELERY_TIMEZONE = TIME_ZONE
+CELERYD_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_work.log")
+CELERYBEAT_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_beat.log")
+CELERYD_HIJACK_ROOT_LOGGER = False
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 # CELERY_BEAT_SCHEDULE = {
 #     "check_macros": {
 #         "task": "deposit.tasks.check_macros",
@@ -261,3 +344,4 @@ CELERY_TIMEZONE = TIME_ZONE
 #         "schedule": 10,
 #     },
 # }
+REMOTE_SERVER = os.getenv('REMOTE_SERVER')
