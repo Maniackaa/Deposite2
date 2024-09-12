@@ -72,7 +72,7 @@
             {% if incoming.worker == 'base2' %}
              <td style="background-color: crimson">{{ incoming.worker }}</td>
             {% else %}
-                <td>{{ incoming.worker }}</td>
+                <td>{{ incoming.worker|default_if_none:'' }}</td>
             {% endif %}
             <td>{{ incoming.pay }}</td>
             <td>
