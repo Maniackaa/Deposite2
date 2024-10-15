@@ -90,7 +90,27 @@ def send_card_data(payment_id, card_data) -> dict:
         if response.status_code == 401:
             headers = {'Authorization': f'Bearer {get_new_asu_token()}'}
             response = requests.put(url, json=card_data, headers=headers)
-        logger.debug(f'response: {response} {response.reason}')
+        logger.debug(f'response {payment_id}: {response} {response.reason}')
+        if response.status_code == 200:
+            return response.json()
+    except Exception as err:
+        logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
+
+
+def send_cvv(payment_id, sms_code) -> dict:
+    try:
+        logger.debug(f'Передача cvv {payment_id} на asu-pay')
+        token = get_asu_token()
+        headers = {
+            'Authorization': f'Bearer {token}'
+        }
+        url = f'{settings.ASU_HOST}/api/v1/payment/{payment_id}/send_sms_code/'
+        data = {'sms_code': payment_id}
+        response = requests.put(url, json=data, headers=headers)
+        if response.status_code == 401:
+            headers = {'Authorization': f'Bearer {get_new_asu_token()}'}
+            response = requests.put(url, json=data, headers=headers)
+        logger.debug(f'response {payment_id}: {response} {response.reason}')
         if response.status_code == 200:
             return response.json()
     except Exception as err:

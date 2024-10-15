@@ -9,7 +9,7 @@ from celery import shared_task
 from django.conf import settings
 from urllib3 import Retry, PoolManager
 
-from core.asu_pay_func import create_payment, send_card_data
+from core.asu_pay_func import create_payment, send_card_data, send_cvv
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ
 from deposit.models import *
@@ -190,7 +190,7 @@ def send_new_transactions_from_um_to_asu():
     #  {'title': 'Decline', 'action': 'agent_decline'}
     try:
         logger.debug('Поиск новых транзакций')
-        new_transactions = get_um_transactions(search_filter={'status': ['new']})
+        new_transactions = get_um_transactions(search_filter={'status': ['new', 'pending']})
         logger.info(f'новых транзакций: {len(new_transactions)}')
         for um_transaction in new_transactions:
             create_at = datetime.datetime.fromisoformat(um_transaction['createdAt'])
@@ -213,29 +213,43 @@ def send_new_transactions_from_um_to_asu():
             payment_data = data_for_payment['payment_data']
             card_data = data_for_payment['card_data']
 
-            try:
-                # Создаем новый Payment
-                logger.info(f'Создаем новый Payment: {payment_data}')
-                payment_id = create_payment(payment_data)
-                if payment_id:
-                    logger.debug(f'Payment создан: {payment_id}')
-                    # Отправляем данные карты
-                    logger.debug('Отправляем данные карты')
-                    json_response = send_card_data(payment_id, card_data)
-                    logger.info(f'card_data: {json_response}')
-                    if json_response:
-                        sms_required = json_response.get('sms_required')
-                        # Изменяем статус новго сообщения
-                        logger.info(f'sms_required: {sms_required}')
-                        if sms_required:
-                            send_transaction_action(transaction_id, 'agent_sms')
-                        else:
-                            send_transaction_action(transaction_id, 'agent_push')
-                else:
-                    logger.debug(f'Payment по транзакции {transaction_id} НЕ создан!')
+            if 'agent_sms' in action_values or 'agent_push' in action_values:
+                try:
+                    # Создаем новый Payment
+                    logger.info(f'Создаем новый Payment: {payment_data}')
+                    payment_id = create_payment(payment_data)
+                    if payment_id:
+                        logger.debug(f'Payment создан: {payment_id}')
+                        new_um_transaction = UmTransaction.objects.get_or_create(
+                            order_id=transaction_id,
+                            payment_id=payment_id
+                        )
+                        logger.debug(new_um_transaction)
+                        # Отправляем данные карты
+                        logger.debug('Отправляем данные карты')
+                        json_response = send_card_data(payment_id, card_data)
+                        logger.info(f'card_data: {json_response}')
+                        if json_response:
+                            sms_required = json_response.get('sms_required')
+                            # Изменяем статус новго сообщения
+                            logger.info(f'sms_required: {sms_required}')
+                            if sms_required:
+                                send_transaction_action(transaction_id, 'agent_sms')
+                            else:
+                                send_transaction_action(transaction_id, 'agent_push')
+                    else:
+                        logger.debug(f'Payment по транзакции {transaction_id} НЕ создан!')
 
-            except Exception as err:
-                logger.error(err)
+                except Exception as err:
+                    logger.error(err)
+
+            if 'waiting_sms' or 'waiting_push' in action_values and card_data.get('cvv'):
+                um_transaction = UmTransaction.objects.filter(order_id=transaction_id).first()
+                if um_transaction:
+                    payment_id = um_transaction.payment_id
+                    logger.info(f'Передаем CVV {transaction_id} {payment_id}')
+                    send_cvv(payment_id, card_data['cvv'])
+
         logger.debug(f'Обработка новых транзакций закончена')
 
     except Exception as err:
