@@ -5,7 +5,7 @@ import requests
 import structlog
 
 from backend_deposit.settings import BASE_DIR
-# from users.models import Options
+from users.models import Options
 from core.global_func import TZ
 
 logger = structlog.get_logger('tasks')
@@ -28,11 +28,11 @@ headers = {
 
 def get_new_token():
     logger.debug('Получение токена')
-    # options = Options.load()
-    # BIRPAY_NEW_LOGIN = options.um_login
-    # BIRPAY_NEW_PASSWORD = options.um_password
-    BIRPAY_NEW_LOGIN = os.getenv('BIRPAY_NEW_LOGIN')
-    BIRPAY_NEW_PASSWORD = os.getenv('BIRPAY_NEW_PASSWORD')
+    options = Options.load()
+    BIRPAY_NEW_LOGIN = options.um_login
+    BIRPAY_NEW_PASSWORD = options.um_password
+    # BIRPAY_NEW_LOGIN = os.getenv('BIRPAY_NEW_LOGIN')
+    # BIRPAY_NEW_PASSWORD = os.getenv('BIRPAY_NEW_PASSWORD')
     json_data = {
         'email': BIRPAY_NEW_LOGIN,
         'password': BIRPAY_NEW_PASSWORD,
