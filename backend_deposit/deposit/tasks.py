@@ -202,8 +202,9 @@ def send_new_transactions_from_um_to_asu():
             actions = um_transaction.get('actions', [])
             action_values = [action['action'] for action in actions]
             logger.debug(f'actions {transaction_id}: {actions}')
-            if ('agent_sms' not in action_values or 'agent_push' not in action_values) and 'agent_decline' in action_values:
-                logger.info('Нет нужныйх действий - отклоняем')
+            logger.debug(f'action_values {transaction_id}: {action_values}')
+            if ('agent_sms' not in action_values and 'agent_push' not in action_values) and 'agent_decline' in action_values:
+                logger.info('Нет нужных действий - отклоняем')
                 response_json = send_transaction_action(um_transaction['id'], 'agent_decline')
                 logger.debug(f'{response_json}')
             data_for_payment = create_payment_data_from_new_transaction(um_transaction)
