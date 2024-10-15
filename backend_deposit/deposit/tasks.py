@@ -189,6 +189,7 @@ def send_new_transactions_from_um_to_asu():
     #  {'title': 'Waiting push', 'action': 'agent_push'},
     #  {'title': 'Decline', 'action': 'agent_decline'}
     try:
+        UmTransaction = apps.get_model('deposit', 'UmTransaction')
         logger.debug('Поиск новых транзакций')
         new_transactions = get_um_transactions(search_filter={'status': ['new', 'pending']})
         logger.info(f'новых транзакций: {len(new_transactions)}')
