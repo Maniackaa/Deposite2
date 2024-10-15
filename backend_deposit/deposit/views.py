@@ -36,7 +36,7 @@ from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
 from deposit.permissions import SuperuserOnlyPerm
-from deposit.tasks import check_incoming
+from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
@@ -813,8 +813,7 @@ def test_transactions(request):
     # send_card_data(payment_id, card_data)
     # send_new_transactions_to_asu()
 
-    options = Options.load()
-    print(options.um_password)
+    send_new_transactions_from_um_to_asu()
 
 
     return HttpResponse("<body>hello</body>")
