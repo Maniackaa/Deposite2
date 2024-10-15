@@ -140,6 +140,7 @@ def screen_new(request: Request):
                 make_after_incoming_save(new_incoming)
 
                 # ОТправляем копию в Payment
+                logger.debug(f'Задача копию в Payment: {new_incoming.id}')
                 tasks.send_screen_to_payment.delay(new_incoming.id)
 
                 # Сохраняем в базу-бота телеграм:
@@ -463,7 +464,6 @@ def sms(request: Request):
         response = result.get('response')
         errors = result.get('errors')
         return response
-
 
     except Exception as err:
         logger.info(f'Неизвестная ошибка при распознавании сообщения: {err}')

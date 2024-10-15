@@ -9,9 +9,12 @@ from celery import shared_task
 from django.conf import settings
 from urllib3 import Retry, PoolManager
 
+from core.asu_pay_func import create_payment, send_card_data
+from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg
 from deposit.models import *
 from django.apps import apps
+
 User = get_user_model()
 
 logger = structlog.get_logger('tasks')
@@ -58,7 +61,8 @@ def check_macros():
     else:
         last_message_time = datetime.datetime(2000, 1, 1)
     delta = find_time_between_good_screen(last_good_screen_time)
-    logger.debug(f'last_message_time: {last_message_time}\nlast_good_screen_time: {last_good_screen_time}\ndelta:{delta}')
+    logger.debug(
+        f'last_message_time: {last_message_time}\nlast_good_screen_time: {last_good_screen_time}\ndelta:{delta}')
     if last_message_time < last_good_screen_time and delta > 15:
         logger.info(f'Время больше 10')
         do_if_macros_broken()
@@ -71,7 +75,7 @@ def check_macros():
 def check_incoming(pk, count=0):
     """Функция проверки incoming в birpay"""
     try:
-        logger.info(f'Проверка опера. Попытка {count+1}')
+        logger.info(f'Проверка опера. Попытка {count + 1}')
         check = None
         IncomingCheck = apps.get_model('deposit', 'IncomingCheck')
         incoming_check = IncomingCheck.objects.get(pk=pk)
@@ -143,7 +147,7 @@ def check_incoming(pk, count=0):
 def test_task(pk, count=0):
     try:
         logger.info('test_task2')
-        send_message_tg(f'test_task2: {pk} попытка {count+1}')
+        send_message_tg(f'test_task2: {pk} попытка {count + 1}')
         raise ValueError('xxx')
 
     except Exception as err:
@@ -172,7 +176,61 @@ def send_screen_to_payment(incoming_id):
         retries = Retry(total=5, backoff_factor=3, status_forcelist=[500, 502, 503, 504])
         http = PoolManager(retries=retries)
         response = http.request('POST', url=f'https://asu-payme.com/create_copy_screen/', json=data
-        )
+                                )
         logger.debug(f'response: {response}')
     except Exception as err:
         logger.error(err)
+
+
+@shared_task(priority=2)
+def send_new_transactions_from_um_to_asu():
+    # Получение новых um транзакций и их обработка
+    #  {'title': 'Waiting sms', 'action': 'agent_sms'},
+    #  {'title': 'Waiting push', 'action': 'agent_push'},
+    #  {'title': 'Decline', 'action': 'agent_decline'}
+    try:
+        logger.debug('Поиск новых транзакций')
+        new_transactions = get_um_transactions(search_filter={'status': ['new']})
+        logger.info(f'новых транзакций: {len(new_transactions)}')
+        for um_transaction in new_transactions:
+            transaction_id = um_transaction['id']
+            actions = um_transaction.get('actions', [])
+            action_values = [action['action'] for action in actions]
+            logger.debug(f'actions: {actions}')
+            if ('agent_sms' not in action_values or 'agent_push' not in action_values) and 'agent_decline' in action_values:
+                logger.info('Нет нужныйх действий - отклоняем')
+                response_json = send_transaction_action(um_transaction['id'], 'agent_decline')
+                logger.debug(f'{response_json}')
+            data_for_payment = create_payment_data_from_new_transaction(um_transaction)
+            print(data_for_payment)
+            logger.debug(f'payment_data: {data_for_payment}')
+            payment_data = data_for_payment['payment_data']
+            card_data = data_for_payment['card_data']
+            try:
+                # Создаем новый Payment
+                logger.info(f'Создаем новый Payment: {payment_data}')
+                payment_id = create_payment(payment_data)
+                if payment_id:
+                    logger.debug(f'Payment создан: {payment_id}')
+                    # Отправляем данные карты
+                    logger.debug('Отправляем данные карты')
+                    json_response = send_card_data(payment_id, card_data)
+                    logger.info(f'card_data: {json_response}')
+                    if json_response:
+                        sms_required = json_response.get('sms_required')
+                        # Изменяем статус новго сообщения
+                        logger.info(f'sms_required: {sms_required}')
+                        if sms_required:
+                            send_transaction_action(payment_id, 'agent_sms')
+                        else:
+                            send_transaction_action(payment_id, 'agent_push')
+                else:
+                    logger.debug(f'Payment по транзакции {transaction_id} НЕ создан!')
+
+            except Exception as err:
+                logger.error(err)
+        logger.debug(f'Обработка новых транзакций закончена')
+
+    except Exception as err:
+        logger.error(err)
+        raise err

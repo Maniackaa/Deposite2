@@ -52,6 +52,10 @@ urlpatterns = [
 
     path('check_sms/', views.check_sms, name='check_sms'),
     path('check_screen/', views.check_screen, name='check_screen'),
+
+    # Работа с um и asu-pay
+    path('test_transactions/', views.test_transactions, name='test_transactions'),
+    path('asu-webhook/', views.WebhookReceive.as_view(), name='asu-webhook'),
     ]
 
 if settings.DEBUG:

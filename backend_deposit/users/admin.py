@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 
-from users.models import Profile
+from users.models import Profile, Options
 
 User = get_user_model()
 
@@ -105,5 +105,10 @@ class ProfileAdmin(admin.ModelAdmin):
     list_display_links = ('id', 'user')
 
 
+class OptionsAdmin(admin.ModelAdmin):
+    list_display = ('id', 'birpay_check')
+
+
 admin.site.register(User, UserAdmin)
 admin.site.register(Profile, ProfileAdmin)
+admin.site.register(Options, OptionsAdmin)

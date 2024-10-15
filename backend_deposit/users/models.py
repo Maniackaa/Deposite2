@@ -137,3 +137,32 @@ class Profile(models.Model):
             ("all_base", "Все базы"),
             # ("can_see_bad_warning", "Видит уведомления о новых BadScreen"),
         ]
+
+
+class SingletonModel(models.Model):
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        self.__class__.objects.exclude(id=self.id).delete()
+        super(SingletonModel, self).save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        try:
+            return cls.objects.get()
+        except cls.DoesNotExist:
+            return cls()
+
+
+class Options(SingletonModel):
+    birpay_check = models.BooleanField(verbose_name='Делать проверки Birpay', default=True)
+    um_login = models.CharField(default='login')
+    um_password = models.CharField(default='password')
+    asu_login = models.CharField(default='login')
+    asu_password = models.CharField(default='password')
+    asu_merchant_id = models.IntegerField(default=1)
+
+    def __str__(self):
+        return f'Options({self.birpay_check})'
+
