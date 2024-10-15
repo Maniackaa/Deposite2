@@ -125,7 +125,7 @@ def create_payment_data_from_new_transaction(transaction_data: {}) -> dict:
     payload = transaction_data['payload']
     create_at = transaction_data['createdAt']
     # create_at = datetime.datetime.fromisoformat(create_at)
-    card_holder = user_login = card_number = expired_month = expired_year = cvv = ''
+    card_holder = user_login = card_number = expired_month = expired_year = cvv = sms_code = ''
     for row in payload:
         field, value = row.split(':', 1)
         if field == 'userId':
@@ -140,6 +140,8 @@ def create_payment_data_from_new_transaction(transaction_data: {}) -> dict:
                 expired_month, expired_year = expiry_date.split('/')
         elif field == 'cvv2':
             cvv = value
+        elif field == 'OTP-code':
+            sms_code = value
 
     order_id = transaction_data['id']
     payment_data = {
@@ -155,15 +157,18 @@ def create_payment_data_from_new_transaction(transaction_data: {}) -> dict:
         "owner_name": card_holder,
         "expired_month": expired_month,
         "expired_year": expired_year,
-        "cvv": cvv
+        "cvv": cvv,
+        "sms_code": sms_code
     }
     return {'payment_data': payment_data, 'card_data': card_data}
 
 
 def send_transaction_action(order_pk, action: str) -> dict:
-    # agent_sms, agent_decline, agent_push
+    # agent_sms, agent_decline, agent_approve, agent_push
     try:
-        logger.debug(f'Отправка action {order_pk}: {action}')
+        logger.info(f'Отправка action {order_pk}: {action}')
+        token = get_token()
+        headers['Authorization'] = f'Bearer {token}'
         json_data = {'action': action}
         response = requests.put(f'https://api.um.money/api/dashboard/refill-order/{order_pk}/action',
                                 headers=headers, json=json_data)

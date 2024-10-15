@@ -9,7 +9,7 @@ from celery import shared_task
 from django.conf import settings
 from urllib3 import Retry, PoolManager
 
-from core.asu_pay_func import create_payment, send_card_data, send_cvv
+from core.asu_pay_func import create_payment, send_card_data, send_sms_code
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ
 from deposit.models import *
@@ -188,32 +188,32 @@ def send_new_transactions_from_um_to_asu():
     #  {'title': 'Waiting sms', 'action': 'agent_sms'},
     #  {'title': 'Waiting push', 'action': 'agent_push'},
     #  {'title': 'Decline', 'action': 'agent_decline'}
-    try:
-        UmTransaction = apps.get_model('deposit', 'UmTransaction')
-        logger.debug('Поиск новых транзакций')
-        new_transactions = get_um_transactions(search_filter={'status': ['new', 'pending']})
-        logger.info(f'новых транзакций: {len(new_transactions)}')
-        for um_transaction in new_transactions:
+    UmTransaction = apps.get_model('deposit', 'UmTransaction')
+    logger.debug('Поиск новых транзакций')
+    new_transactions = get_um_transactions(search_filter={'status': ['new', 'pending']})
+    logger.info(f'новых транзакций: {len(new_transactions)}')
+    for um_transaction in new_transactions:
+        try:
             create_at = datetime.datetime.fromisoformat(um_transaction['createdAt'])
             create_delta = datetime.datetime.now(tz=TZ) - create_at
-            if create_delta > datetime.timedelta(days=2):
+            if create_delta > datetime.timedelta(days=1):
                 continue
-
             transaction_id = um_transaction['id']
+            status = um_transaction.get('status')
             actions = um_transaction.get('actions', [])
             action_values = [action['action'] for action in actions]
+            logger.info(f'Обработка транзакции {transaction_id}: {status} action_values {transaction_id}: {action_values}')
             logger.debug(f'actions {transaction_id}: {actions}')
-            logger.debug(f'action_values {transaction_id}: {action_values}')
-            if ('agent_sms' not in action_values and 'agent_push' not in action_values) and 'agent_decline' in action_values:
-                logger.info('Нет нужных действий - отклоняем')
-                response_json = send_transaction_action(um_transaction['id'], 'agent_decline')
-                logger.debug(f'{response_json}')
+            # if ('agent_sms' not in action_values and 'agent_push' not in action_values) and 'agent_decline' in action_values:
+            #     logger.info('Нет нужных действий - отклоняем')
+            #     response_json = send_transaction_action(um_transaction['id'], 'agent_decline')
+            #     logger.debug(f'{response_json}')
             data_for_payment = create_payment_data_from_new_transaction(um_transaction)
-            print(data_for_payment)
             logger.debug(f'payment_data: {data_for_payment}')
             payment_data = data_for_payment['payment_data']
             card_data = data_for_payment['card_data']
 
+            # Ждет готовность работы
             if 'agent_sms' in action_values or 'agent_push' in action_values:
                 try:
                     # Создаем новый Payment
@@ -229,10 +229,10 @@ def send_new_transactions_from_um_to_asu():
                         # Отправляем данные карты
                         logger.debug('Отправляем данные карты')
                         json_response = send_card_data(payment_id, card_data)
-                        logger.info(f'card_data: {json_response}')
+                        logger.info(f'json_response: {json_response}')
                         if json_response:
                             sms_required = json_response.get('sms_required')
-                            # Изменяем статус новго сообщения
+                            # Отправяем действие ждем смс
                             logger.info(f'sms_required: {sms_required}')
                             if sms_required:
                                 send_transaction_action(transaction_id, 'agent_sms')
@@ -244,15 +244,19 @@ def send_new_transactions_from_um_to_asu():
                 except Exception as err:
                     logger.error(err)
 
-            if 'waiting_sms' or 'waiting_push' in action_values and card_data.get('cvv'):
+            # Пришел смс-код и ждет подтверждения. передаем смс-код
+            elif status == 'pending' and card_data.get('sms_code'):
                 um_transaction = UmTransaction.objects.filter(order_id=transaction_id).first()
                 if um_transaction:
                     payment_id = um_transaction.payment_id
-                    logger.info(f'Передаем CVV {transaction_id} {payment_id}')
-                    send_cvv(payment_id, card_data['cvv'])
+                    logger.info(f'Передаем sms_code {transaction_id} {payment_id}')
+                    send_sms_code(payment_id, card_data['sms_code'])
 
-        logger.debug(f'Обработка новых транзакций закончена')
+        except Exception as err:
+            logger.error(err)
+            raise err
 
-    except Exception as err:
-        logger.error(err)
-        raise err
+    logger.debug(f'Обработка новых транзакций закончена')
+
+
+
