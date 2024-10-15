@@ -227,9 +227,9 @@ def send_new_transactions_from_um_to_asu():
                         # Изменяем статус новго сообщения
                         logger.info(f'sms_required: {sms_required}')
                         if sms_required:
-                            send_transaction_action(payment_id, 'agent_sms')
+                            send_transaction_action(transaction_id, 'agent_sms')
                         else:
-                            send_transaction_action(payment_id, 'agent_push')
+                            send_transaction_action(transaction_id, 'agent_push')
                 else:
                     logger.debug(f'Payment по транзакции {transaction_id} НЕ создан!')
 

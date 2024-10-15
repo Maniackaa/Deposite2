@@ -163,7 +163,7 @@ def create_payment_data_from_new_transaction(transaction_data: {}) -> dict:
 def send_transaction_action(order_pk, action: str) -> dict:
     # agent_sms, agent_decline, agent_push
     try:
-        logger.debug('Отправка action')
+        logger.debug(f'Отправка action {order_pk}: {action}')
         json_data = {'action': action}
         response = requests.put(f'https://api.um.money/api/dashboard/refill-order/{order_pk}/action',
                                 headers=headers, json=json_data)
