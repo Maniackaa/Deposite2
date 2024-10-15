@@ -1,15 +1,12 @@
 import datetime
-import json
 import os
-import time
-from pprint import pprint
 
 import requests
 import structlog
 
 from backend_deposit.settings import BASE_DIR
+# from users.models import Options
 from core.global_func import TZ
-from users.models import Options
 
 logger = structlog.get_logger('tasks')
 
@@ -31,9 +28,11 @@ headers = {
 
 def get_new_token():
     logger.debug('Получение токена')
-    options = Options.load()
-    BIRPAY_NEW_LOGIN = options.um_login
-    BIRPAY_NEW_PASSWORD = options.um_password
+    # options = Options.load()
+    # BIRPAY_NEW_LOGIN = options.um_login
+    # BIRPAY_NEW_PASSWORD = options.um_password
+    BIRPAY_NEW_LOGIN = os.getenv('BIRPAY_NEW_LOGIN')
+    BIRPAY_NEW_PASSWORD = os.getenv('BIRPAY_NEW_PASSWORD')
     json_data = {
         'email': BIRPAY_NEW_LOGIN,
         'password': BIRPAY_NEW_PASSWORD,
@@ -201,13 +200,17 @@ if __name__ == '__main__':
     date_offset = datetime.datetime.now() - datetime.timedelta(days=1)
     date_offset = date_offset.strftime('%Y-%m-%d')
     transactions = get_um_transactions(search_filter={'status': ['new']})
+    print(transactions)
     # print(time.perf_counter() - point)
     #
     # print(transactions)
-    # for transaction in transactions:
-    #     print(transaction)
+    for transaction in transactions:
+        print(transaction)
+        create_at = datetime.datetime.fromisoformat(transaction['createdAt'])
+        create_delta = datetime.datetime.now(tz=TZ) - create_at
+        print(create_delta > datetime.timedelta(days=2))
     #     create_payment_data_from_new_transaction(transaction)
     #     print()
-    logger.info('test')
-    x = send_transaction_action('1610', 'agent_decline')
-    print(x)
+    # logger.info('test')
+    # x = send_transaction_action('1610', 'agent_decline')
+    # print(x)

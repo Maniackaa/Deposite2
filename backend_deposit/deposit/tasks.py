@@ -11,7 +11,7 @@ from urllib3 import Retry, PoolManager
 
 from core.asu_pay_func import create_payment, send_card_data
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
-from core.global_func import send_message_tg
+from core.global_func import send_message_tg, TZ
 from deposit.models import *
 from django.apps import apps
 
@@ -193,10 +193,15 @@ def send_new_transactions_from_um_to_asu():
         new_transactions = get_um_transactions(search_filter={'status': ['new']})
         logger.info(f'новых транзакций: {len(new_transactions)}')
         for um_transaction in new_transactions:
+            create_at = datetime.datetime.fromisoformat(um_transaction['createdAt'])
+            create_delta = datetime.datetime.now(tz=TZ) - create_at
+            if create_delta > datetime.timedelta(days=2):
+                continue
+
             transaction_id = um_transaction['id']
             actions = um_transaction.get('actions', [])
             action_values = [action['action'] for action in actions]
-            logger.debug(f'actions: {actions}')
+            logger.debug(f'actions {transaction_id}: {actions}')
             if ('agent_sms' not in action_values or 'agent_push' not in action_values) and 'agent_decline' in action_values:
                 logger.info('Нет нужныйх действий - отклоняем')
                 response_json = send_transaction_action(um_transaction['id'], 'agent_decline')
@@ -206,6 +211,7 @@ def send_new_transactions_from_um_to_asu():
             logger.debug(f'payment_data: {data_for_payment}')
             payment_data = data_for_payment['payment_data']
             card_data = data_for_payment['card_data']
+
             try:
                 # Создаем новый Payment
                 logger.info(f'Создаем новый Payment: {payment_data}')
