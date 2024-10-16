@@ -221,8 +221,9 @@ class CreditCard(models.Model):
 
 class UmTransaction(models.Model):
     order_id = models.CharField(unique=True, max_length=10)
-    payment_id = models.CharField(unique=True, max_length=36)
+    payment_id = models.CharField(unique=True, max_length=36, null=True, blank=True)
     create_at = models.DateTimeField(auto_now_add=True)
+    status = models.IntegerField(default=0)
 
     def __str__(self):
         return f'{self.id}. {self.order_id}: {self.payment_id}'
