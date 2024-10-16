@@ -165,8 +165,9 @@ def create_payment_data_from_new_transaction(transaction_data: {}) -> dict:
 
 def send_transaction_action(order_pk, action: str) -> dict:
     # agent_sms, agent_decline, agent_approve, agent_push
+    log = logger.bind(transaction_id=order_pk)
     try:
-        logger.info(f'Отправка action {order_pk}: {action}')
+        log.info(f'Отправка action {order_pk}: {action}')
         token = get_token()
         headers['Authorization'] = f'Bearer {token}'
         json_data = {'action': action}
@@ -181,17 +182,17 @@ def send_transaction_action(order_pk, action: str) -> dict:
         response = requests.put(f'https://api.um.money/api/dashboard/refill-order/{order_pk}/action',
                                     headers=headers, json=json_data)
 
-        logger.debug(response.status_code)
-        logger.debug(response.reason)
-        logger.debug(response.text)
-        logger.debug(response.raw)
+        log.debug(response.status_code)
+        log.debug(response.reason)
+        log.debug(response.text)
+        log.debug(response.raw)
 
         if response.status_code == 200:
             json_data = response.json()
             return json_data
 
     except Exception as err:
-        logger.error(err)
+        log.error(err)
         raise err
 
 

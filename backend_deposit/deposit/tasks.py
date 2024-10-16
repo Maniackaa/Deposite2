@@ -188,29 +188,32 @@ def send_new_transactions_from_um_to_asu():
     #  {'title': 'Waiting sms', 'action': 'agent_sms'},
     #  {'title': 'Waiting push', 'action': 'agent_push'},
     #  {'title': 'Decline', 'action': 'agent_decline'}
+    start = time.perf_counter()
     UmTransaction = apps.get_model('deposit', 'UmTransaction')
     logger.debug('Поиск новых транзакций')
     new_transactions = get_um_transactions(search_filter={'status': ['new', 'pending']})
     logger.info(f'новых транзакций: {len(new_transactions)}')
     for um_transaction in new_transactions:
+        
         try:
             create_at = datetime.datetime.fromisoformat(um_transaction['createdAt'])
             create_delta = datetime.datetime.now(tz=TZ) - create_at
             if create_delta > datetime.timedelta(days=1):
                 continue
             transaction_id = um_transaction['id']
+            um_logger = logger.bind(transaction_id=transaction_id)
             base_um_transaction, is_create = UmTransaction.objects.get_or_create(order_id=transaction_id)
             status = um_transaction.get('status')
             actions = um_transaction.get('actions', [])
             action_values = [action['action'] for action in actions]
-            logger.info(f'Обработка транзакции {transaction_id}: {status} action_values {transaction_id}: {action_values}')
-            logger.debug(f'actions {transaction_id}: {actions}')
+            um_logger.info(f'Обработка транзакции {transaction_id}: {status} action_values {transaction_id}: {action_values}')
+            um_logger.debug(f'actions {transaction_id}: {actions}')
             # if ('agent_sms' not in action_values and 'agent_push' not in action_values) and 'agent_decline' in action_values:
-            #     logger.info('Нет нужных действий - отклоняем')
+            #     um_logger.info('Нет нужных действий - отклоняем')
             #     response_json = send_transaction_action(um_transaction['id'], 'agent_decline')
-            #     logger.debug(f'{response_json}')
+            #     um_logger.debug(f'{response_json}')
             data_for_payment = create_payment_data_from_new_transaction(um_transaction)
-            logger.debug(f'payment_data: {data_for_payment}')
+            um_logger.debug(f'payment_data: {data_for_payment}')
             payment_data = data_for_payment['payment_data']
             card_data = data_for_payment['card_data']
 
@@ -218,21 +221,21 @@ def send_new_transactions_from_um_to_asu():
             if 'agent_sms' in action_values or 'agent_push' in action_values:
                 try:
                     # Создаем новый Payment
-                    logger.info(f'Создаем новый Payment: {payment_data}')
+                    um_logger.info(f'Создаем новый Payment: {payment_data}')
                     payment_id = create_payment(payment_data)
                     if payment_id:
-                        logger.debug(f'Payment создан: {payment_id}')
+                        um_logger.debug(f'Payment создан: {payment_id}')
                         base_um_transaction.payment_id = payment_id
                         base_um_transaction.save()
-                        logger.debug(base_um_transaction)
+                        um_logger.debug(base_um_transaction)
                         # Отправляем данные карты
-                        logger.info('Отправляем данные карты')
+                        um_logger.info('Отправляем данные карты')
                         json_response = send_card_data(payment_id, card_data)
-                        logger.info(f'json_response: {json_response}')
+                        um_logger.info(f'json_response: {json_response}')
                         if json_response:
                             sms_required = json_response.get('sms_required')
                             # Отправяем действие ждем смс
-                            logger.debug(f'sms_required: {sms_required}')
+                            um_logger.debug(f'sms_required: {sms_required}')
                             if sms_required:
                                 send_transaction_action(transaction_id, 'agent_sms')
                             else:
@@ -240,25 +243,25 @@ def send_new_transactions_from_um_to_asu():
                             base_um_transaction.status = 4
                             base_um_transaction.save()
                     else:
-                        logger.debug(f'Payment по транзакции {transaction_id} НЕ создан!')
+                        um_logger.debug(f'Payment по транзакции {transaction_id} НЕ создан!')
 
                 except Exception as err:
-                    logger.error(err)
+                    um_logger.error(err)
 
             # Пришел смс-код и ждет подтверждения. передаем смс-код
-            elif status == 'pending' and card_data.get('sms_code'):
-                logger.info(f'Получен смс-код {transaction_id}')
-                if base_um_transaction.status != 6:
-                    logger.info(f'Передаем sms_code {transaction_id}')
-                    send_sms_code(base_um_transaction.payment_id, card_data['sms_code'])
-                    base_um_transaction.status = 6
-                    base_um_transaction.save()
+            elif status == 'pending' and card_data.get('sms_code') and base_um_transaction.status != 6:
+                um_logger.info(f'Получен смс-код {transaction_id}')
+                um_logger.info(f'Передаем sms_code {transaction_id}')
+                send_sms_code(base_um_transaction.payment_id, card_data['sms_code'])
+                um_logger.info(f'Меняем status {transaction_id}')
+                base_um_transaction.status = 6
+                base_um_transaction.save()
 
         except Exception as err:
             logger.error(err)
             raise err
 
-    logger.debug(f'Обработка новых транзакций закончена')
+    logger.debug(f'Обработка новых транзакций закончена за {time.perf_counter() - start}')
 
 
 

@@ -829,12 +829,14 @@ class WebhookReceive(APIView):
         #  "signature": "afea80ca267b0c5566c25d62be8f7a8ab0dc8d2175f38ce8c2bd0bb2c74e6b89", "mask": null}
         try:
             data = request.data
-            logger.info(f'Получен вэбхук: {data}')
             order_id = data.get('order_id')
             status = data.get('status')
+            logger.info(f'Получен вэбхук: {data}')
             if status == 9:
-                send_transaction_action(order_pk=order_id, action='agent_accept')
+                logger.info(f'Подтверждаем на um {order_id}')
+                send_transaction_action(order_pk=order_id, action='agent_approve')
             elif status == -1:
+                logger.info(f'Отклоняем на um {order_id}')
                 send_transaction_action(order_pk=order_id, action='agent_decline')
 
             return HttpResponse(status=200)
