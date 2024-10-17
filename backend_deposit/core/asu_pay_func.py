@@ -26,8 +26,8 @@ def get_new_asu_token():
         # login = settings.ASUPAY_LOGIN
         # password = settings.ASUPAY_PASSWORD
         options = Options.load()
-        login = options.um_login
-        password = options.um_password
+        login = options.asu_login
+        password = options.asu_password
         url = f"{settings.ASU_HOST}/api/v1/token/"
         payload = json.dumps({
             "username": login,
