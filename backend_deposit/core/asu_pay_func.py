@@ -17,20 +17,19 @@ data = {
 
 
 token_file = BASE_DIR / 'token_asu.txt'
+
+
 def get_new_asu_token():
     logger.info(f'Получение первичного токена по логину')
     try:
-        # login = settings.ASUPAY_LOGIN
-        # password = settings.ASUPAY_PASSWORD
-        login = 'DepositMerch'
-        password = 'view1view1'
+        login = settings.ASUPAY_LOGIN
+        password = settings.ASUPAY_PASSWORD
         url = f"{settings.ASU_HOST}/api/v1/token/"
         payload = json.dumps({
             "username": login,
             "password": password
         })
         headers = {'Content-Type': 'application/json'}
-        print(url)
         response = requests.request("POST", url, headers=headers, data=payload, timeout=5)
         logger.info(response.status_code)
         token_dict = response.json()
@@ -63,7 +62,6 @@ def create_payment(payment_data):
             'Authorization': f'Bearer {token}'
         }
         url = f'{settings.ASU_HOST}/api/v1/payment/'
-        print(url)
         response = requests.post(url, json=payment_data, headers=headers)
         if response.status_code == 401:
             headers = {
@@ -71,7 +69,7 @@ def create_payment(payment_data):
             }
             response = requests.post(url, json=payment_data, headers=headers)
 
-        logger.debug(f'response: {response} {response.reason}')
+        logger.debug(f'response: {response} {response.reason} {response.text}')
         if response.status_code == 201:
             return response.json()['id']
     except Exception as err:
