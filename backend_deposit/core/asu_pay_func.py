@@ -6,6 +6,7 @@ import structlog
 from django.conf import settings
 
 from backend_deposit.settings import BASE_DIR
+from users.models import Options
 
 logger = structlog.get_logger('tasks')
 
@@ -22,8 +23,11 @@ token_file = BASE_DIR / 'token_asu.txt'
 def get_new_asu_token():
     logger.info(f'Получение первичного токена по логину')
     try:
-        login = settings.ASUPAY_LOGIN
-        password = settings.ASUPAY_PASSWORD
+        # login = settings.ASUPAY_LOGIN
+        # password = settings.ASUPAY_PASSWORD
+        options = Options.load()
+        login = options.um_login
+        password = options.um_password
         url = f"{settings.ASU_HOST}/api/v1/token/"
         payload = json.dumps({
             "username": login,
