@@ -183,6 +183,12 @@ def send_screen_to_payment(incoming_id):
 
 
 @shared_task(priority=2)
+def send_transaction_action_task(transaction_id, action):
+    logger.info(f'20 сек прошло. Отправляем {action} для {transaction_id}')
+    send_transaction_action(transaction_id, action)
+
+
+@shared_task(priority=2)
 def send_new_transactions_from_um_to_asu():
     # Получение новых um транзакций и их обработка
     #  {'title': 'Waiting sms', 'action': 'agent_sms'},
@@ -236,10 +242,16 @@ def send_new_transactions_from_um_to_asu():
                             sms_required = json_response.get('sms_required')
                             # Отправяем действие ждем смс
                             um_logger.debug(f'sms_required: {sms_required}')
-                            if sms_required:
-                                send_transaction_action(transaction_id, 'agent_sms')
+                            if 'agent_sms' in action_values:
+                                # send_transaction_action(transaction_id, 'agent_sms')
+                                logger.info('Отправляем agent_sms чеоез 20 сек')
+                                send_transaction_action_task.apply_async(
+                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'}, countdown=20)
                             else:
-                                send_transaction_action(transaction_id, 'agent_push')
+                                # send_transaction_action(transaction_id, 'agent_push')
+                                logger.info('Отправляем agent_sms чеоез 20 сек')
+                                send_transaction_action_task.apply_async(
+                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_push'}, countdown=20)
                             base_um_transaction.status = 4
                             base_um_transaction.save()
                     else:

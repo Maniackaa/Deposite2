@@ -2,7 +2,7 @@ import json
 
 import requests
 import structlog
-# from django.conf import settings
+
 from django.conf import settings
 
 from backend_deposit.settings import BASE_DIR
@@ -39,10 +39,11 @@ def get_new_asu_token():
         token_dict = response.json()
         data['refresh'] = token_dict.get('refresh')
         data['access'] = token_dict.get('access')
+        token = token_dict.get('access')
         with open(token_file, 'w') as file:
             file.write(json.dumps(data))
         logger.info(f'data: {data}')
-        return token_dict.get('access')
+        return token
     except Exception as err:
         logger.error(f'Ошибка получения токена по логину/паролю: {err}')
         raise err
@@ -54,6 +55,7 @@ def get_asu_token() -> str:
     with open(token_file, 'r') as file:
         token_data = json.loads(file.read())
         token = token_data.get('access', '')
+        print(f'read token: {token}')
         return token
 
 
@@ -117,3 +119,5 @@ def send_sms_code(payment_id, sms_code) -> dict:
             return response.json()
     except Exception as err:
         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
+
+get_new_asu_token()

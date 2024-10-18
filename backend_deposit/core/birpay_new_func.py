@@ -182,13 +182,12 @@ def send_transaction_action(order_pk, action: str) -> dict:
         response = requests.put(f'https://api.um.money/api/dashboard/refill-order/{order_pk}/action',
                                     headers=headers, json=json_data)
 
-        log.debug(response.status_code)
-        log.debug(response.reason)
-        log.debug(response.text)
+        log.debug(f'{response.status_code}: {response.reason}. {response.text}')
         log.debug(response.raw)
 
         if response.status_code == 200:
             json_data = response.json()
+            log.debug(json_data)
             return json_data
 
     except Exception as err:
