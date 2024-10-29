@@ -182,8 +182,9 @@ def send_screen_to_payment(incoming_id):
         logger.error(err)
 
 
-@shared_task(priority=2)
+@shared_task(priority=1)
 def send_transaction_action_task(transaction_id, action):
+    # Отправка Actiom
     logger.info(f'20 сек прошло. Отправляем {action} для {transaction_id}')
     send_transaction_action(transaction_id, action)
 
@@ -224,7 +225,7 @@ def send_new_transactions_from_um_to_asu():
             card_data = data_for_payment['card_data']
 
             # Ждет готовность работы
-            if 'agent_sms' in action_values or 'agent_push' in action_values:
+            if 'agent_sms' in action_values or 'agent_push' in action_values and not base_um_transaction.payment_id:
                 try:
                     # Создаем новый Payment
                     um_logger.info(f'Создаем новый Payment: {payment_data}')
@@ -249,7 +250,7 @@ def send_new_transactions_from_um_to_asu():
                                     kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'}, countdown=20)
                             else:
                                 # send_transaction_action(transaction_id, 'agent_push')
-                                logger.info('Отправляем agent_sms чеоез 20 сек')
+                                logger.info('Отправляем agent_push чеоез 20 сек')
                                 send_transaction_action_task.apply_async(
                                     kwargs={'transaction_id': transaction_id, 'action': 'agent_push'}, countdown=20)
                             base_um_transaction.status = 4
