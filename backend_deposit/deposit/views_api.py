@@ -63,11 +63,11 @@ def screen_new(request: Request):
                                                black=black, white=white,
                                                oem=oem, psm=psm, lang=lang, strip=False,
                                                char_whitelist=char_whitelist).strip()
-        amount = response_text_from_image(image_bytes, y_start=12, y_end=29,
+        amount = response_text_from_image(image_bytes, y_start=12, y_end=28,
                                           black=black, white=white,
                                           oem=oem, psm=psm, lang=lang, strip=False,
                                           char_whitelist=char_whitelist).strip()
-        info = response_text_from_image(image_bytes, y_start=29, y_end=70,
+        info = response_text_from_image(image_bytes, y_start=28, y_end=70,
                                         black=black, white=white,
                                         oem=oem, psm=4, lang=lang, strip=False,
                                         char_whitelist=char_whitelist).strip()

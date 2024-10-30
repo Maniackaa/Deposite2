@@ -225,7 +225,10 @@ def send_new_transactions_from_um_to_asu():
             card_data = data_for_payment['card_data']
 
             # Ждет готовность работы
-            if 'agent_sms' in action_values or 'agent_push' in action_values and not base_um_transaction.payment_id:
+            if not not base_um_transaction.payment_id and ('agent_sms' in action_values or 'agent_push' in action_values):
+                # Если еще нет в базе payment_id отправляем на asu и добавляем созданный payment_id в базу
+                # Передаем данные карты и передаем agent_sms agent_push чз 20 сек
+                # base_um_transaction.status = 4
                 try:
                     # Создаем новый Payment
                     um_logger.info(f'Создаем новый Payment: {payment_data}')
@@ -241,7 +244,7 @@ def send_new_transactions_from_um_to_asu():
                         um_logger.info(f'json_response: {json_response}')
                         if json_response:
                             sms_required = json_response.get('sms_required')
-                            # Отправяем действие ждем смс
+                            # Отправяем действие ждем смс чз 20 сек
                             um_logger.debug(f'sms_required: {sms_required}')
                             if 'agent_sms' in action_values:
                                 # send_transaction_action(transaction_id, 'agent_sms')
