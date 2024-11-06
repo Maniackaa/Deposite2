@@ -119,5 +119,3 @@ def send_sms_code(payment_id, sms_code) -> dict:
             return response.json()
     except Exception as err:
         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
-
-get_new_asu_token()
