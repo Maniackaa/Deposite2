@@ -813,7 +813,7 @@ def test_transactions(request):
     # send_card_data(payment_id, card_data)
     # send_new_transactions_to_asu()
 
-    send_new_transactions_from_um_to_asu()
+    tasks.send_new_transactions_from_um_to_asu.delay()
 
 
     return HttpResponse("<body>hello</body>")

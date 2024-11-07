@@ -210,10 +210,11 @@ def send_new_transactions_from_um_to_asu():
             transaction_id = um_transaction['id']
             um_logger = logger.bind(transaction_id=transaction_id)
             base_um_transaction, is_create = UmTransaction.objects.get_or_create(order_id=transaction_id)
+            um_logger.info(f'base_um_transaction: {base_um_transaction}, is_create: {is_create}')
             status = um_transaction.get('status')
             actions = um_transaction.get('actions', [])
             action_values = [action['action'] for action in actions]
-            um_logger.info(f'Обработка транзакции {transaction_id}: {status} action_values {transaction_id}: {action_values}')
+            um_logger.info(f'Обработка транзакции №{transaction_id}. Статус: "{status}". action_values: {action_values}')
             um_logger.debug(f'actions {transaction_id}: {actions}')
             # if ('agent_sms' not in action_values and 'agent_push' not in action_values) and 'agent_decline' in action_values:
             #     um_logger.info('Нет нужных действий - отклоняем')
@@ -225,7 +226,7 @@ def send_new_transactions_from_um_to_asu():
             card_data = data_for_payment['card_data']
 
             # Ждет готовность работы
-            if not not base_um_transaction.payment_id and ('agent_sms' in action_values or 'agent_push' in action_values):
+            if not base_um_transaction.payment_id and ('agent_sms' in action_values or 'agent_push' in action_values):
                 # Если еще нет в базе payment_id отправляем на asu и добавляем созданный payment_id в базу
                 # Передаем данные карты и передаем agent_sms agent_push чз 20 сек
                 # base_um_transaction.status = 4
@@ -248,12 +249,12 @@ def send_new_transactions_from_um_to_asu():
                             um_logger.debug(f'sms_required: {sms_required}')
                             if 'agent_sms' in action_values:
                                 # send_transaction_action(transaction_id, 'agent_sms')
-                                logger.info('Отправляем agent_sms чеоез 20 сек')
+                                um_logger.info('Отправляем agent_sms чеоез 20 сек')
                                 send_transaction_action_task.apply_async(
                                     kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'}, countdown=20)
                             else:
                                 # send_transaction_action(transaction_id, 'agent_push')
-                                logger.info('Отправляем agent_push чеоез 20 сек')
+                                um_logger.info('Отправляем agent_push чеоез 20 сек')
                                 send_transaction_action_task.apply_async(
                                     kwargs={'transaction_id': transaction_id, 'action': 'agent_push'}, countdown=20)
                             base_um_transaction.status = 4
@@ -272,6 +273,8 @@ def send_new_transactions_from_um_to_asu():
                 um_logger.info(f'Меняем status {transaction_id}')
                 base_um_transaction.status = 6
                 base_um_transaction.save()
+            else:
+                um_logger.warning('Что-то пошло не туда!')
 
         except Exception as err:
             logger.error(err)

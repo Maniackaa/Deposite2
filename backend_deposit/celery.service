@@ -1,0 +1,15 @@
+[Unit]
+Description=celery_service
+After=network.target
+
+[Service]
+EnvironmentFile=
+ExecStart=celery -A backend_deposit worker -l warning -n myworker1  --concurrency=4
+ExecReload=celery -A backend_deposit worker -l warning -n myworker1  --concurrency=4
+WorkingDirectory=/app
+KillMode=process
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

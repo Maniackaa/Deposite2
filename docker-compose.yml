@@ -48,7 +48,7 @@ services:
     command: redis-server --save 20 1 --loglevel warning
     restart: always
     ports:
-      - "6379:6379"
+      - "16379:6379"
     volumes:
 #      - ./redis/etc/redis.conf:/usr/local/etc/redis/redis.conf
       - redis_data:/data
@@ -72,13 +72,14 @@ services:
   celery:
     build: ./backend_deposit
     restart: always
-    command: celery -A backend_deposit worker -l warning -n myworker1  --concurrency=4
+#    command: celery -A backend_deposit worker -l warning -n myworker1  --concurrency=4
     env_file: .env
     volumes:
       - media:/app/media/
       - ./logs/celery:/app/logs
     depends_on:
       - redis
+    entrypoint: bash /app/celery_entrypoint.sh
 
   flower:
     container_name: flower
