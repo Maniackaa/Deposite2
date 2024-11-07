@@ -101,20 +101,24 @@ def send_card_data(payment_id, card_data) -> dict:
         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
 
 
-def send_sms_code(payment_id, sms_code) -> dict:
+def send_sms_code(payment_id, sms_code, transaction_id=None) -> dict:
     try:
-        logger.debug(f'Передача cvv {payment_id} на asu-pay')
+        if transaction_id:
+            log = logger.bind(transaction_id=transaction_id, payment_id=payment_id)
+        else:
+            log = logger
+        log.debug(f'Передача sms_code {payment_id} на asu-pay')
         token = get_asu_token()
         headers = {
             'Authorization': f'Bearer {token}'
         }
         url = f'{settings.ASU_HOST}/api/v1/payment/{payment_id}/send_sms_code/'
-        data = {'sms_code': sms_code}
-        response = requests.put(url, json=data, headers=headers)
+        json_data = {'sms_code': sms_code}
+        response = requests.put(url, json=json_data, headers=headers)
         if response.status_code == 401:
             headers = {'Authorization': f'Bearer {get_new_asu_token()}'}
-            response = requests.put(url, json=data, headers=headers)
-        logger.debug(f'response {payment_id}: {response} {response.reason}')
+            response = requests.put(url, json=json_data, headers=headers)
+        log.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
         if response.status_code == 200:
             return response.json()
     except Exception as err:

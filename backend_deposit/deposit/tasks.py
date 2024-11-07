@@ -252,12 +252,14 @@ def send_new_transactions_from_um_to_asu():
                                 # send_transaction_action(transaction_id, 'agent_sms')
                                 um_logger.info('Отправляем agent_sms чеоез 20 сек')
                                 send_transaction_action_task.apply_async(
-                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'}, countdown=20)
-                            else:
+                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'}, countdown=15)
+                            elif 'agent_push' in action_values:
                                 # send_transaction_action(transaction_id, 'agent_push')
                                 um_logger.info('Отправляем agent_push чеоез 20 сек')
                                 send_transaction_action_task.apply_async(
-                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_push'}, countdown=20)
+                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_push'}, countdown=15)
+                            else:
+                                um_logger.warning('Нет известных действий')
                             base_um_transaction.status = 4
                             base_um_transaction.save()
                     else:
@@ -275,7 +277,7 @@ def send_new_transactions_from_um_to_asu():
                 base_um_transaction.status = 6
                 base_um_transaction.save()
             else:
-                um_logger.warning('Что-то пошло не туда!')
+                um_logger.debug('Доступных действий нет')
 
         except Exception as err:
             logger.error(err)
