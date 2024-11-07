@@ -186,7 +186,8 @@ def send_screen_to_payment(incoming_id):
 def send_transaction_action_task(transaction_id, action):
     # Отправка Actiom
     logger.info(f'20 сек прошло. Отправляем {action} для {transaction_id}')
-    send_transaction_action(transaction_id, action)
+    json_data = send_transaction_action(transaction_id, action)
+    return json_data
 
 
 @shared_task(priority=2)
@@ -281,6 +282,7 @@ def send_new_transactions_from_um_to_asu():
             raise err
 
     logger.debug(f'Обработка новых транзакций закончена за {time.perf_counter() - start}')
+    return f'Новых: {len(new_transactions)}'
 
 
 
