@@ -41,7 +41,7 @@ def do_if_macros_broken():
         logger.error(f'Ошибка если макрос сдох: {err}')
 
 
-@shared_task(priority=1)
+@shared_task(priority=1, time_limit=20)
 def check_macros():
     """Функция проверки работоспособности макроса"""
     Setting = apps.get_model('deposit', 'Setting')
@@ -71,7 +71,7 @@ def check_macros():
         return True
 
 
-@shared_task(priority=1)
+@shared_task(priority=1, time_limit=30)
 def check_incoming(pk, count=0):
     """Функция проверки incoming в birpay"""
     try:
@@ -157,7 +157,7 @@ def test_task(pk, count=0):
             test_task.apply_async(kwargs={'pk': 100, 'count': count}, countdown=3)
 
 
-@shared_task(priority=1)
+@shared_task(priority=1, time_limit=20)
 def send_screen_to_payment(incoming_id):
     # Отправка копии скрина в смс Payment
     Incoming = apps.get_model('deposit', 'Incoming')
@@ -182,7 +182,7 @@ def send_screen_to_payment(incoming_id):
         logger.error(err)
 
 
-@shared_task(priority=1)
+@shared_task(priority=1, time_limit=20)
 def send_transaction_action_task(transaction_id, action):
     # Отправка Actiom
     logger.info(f'20 сек прошло. Отправляем {action} для {transaction_id}')
@@ -190,7 +190,7 @@ def send_transaction_action_task(transaction_id, action):
     return json_data
 
 
-@shared_task(priority=2)
+@shared_task(priority=2, time_limit=60)
 def send_new_transactions_from_um_to_asu():
     # Получение новых um транзакций и их обработка
     #  {'title': 'Waiting sms', 'action': 'agent_sms'},
