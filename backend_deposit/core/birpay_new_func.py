@@ -178,12 +178,10 @@ def send_transaction_action(order_pk, action: str) -> dict:
             # Обновление токена
             token_new = get_new_token()
             headers['Authorization'] = f'Bearer {token_new}'
-
-        response = requests.put(f'https://api.um.money/api/dashboard/refill-order/{order_pk}/action',
-                                    headers=headers, json=json_data)
+            response = requests.put(f'https://api.um.money/api/dashboard/refill-order/{order_pk}/action',
+                                        headers=headers, json=json_data)
 
         log.debug(f'{response.status_code}: {response.reason}. {response.text}')
-        log.debug(response.raw)
 
         if response.status_code == 200:
             json_data = response.json()
