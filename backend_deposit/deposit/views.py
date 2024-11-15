@@ -815,12 +815,32 @@ def test_transactions(request):
 
     tasks.send_new_transactions_from_um_to_asu.delay()
 
-
     return HttpResponse("<body>hello</body>")
+
+
+class BkashWebhook(APIView):
+
+    def get(self, request, *args, **kwargs):
+        try:
+            data = request.GET
+            logger.info(f'Получен вэбхук BkashWebhook: {data}')
+            return HttpResponse(status=200)
+        except Exception as err:
+            logger.error(err)
+            return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=str(err))
 
 
 class WebhookReceive(APIView):
     # Получение вэбхука и подтверждение/отклонение на um
+
+    def get(self, request, *args, **kwargs):
+        try:
+            data = request.GET
+            logger.info(f'Получен вэбхук: {data}')
+            return HttpResponse(status=200)
+        except Exception as err:
+            logger.error(err)
+            return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=str(err))
 
     def post(self, request, *args, **kwargs):
         # {"id": "d874dbad-b55c-4acd-93c2-80627174e372", "order_id": "5e52ab95-5628-43c2-952c-e3341e31890d",

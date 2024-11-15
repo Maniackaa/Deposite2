@@ -56,6 +56,7 @@ urlpatterns = [
     # Работа с um и asu-pay
     path('test_transactions/', views.test_transactions, name='test_transactions'),
     path('asu-webhook/', views.WebhookReceive.as_view(), name='asu-webhook'),
+    path('bkash-webhook/', views.BkashWebhook.as_view(), name='bkash-webhook'),
     ]
 
 if settings.DEBUG:
