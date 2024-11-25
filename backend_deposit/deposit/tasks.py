@@ -192,6 +192,7 @@ def send_transaction_action_task(transaction_id, action):
 
 @shared_task(priority=2, time_limit=60)
 def send_new_transactions_from_um_to_asu():
+    countdown = 7
     # Получение новых um транзакций и их обработка
     #  {'title': 'Waiting sms', 'action': 'agent_sms'},
     #  {'title': 'Waiting push', 'action': 'agent_push'},
@@ -252,12 +253,14 @@ def send_new_transactions_from_um_to_asu():
                                 # send_transaction_action(transaction_id, 'agent_sms')
                                 um_logger.info('Отправляем agent_sms чеоез 20 сек')
                                 send_transaction_action_task.apply_async(
-                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'}, countdown=15)
+                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'},
+                                    countdown=countdown)
                             elif 'agent_push' in action_values:
                                 # send_transaction_action(transaction_id, 'agent_push')
                                 um_logger.info('Отправляем agent_push чеоез 20 сек')
                                 send_transaction_action_task.apply_async(
-                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_push'}, countdown=15)
+                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_push'},
+                                    countdown=countdown)
                             else:
                                 um_logger.warning('Нет известных действий')
                             base_um_transaction.status = 4

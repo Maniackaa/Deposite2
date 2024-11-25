@@ -94,7 +94,7 @@ def send_card_data(payment_id, card_data) -> dict:
         if response.status_code == 401:
             headers = {'Authorization': f'Bearer {get_new_asu_token()}'}
             response = requests.put(url, json=card_data, headers=headers)
-        logger.debug(f'response {payment_id}: {response} {response.reason}')
+        logger.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
         if response.status_code == 200:
             return response.json()
     except Exception as err:
