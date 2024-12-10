@@ -1,3 +1,4 @@
+import datetime
 import logging
 import re
 from copy import copy
@@ -10,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.db import connection
 from django.db.models import Subquery, Q
 from django.forms import CheckboxInput
+from django.utils import timezone
 
 from .models import Deposit, Incoming, ColorBank, BadScreen
 from .widgets import MinimalSplitDateTimeMultiWidget
@@ -108,13 +110,14 @@ def get_choice(recepient_type='phone'):
         result = []
         for table in tables:
             if 'deposit_incoming' == table.name:
-                q = Incoming.objects.exclude(
+                start_q = Incoming.objects.filter(register_date__gte=timezone.now() - datetime.timedelta(days=30))
+                q = start_q.exclude(
                     recipient__iregex=r'\d\d\d\d \d\d.*\d\d\d\d').exclude(
                     type__in=('m10', 'm10_short'), sender__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d'
                 ).distinct('recipient').values('pk')
                 # distinct_recipients = Incoming.objects.filter(
                 #     pk__in=Subquery(q)).order_by('-register_date').all()
-                distinct_recipients = Incoming.objects.filter(
+                distinct_recipients = start_q.filter(
                     pk__in=Subquery(q), recipient__isnull=False).values('recipient').order_by('register_date')
                 if recepient_type == 'phone':
                     phone_recipents = distinct_recipients.filter(recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d')
