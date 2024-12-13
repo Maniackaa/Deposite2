@@ -219,6 +219,16 @@ class CreditCard(models.Model):
     text = models.CharField(max_length=100, default='', blank=True)
 
 
+class UmTransaction(models.Model):
+    order_id = models.CharField(unique=True, max_length=10)
+    payment_id = models.CharField(unique=True, max_length=36, null=True, blank=True)
+    create_at = models.DateTimeField(auto_now_add=True)
+    status = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f'{self.id}. {self.order_id}: {self.payment_id}'
+
+
 class Message(models.Model):
     MESSAGE_TYPES = (
         ('admin', 'От админа'),

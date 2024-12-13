@@ -63,11 +63,11 @@ def screen_new(request: Request):
                                                black=black, white=white,
                                                oem=oem, psm=psm, lang=lang, strip=False,
                                                char_whitelist=char_whitelist).strip()
-        amount = response_text_from_image(image_bytes, y_start=12, y_end=29,
+        amount = response_text_from_image(image_bytes, y_start=12, y_end=28,
                                           black=black, white=white,
                                           oem=oem, psm=psm, lang=lang, strip=False,
                                           char_whitelist=char_whitelist).strip()
-        info = response_text_from_image(image_bytes, y_start=29, y_end=70,
+        info = response_text_from_image(image_bytes, y_start=28, y_end=70,
                                         black=black, white=white,
                                         oem=oem, psm=4, lang=lang, strip=False,
                                         char_whitelist=char_whitelist).strip()
@@ -140,6 +140,7 @@ def screen_new(request: Request):
                 make_after_incoming_save(new_incoming)
 
                 # ОТправляем копию в Payment
+                logger.debug(f'Задача копию в Payment: {new_incoming.id}')
                 tasks.send_screen_to_payment.delay(new_incoming.id)
 
                 # Сохраняем в базу-бота телеграм:
@@ -328,8 +329,6 @@ def screen(request: Request):
 
 patterns = {
     'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
-    # 'sms2': r'.*Mebleg:(.+) AZN.*\nKart:(.*)\nTarix:(.*)\nMerchant:(.*)\nBalans:(.*) .*',
-    # 'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*Kart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
     'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*.*\n*.*\nKart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
     'sms3': r'^.+[medaxil|mexaric] (.+?) AZN (.*)(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+Balance: (.+?) AZN.*',
     'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
@@ -341,7 +340,6 @@ patterns = {
     'sms10': r'(.*)\n(\d\d\d\d\*\*\d\d\d\d)\nMedaxil (.*) AZN\nBALANCE\n(.*) AZN\n(\d\d:\d\d \d\d\.\d\d.\d\d)',
     'sms11': r'Odenis\n(.*) AZN \n(.*\n.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
     'sms12': r'(\d\d\.\d\d\.\d\d \d\d:\d\d)(.*)AZ Card: (.*) amount:(.*)AZN.*Balance:(.*)AZN',
-    # 'sms13': r'Odenis:(.*) AZN (.*) (\d\d\d\d\*\*\d\d\d\d) (\d\d:\d\d \d\d\.\d\d.\d\d) BALANCE (.*) AZN',
     'sms13': r'Odenis: (.*) AZN\n(.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
     'sms14': r'^.+[medaxil|mexaric]: (.+?) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
     'sms15': r'Medaxil C2C: (.+?) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
@@ -466,7 +464,6 @@ def sms(request: Request):
         response = result.get('response')
         errors = result.get('errors')
         return response
-
 
     except Exception as err:
         logger.info(f'Неизвестная ошибка при распознавании сообщения: {err}')

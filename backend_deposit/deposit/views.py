@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import uuid
+from http import HTTPStatus
 from sys import platform
 from tempfile import NamedTemporaryFile
 from types import NoneType
@@ -18,12 +19,15 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import F, Q, OuterRef, Window, Exists, Value
-from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest
+from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from rest_framework.views import APIView
 from urllib3 import Retry, PoolManager
 
+from core.asu_pay_func import create_payment, send_card_data
+from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
 from deposit import tasks
@@ -32,11 +36,12 @@ from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
 from deposit.permissions import SuperuserOnlyPerm
-from deposit.tasks import check_incoming
+from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
     MessageRead, RePattern, IncomingCheck
+from users.models import Options
 
 logger = structlog.get_logger(__name__)
 err_log = logging.getLogger('error_log')
@@ -786,5 +791,83 @@ def check_screen(request):
         else:
             print(form.errors)
     context['form'] = form
-
     return render(request, template, context)
+
+
+@staff_member_required(login_url='users:login')
+def test_transactions(request):
+    # ts = get_um_transactions()
+    # # t = send_new_transactions_to_asu()
+    # data = {'merchant': 34, 'order_id': 123151, 'amount': 390.0, 'user_login': '10724806', 'pay_type': 'card_2'}
+    # payment_id = create_payment(data)
+    # print('payment_id:', payment_id)
+    # if payment_id:
+    #     card_data = {
+    #         "card_number": 1111222233334444,
+    #         "owner_name": 'card_holder',
+    #         "expired_month": '01',
+    #         "expired_year": '26',
+    #         "cvv": 1234
+    #     }
+    #     send_card_data(payment_id, card_data)
+    # payment_id = 'a662830b-992b-48ef-a346-caa3337521a7'
+    # card_data = {
+    #     "card_number": 1111222233334444,
+    #     "owner_name": 'card_holder',
+    #     "expired_month": '01',
+    #     "expired_year": '26',
+    #     "cvv": 1234
+    # }
+    # send_card_data(payment_id, card_data)
+    # send_new_transactions_to_asu()
+
+    tasks.send_new_transactions_from_um_to_asu.delay()
+
+    return HttpResponse("<body>hello</body>")
+
+
+class BkashWebhook(APIView):
+
+    def get(self, request, *args, **kwargs):
+        try:
+            data = request.GET
+            logger.info(f'Получен вэбхук BkashWebhook: {data}')
+            return HttpResponse(status=200)
+        except Exception as err:
+            logger.error(err)
+            return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=str(err))
+
+
+class WebhookReceive(APIView):
+    # Получение вэбхука и подтверждение/отклонение на um
+
+    def get(self, request, *args, **kwargs):
+        try:
+            data = request.GET
+            logger.info(f'Получен вэбхук: {data}')
+            return HttpResponse(status=200)
+        except Exception as err:
+            logger.error(err)
+            return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=str(err))
+
+    def post(self, request, *args, **kwargs):
+        # {"id": "d874dbad-b55c-4acd-93c2-80627174e372", "order_id": "5e52ab95-5628-43c2-952c-e3341e31890d",
+        #  "user_login": null, "amount": 2300, "create_at": "2024-10-15T05:46:22.091818+00:00", "status": 9,
+        #  "confirmed_time": "2024-10-15T05:47:22.091818+00:00", "confirmed_amount": 1178,
+        #  "signature": "afea80ca267b0c5566c25d62be8f7a8ab0dc8d2175f38ce8c2bd0bb2c74e6b89", "mask": null}
+        try:
+            data = request.data
+            order_id = data.get('order_id')
+            status = data.get('status')
+            logger.info(f'Получен вэбхук: {data}')
+            if status == 9:
+                logger.info(f'Подтверждаем на um {order_id}')
+                send_transaction_action(order_pk=order_id, action='agent_approve')
+            elif status == -1:
+                logger.info(f'Отклоняем на um {order_id}')
+                send_transaction_action(order_pk=order_id, action='agent_decline')
+
+            return HttpResponse(status=200)
+        except Exception as err:
+            logger.error(err)
+            return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=str(err))

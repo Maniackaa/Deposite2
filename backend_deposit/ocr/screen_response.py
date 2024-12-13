@@ -15,7 +15,7 @@ def screen_text_to_pay(text):
     patterns = {
         'm10': r'.*(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d).*Получатель (.*) Отправитель (.*) Код транзакции (\d+) Сумма (.+) Статус (.*) .*8',
         'm10_short': r'.*(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d).* (Пополнение.*) Получатель (.*) Код транзакции (\d+) Сумма (.+) Статус (\S+).*',
-        'm10new': r'first: (.+)[\n]*.*\namount:.*[\n]*([+-].*)m.*[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]*Date (.+)[\n]+Sender (.+)[\n]*Recipient (.+)[\n]+.*ID (.+)',
+        'm10new': r'first: (.+)[\n]*.*\namount:.*[\n]*([+-].*)[mrh].*[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]*Date (.+)[\n]+Sender (.+)[\n]*Recipient (.+)[\n]+.*ID (.+)',
         'm10new_short': r'first: (.+)[\n]+amount:.*([+-].*)m.*[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]+Date (.+)[\n]+m10 wallet (.+)[\n]+.*ID (.+)'
     }
 
@@ -36,7 +36,7 @@ def screen_text_to_pay(text):
     errors = []
     status = ''
     for sms_type, pattern in patterns.items():
-        logger.debug(f'Проверяем паттерн {sms_type}')
+        logger.debug(f'Проверяем паттерн {sms_type}: {pattern}')
         search_result = re.findall(pattern, text, flags=re.I)
         logger.debug(f'{search_result}: {bool(search_result)}')
         if search_result:

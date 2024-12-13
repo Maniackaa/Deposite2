@@ -1,3 +1,4 @@
+import hashlib
 import logging
 
 import pytz
@@ -27,3 +28,15 @@ def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):
                 logger.debug(f'Ошибка при отправке сообщения для {chat_id}. Код {response.status_code}')
     except Exception as err:
         logger.error(f'Ошибка при отправки сообщений: {err}')
+
+
+def hash_gen(text, salt):
+    """
+    merchant_id + amount + salt
+    :param text:
+    :param salt:
+    :return:
+    """
+    formatted_string = f'{text}' + f'{salt}'
+    m = hashlib.sha256(formatted_string.encode('UTF-8'))
+    return m.hexdigest()

@@ -9,9 +9,12 @@ from celery import shared_task
 from django.conf import settings
 from urllib3 import Retry, PoolManager
 
-from core.global_func import send_message_tg
+from core.asu_pay_func import create_payment, send_card_data, send_sms_code
+from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
+from core.global_func import send_message_tg, TZ
 from deposit.models import *
 from django.apps import apps
+
 User = get_user_model()
 
 logger = structlog.get_logger('tasks')
@@ -38,7 +41,7 @@ def do_if_macros_broken():
         logger.error(f'Ошибка если макрос сдох: {err}')
 
 
-@shared_task(priority=1)
+@shared_task(priority=1, time_limit=20)
 def check_macros():
     """Функция проверки работоспособности макроса"""
     Setting = apps.get_model('deposit', 'Setting')
@@ -58,7 +61,8 @@ def check_macros():
     else:
         last_message_time = datetime.datetime(2000, 1, 1)
     delta = find_time_between_good_screen(last_good_screen_time)
-    logger.debug(f'last_message_time: {last_message_time}\nlast_good_screen_time: {last_good_screen_time}\ndelta:{delta}')
+    logger.debug(
+        f'last_message_time: {last_message_time}\nlast_good_screen_time: {last_good_screen_time}\ndelta:{delta}')
     if last_message_time < last_good_screen_time and delta > 15:
         logger.info(f'Время больше 10')
         do_if_macros_broken()
@@ -67,11 +71,11 @@ def check_macros():
         return True
 
 
-@shared_task(priority=1)
+@shared_task(priority=1, time_limit=30)
 def check_incoming(pk, count=0):
     """Функция проверки incoming в birpay"""
     try:
-        logger.info(f'Проверка опера. Попытка {count+1}')
+        logger.info(f'Проверка опера. Попытка {count + 1}')
         check = None
         IncomingCheck = apps.get_model('deposit', 'IncomingCheck')
         incoming_check = IncomingCheck.objects.get(pk=pk)
@@ -143,7 +147,7 @@ def check_incoming(pk, count=0):
 def test_task(pk, count=0):
     try:
         logger.info('test_task2')
-        send_message_tg(f'test_task2: {pk} попытка {count+1}')
+        send_message_tg(f'test_task2: {pk} попытка {count + 1}')
         raise ValueError('xxx')
 
     except Exception as err:
@@ -153,7 +157,7 @@ def test_task(pk, count=0):
             test_task.apply_async(kwargs={'pk': 100, 'count': count}, countdown=3)
 
 
-@shared_task(priority=1)
+@shared_task(priority=1, time_limit=20)
 def send_screen_to_payment(incoming_id):
     # Отправка копии скрина в смс Payment
     Incoming = apps.get_model('deposit', 'Incoming')
@@ -172,7 +176,118 @@ def send_screen_to_payment(incoming_id):
         retries = Retry(total=5, backoff_factor=3, status_forcelist=[500, 502, 503, 504])
         http = PoolManager(retries=retries)
         response = http.request('POST', url=f'https://asu-payme.com/create_copy_screen/', json=data
-        )
+                                )
         logger.debug(f'response: {response}')
     except Exception as err:
         logger.error(err)
+
+
+@shared_task(priority=1, time_limit=20)
+def send_transaction_action_task(transaction_id, action):
+    # Отправка Actiom
+    logger.info(f'20 сек прошло. Отправляем {action} для {transaction_id}')
+    json_data = send_transaction_action(transaction_id, action)
+    return json_data
+
+
+@shared_task(priority=2, time_limit=60)
+def send_new_transactions_from_um_to_asu():
+    countdown = 7
+    # Получение новых um транзакций и их обработка
+    #  {'title': 'Waiting sms', 'action': 'agent_sms'},
+    #  {'title': 'Waiting push', 'action': 'agent_push'},
+    #  {'title': 'Decline', 'action': 'agent_decline'}
+    start = time.perf_counter()
+    UmTransaction = apps.get_model('deposit', 'UmTransaction')
+    logger.debug('Поиск новых транзакций')
+    new_transactions = get_um_transactions(search_filter={'status': ['new', 'pending']})
+    logger.info(f'новых транзакций: {len(new_transactions)}')
+    for um_transaction in new_transactions:
+        
+        try:
+            create_at = datetime.datetime.fromisoformat(um_transaction['createdAt'])
+            create_delta = datetime.datetime.now(tz=TZ) - create_at
+            if create_delta > datetime.timedelta(days=1):
+                continue
+            transaction_id = um_transaction['id']
+            um_logger = logger.bind(transaction_id=transaction_id)
+            base_um_transaction, is_create = UmTransaction.objects.get_or_create(order_id=transaction_id)
+            um_logger.info(f'base_um_transaction: {base_um_transaction}, is_create: {is_create}')
+            status = um_transaction.get('status')
+            actions = um_transaction.get('actions', [])
+            action_values = [action['action'] for action in actions]
+            um_logger.info(f'Обработка транзакции №{transaction_id}. Статус: "{status}". action_values: {action_values}')
+            um_logger.debug(f'actions {transaction_id}: {actions}')
+            # if ('agent_sms' not in action_values and 'agent_push' not in action_values) and 'agent_decline' in action_values:
+            #     um_logger.info('Нет нужных действий - отклоняем')
+            #     response_json = send_transaction_action(um_transaction['id'], 'agent_decline')
+            #     um_logger.debug(f'{response_json}')
+            data_for_payment = create_payment_data_from_new_transaction(um_transaction)
+            um_logger.debug(f'payment_data: {data_for_payment}')
+            payment_data = data_for_payment['payment_data']
+            card_data = data_for_payment['card_data']
+
+            # Ждет готовность работы
+            if not base_um_transaction.payment_id and ('agent_sms' in action_values or 'agent_push' in action_values):
+                # Если еще нет в базе payment_id отправляем на asu и добавляем созданный payment_id в базу
+                # Передаем данные карты и передаем agent_sms agent_push чз 20 сек
+                # base_um_transaction.status = 4
+                try:
+                    # Создаем новый Payment
+                    um_logger.info(f'Создаем новый Payment: {payment_data}')
+                    payment_id = create_payment(payment_data)
+                    if payment_id:
+                        um_logger.debug(f'Payment создан: {payment_id}')
+                        base_um_transaction.payment_id = payment_id
+                        base_um_transaction.save()
+                        um_logger.debug(base_um_transaction)
+                        # Отправляем данные карты
+                        um_logger.info('Отправляем данные карты')
+                        json_response = send_card_data(payment_id, card_data)
+                        um_logger.info(f'json_response: {json_response}')
+                        if json_response:
+                            sms_required = json_response.get('sms_required')
+                            # Отправяем действие ждем смс чз 20 сек
+                            um_logger.debug(f'sms_required: {sms_required}')
+                            if 'agent_sms' in action_values:
+                                # send_transaction_action(transaction_id, 'agent_sms')
+                                um_logger.info('Отправляем agent_sms чеоез 20 сек')
+                                send_transaction_action_task.apply_async(
+                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'},
+                                    countdown=countdown)
+                            elif 'agent_push' in action_values:
+                                # send_transaction_action(transaction_id, 'agent_push')
+                                um_logger.info('Отправляем agent_push чеоез 20 сек')
+                                send_transaction_action_task.apply_async(
+                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_push'},
+                                    countdown=countdown)
+                            else:
+                                um_logger.warning('Нет известных действий')
+                            base_um_transaction.status = 4
+                            base_um_transaction.save()
+                    else:
+                        um_logger.debug(f'Payment по транзакции {transaction_id} НЕ создан!')
+
+                except Exception as err:
+                    um_logger.error(err)
+
+            # Пришел смс-код и ждет подтверждения. передаем смс-код
+            elif status == 'pending' and card_data.get('sms_code') and base_um_transaction.status != 6:
+                um_logger.info(f'Получен смс-код {transaction_id}')
+                um_logger.info(f'Передаем sms_code {transaction_id}')
+                send_sms_code(base_um_transaction.payment_id, card_data['sms_code'])
+                um_logger.info(f'Меняем status {transaction_id}')
+                base_um_transaction.status = 6
+                base_um_transaction.save()
+            else:
+                um_logger.debug('Доступных действий нет')
+
+        except Exception as err:
+            logger.error(err)
+            raise err
+
+    logger.debug(f'Обработка новых транзакций закончена за {time.perf_counter() - start}')
+    return f'Новых: {len(new_transactions)}'
+
+
+
