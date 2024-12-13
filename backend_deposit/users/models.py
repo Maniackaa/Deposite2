@@ -136,4 +136,6 @@ class Profile(models.Model):
             ("base2", "Только база 2"),
             ("all_base", "Все базы"),
             # ("can_see_bad_warning", "Видит уведомления о новых BadScreen"),
+            ('stats', 'Статистика по картам'),
+            ('graph', 'График'),
         ]

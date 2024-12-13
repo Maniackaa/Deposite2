@@ -665,16 +665,15 @@ def get_last(request):
 @staff_member_required(login_url='users:login')
 def get_stats(request):
     # Статистика по времени поступления платежа
-    if not request.user.is_superuser:
-        raise PermissionDenied('Недостаточно прав')
-
-    template = 'deposit/stats.html'
-    page_obj = bad_incomings()
-    cards = cards_report()
-    # days_stat_dict = day_reports(100)
-    days_stat_dict = day_reports_orm(100)
-    context = {'page_obj': page_obj, 'cards': cards, 'day_reports': days_stat_dict}
-    return render(request, template, context)
+    if request.user.has_perm('users.stats') or request.user.is_superuser:
+        template = 'deposit/stats.html'
+        page_obj = bad_incomings()
+        cards = cards_report()
+        # days_stat_dict = day_reports(100)
+        days_stat_dict = day_reports_orm(100)
+        context = {'page_obj': page_obj, 'cards': cards, 'day_reports': days_stat_dict}
+        return render(request, template, context)
+    raise PermissionDenied('Недостаточно прав')
 
 
 @staff_member_required(login_url='users:login')
@@ -691,12 +690,13 @@ def get_stats2(request):
 
 
 def day_graph(request):
-    if not request.user.is_superuser:
-        raise PermissionDenied('Недостаточно прав')
-    template = 'deposit/test.html'
-    encoded_file = get_img_for_day_graph()
-    context = {'fig1': encoded_file}
-    return render(request, template, context)
+    if request.user.has_perm('users.graph') or request.user.is_superuser:
+
+        template = 'deposit/test.html'
+        encoded_file = get_img_for_day_graph()
+        context = {'fig1': encoded_file}
+        return render(request, template, context)
+    raise PermissionDenied('Недостаточно прав')
 
 
 class MessageView(DetailView):
