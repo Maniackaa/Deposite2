@@ -256,16 +256,16 @@ LOGGING = {
             'formatter': 'plain_console',
             'level': 'WARNING',
         },
-        "ocr": {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/ocr.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'plain_console',
-            'level': 'WARNING',
-        },
+        # "ocr": {
+        #     'class': 'logging.handlers.RotatingFileHandler',
+        #     'filename': 'logs/ocr.log',
+        #     'backupCount': 10,
+        #     'maxBytes': 100 * 1024 * 1024,
+        #     'mode': 'a',
+        #     'encoding': 'UTF-8',
+        #     'formatter': 'plain_console',
+        #     'level': 'WARNING',
+        # },
     },
     "loggers": {
         "deposit": {
@@ -273,11 +273,11 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
-        "ocr": {
-            "handlers": ["ocr", "deposite_error"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
+        # "ocr": {
+        #     "handlers": ["ocr", "deposite_error"],
+        #     "level": "DEBUG",
+        #     "propagate": False,
+        # },
         "core": {
             "handlers": ["deposit_debug", "deposit_info", "deposit_error", "django", "json_file", "console"],
             "level": "DEBUG",
