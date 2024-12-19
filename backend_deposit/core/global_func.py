@@ -25,7 +25,7 @@ def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):
             if response.status_code == 200:
                 logger.debug(f'Сообщение для {chat_id} отправлено')
             else:
-                logger.debug(f'Ошибка при отправке сообщения для {chat_id}. Код {response.status_code}')
+                logger.error(f'Ошибка при отправке сообщения для {chat_id}. Код {response.status_code}')
     except Exception as err:
         logger.error(f'Ошибка при отправки сообщений: {err}')
 

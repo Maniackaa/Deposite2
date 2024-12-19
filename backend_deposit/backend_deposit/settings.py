@@ -185,88 +185,122 @@ REST_FRAMEWORK = {
 
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
+    "version": 1,
+    "disable_existing_loggers": False,
+
     "formatters": {
-        'default_formatter': {
-            'format': '[%(asctime)s] #%(levelname)-8s %(filename)s:%(lineno)d %(module)s/%(funcName)s\n%(message)s',
-        },
-        "console": {
-            "()": structlog.stdlib.ProcessorFormatter,
-            "processor": structlog.dev.ConsoleRenderer(colors=True),
-        },
-        "console_black": {
-            "()": structlog.stdlib.ProcessorFormatter,
-            "processor": structlog.dev.ConsoleRenderer(colors=False),
-        },
         "json_formatter": {
             "()": structlog.stdlib.ProcessorFormatter,
             "processor": structlog.processors.JSONRenderer(),
         },
-
+        "plain_console": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.dev.ConsoleRenderer(colors=False),
+        },
     },
     "handlers": {
-        'all': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/all_rotate.log',
-            'backupCount': 50,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'console_black',
-            'level': 'DEBUG',
-        },
-        'errors': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/errors.log',
-            'backupCount': 5,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'console_black',
-            'level': 'ERROR',
-        },
-        'info': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/info_rotate.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'console_black',
-            'level': 'INFO',
-        },
-        'tasks': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/tasks.log',
-            'backupCount': 10,
-            'maxBytes': 100 * 1024 * 1024,
-            'mode': 'a',
-            'encoding': 'UTF-8',
-            'formatter': 'console_black',
-            'level': 'DEBUG',
+        "null": {
+            "class": "logging.NullHandler",
         },
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "console",
+            "formatter": "plain_console",
+            # 'filters': ['skip_errors'],
         },
-        "console_black": {
-            "class": "logging.StreamHandler",
-            "formatter": "console_black",
+        "json_file": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": "logs/json_file.log",
+            "formatter": "json_formatter",
+            'encoding': 'UTF-8',
+            'when': 'h',
+            'interval': 24,
+            'backupCount': 90
+        },
+        "deposit_debug": {
+            "level": "DEBUG",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": "logs/deposit_debug.log",
+            "formatter": "plain_console",
+            'encoding': 'UTF-8',
+            'when': 'h',
+            'interval': 24,
+            'backupCount': 90
+        },
+        "deposit_info": {
+            "level": "INFO",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": "logs/deposit_info.log",
+            "formatter": "plain_console",
+            'encoding': 'UTF-8',
+            'when': 'h',
+            'interval': 24,
+            'backupCount': 90
+        },
+        "deposit_error": {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/errors.log',
+            'backupCount': 5,
+            'maxBytes': 10 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'plain_console',
+            'level': 'ERROR',
+        },
+        "django": {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/django.log',
+            'backupCount': 10,
+            'maxBytes': 100 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'plain_console',
+            'level': 'WARNING',
+        },
+        "ocr": {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/ocr.log',
+            'backupCount': 10,
+            'maxBytes': 100 * 1024 * 1024,
+            'mode': 'a',
+            'encoding': 'UTF-8',
+            'formatter': 'plain_console',
+            'level': 'WARNING',
         },
     },
-    'loggers': {
+    "loggers": {
+        "deposit": {
+            "handlers": ["deposit_debug", "deposit_info", "deposit_error", "django", "json_file", "console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "ocr": {
+            "handlers": ["ocr", "deposite_error"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "core": {
+            "handlers": ["deposit_debug", "deposit_info", "deposit_error", "django", "json_file", "console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "users": {
+            "handlers": ["deposit_debug", "deposit_info", "deposit_error", "django", "json_file", "console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "root": {
-            "handlers": ["console_black", 'all', 'errors', 'info'],
+            "handlers": ["django"],
             "level": "DEBUG",
-            'propagate': False,
+            "propagate": False,
         },
-        "tasks": {
-            "handlers": ['tasks', 'console'],
-            "level": "DEBUG",
-            'propagate': True,
+        "django": {
+            "handlers": ["django"],
+            "level": "WARNING",
+            "propagate": False,
         },
-    }
+
+
+    },
 }
 
 

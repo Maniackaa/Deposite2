@@ -44,7 +44,7 @@ from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Mes
 from users.models import Options
 
 logger = structlog.get_logger(__name__)
-err_log = logging.getLogger('error_log')
+err_log = logging.getLogger(__name__)
 
 
 @staff_member_required(login_url='users:login')
@@ -551,6 +551,10 @@ class IncomingTrashList(ListView):
         #     trash_list = trash_list.filter(worker='base2')
         # else:
         #     trash_list = trash_list.exclude(worker='base2')
+        logger.debug('Тест debug')
+        logger.warning('Тест warning')
+        logger.info('Тест info')
+        logger.error('Тест error')
         return trash_list
 
 

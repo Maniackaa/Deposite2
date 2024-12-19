@@ -17,7 +17,7 @@ from .models import Deposit, Incoming, ColorBank, BadScreen
 from .widgets import MinimalSplitDateTimeMultiWidget
 
 logger = logging.getLogger(__name__)
-err_log = logging.getLogger('error_log')
+err_log = logging.getLogger(__name__)
 
 
 class DepositForm(forms.ModelForm):

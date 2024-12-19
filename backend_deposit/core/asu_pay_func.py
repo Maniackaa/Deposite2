@@ -8,7 +8,7 @@ from django.conf import settings
 from backend_deposit.settings import BASE_DIR
 from users.models import Options
 
-logger = structlog.get_logger('tasks')
+log = structlog.get_logger(__name__)
 
 
 data = {
@@ -21,6 +21,7 @@ token_file = BASE_DIR / 'token_asu.txt'
 
 
 def get_new_asu_token():
+    logger = log
     logger.info(f'Получение первичного токена по логину')
     try:
         # login = settings.ASUPAY_LOGIN
@@ -60,6 +61,7 @@ def get_asu_token() -> str:
 
 
 def create_payment(payment_data):
+    logger = log
     try:
         logger.debug(f'Создание заявки Payment на asu-pay: {payment_data}')
         # {'merchant': 34, 'order_id': 1586, 'amount': 1560.0, 'user_login': '119281059', 'pay_type': 'card_2'}
@@ -83,6 +85,7 @@ def create_payment(payment_data):
 
 
 def send_card_data(payment_id, card_data) -> dict:
+    logger = log.bind(payment_id=payment_id)
     try:
         logger.debug(f'Передача card_data {payment_id} на asu-pay')
         token = get_asu_token()
@@ -102,12 +105,13 @@ def send_card_data(payment_id, card_data) -> dict:
 
 
 def send_sms_code(payment_id, sms_code, transaction_id=None) -> dict:
+    if transaction_id:
+        logger = log.bind(transaction_id=transaction_id, payment_id=payment_id)
+    else:
+        logger = log.bind(payment_id=payment_id)
     try:
-        if transaction_id:
-            log = logger.bind(transaction_id=transaction_id, payment_id=payment_id)
-        else:
-            log = logger
-        log.debug(f'Передача sms_code {payment_id} на asu-pay')
+
+        logger.debug(f'Передача sms_code {payment_id} на asu-pay')
         token = get_asu_token()
         headers = {
             'Authorization': f'Bearer {token}'
@@ -118,7 +122,7 @@ def send_sms_code(payment_id, sms_code, transaction_id=None) -> dict:
         if response.status_code == 401:
             headers = {'Authorization': f'Bearer {get_new_asu_token()}'}
             response = requests.put(url, json=json_data, headers=headers)
-        log.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
+        logger.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
         if response.status_code == 200:
             return response.json()
     except Exception as err:

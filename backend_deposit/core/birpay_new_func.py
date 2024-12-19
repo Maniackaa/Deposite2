@@ -8,7 +8,7 @@ from backend_deposit.settings import BASE_DIR
 from users.models import Options
 from core.global_func import TZ
 
-logger = structlog.get_logger('tasks')
+logger = structlog.get_logger(__name__)
 
 
 token_file = BASE_DIR / 'token_new.txt'
@@ -27,7 +27,7 @@ headers = {
 
 
 def get_new_token():
-    logger.debug('Получение токена')
+    logger.debug('Получение токена umoney')
     options = Options.load()
     BIRPAY_NEW_LOGIN = options.um_login
     BIRPAY_NEW_PASSWORD = options.um_password
@@ -39,7 +39,7 @@ def get_new_token():
     }
 
     response = requests.post('https://api.um.money/api/dashboard/auth/login', headers=headers, json=json_data)
-    logger.debug(response.status_code)
+    logger.debug(f'Получение токена umoney: {response.status_code}')
     if response.status_code == 200:
         token = response.json().get('token')
         with open(BASE_DIR / 'token_new.txt', 'w') as file:
@@ -84,7 +84,7 @@ def get_um_transactions(search_filter=None):
 
         response = requests.post('https://api.um.money/api/dashboard/refill-order/find',
                                  headers=headers, json=json_data)
-        print(response)
+        logger.debug(f'{response.status_code}')
         if response.status_code == 401:
             # Обновление токена
             token_new = get_new_token()
@@ -94,7 +94,6 @@ def get_um_transactions(search_filter=None):
 
         if response.status_code == 200:
             json_data = response.json()
-            print(json_data)
             return json_data.get('data', [])
 
     except Exception as err:
@@ -113,6 +112,7 @@ def wait_sms(order_pk) -> int:
         headers=headers,
         json=json_data,
     )
+    logger.debug(f'wait_sms {order_pk}: {response.status_code}')
     return response.status_code
 
 
@@ -167,13 +167,12 @@ def send_transaction_action(order_pk, action: str) -> dict:
     # agent_sms, agent_decline, agent_approve, agent_push
     log = logger.bind(transaction_id=order_pk)
     try:
-        log.info(f'Отправка action {order_pk}: {action}')
         token = get_token()
         headers['Authorization'] = f'Bearer {token}'
         json_data = {'action': action}
         response = requests.put(f'https://api.um.money/api/dashboard/refill-order/{order_pk}/action',
                                 headers=headers, json=json_data)
-
+        log.debug(f'{response.status_code}: {response.reason}. {response.text}')
         if response.status_code == 401:
             # Обновление токена
             token_new = get_new_token()
@@ -181,16 +180,14 @@ def send_transaction_action(order_pk, action: str) -> dict:
             response = requests.put(f'https://api.um.money/api/dashboard/refill-order/{order_pk}/action',
                                         headers=headers, json=json_data)
 
-        log.debug(f'{response.status_code}: {response.reason}. {response.text}')
-
         if response.status_code == 200:
             json_data = response.json()
             log.debug(json_data)
             return json_data
 
-    except Exception as err:
-        log.error(err)
-        raise err
+    except Exception as e:
+        log.error(f'{type(e)}: {e}')
+        raise e
 
 
 if __name__ == '__main__':

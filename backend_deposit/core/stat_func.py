@@ -19,7 +19,7 @@ import base64
 from deposit.models import Incoming, CreditCard, Message
 
 logger = logging.getLogger(__name__)
-err_log = logging.getLogger('error_log')
+err_log = logging.getLogger(__name__)
 
 TZ = pytz.timezone(TIME_ZONE)
 

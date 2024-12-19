@@ -6,7 +6,7 @@ import requests
 import structlog
 
 from backend_deposit.settings import BASE_DIR
-logger = structlog.get_logger('tasks')
+logger = structlog.get_logger(__name__)
 
 
 def get_new_token():
@@ -79,7 +79,7 @@ def find_birpay_from_id(birpay_id, results=1):
             headers=headers,
             json=json_data,
         )
-
+        logger.debug(f'find_birpay_from_id: {response.status_code}')
         if response.status_code == 401:
             # Обновление токена
             token = get_new_token()

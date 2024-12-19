@@ -18,7 +18,7 @@ from core.birpay_func import find_birpay_from_id
 from deposit.tasks import check_incoming
 
 logger = logging.getLogger(__name__)
-err_log = logging.getLogger('error_log')
+err_log = logging.getLogger(__name__)
 
 # User = get_user_model()
 

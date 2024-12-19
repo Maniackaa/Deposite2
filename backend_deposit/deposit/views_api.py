@@ -91,8 +91,8 @@ def screen_new(request: Request):
             logger.debug(f'Возвращаем статус 200: not recognize')
             # path = f'{host}{MEDIA_ROOT}{new_screen.image.url}'
             path = f'{host}{new_screen.image.url}'
-            msg = f'Пришел хреновый скрин с {worker}: {name}\n{path}'
-            send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
+            # msg = f'Пришел хреновый скрин с {worker}: {name}\n{path}'
+            # send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
             return HttpResponse(status=status.HTTP_200_OK,
                                 reason='not recognize',
                                 charset='utf-8')
@@ -236,8 +236,8 @@ def screen(request: Request):
             logger.debug(f'Возвращаем статус 200: not recognize')
             # path = f'{host}{MEDIA_ROOT}{new_screen.image.url}'
             path = f'{host}{new_screen.image.url}'
-            msg = f'Пришел хреновый скрин с {worker}: {name}\n{path}'
-            send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
+            # msg = f'Пришел хреновый скрин с {worker}: {name}\n{path}'
+            # send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
             return HttpResponse(status=status.HTTP_200_OK,
                                 reason='not recognize',
                                 charset='utf-8')
