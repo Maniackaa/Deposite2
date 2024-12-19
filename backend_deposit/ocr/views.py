@@ -2,6 +2,7 @@ import itertools
 import logging
 
 import requests
+import structlog
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count
@@ -14,7 +15,7 @@ from ocr.forms import ScreenForm, ScreenDeviceSelectFrom
 from ocr.models import ScreenResponse
 from ocr.tasks import response_parts
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class ScreenListView(ListView, PermissionRequiredMixin):

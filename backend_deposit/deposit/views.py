@@ -528,7 +528,6 @@ class IncomingSearch(ListView):
         request_dict.update({'begin': begin})
         request_dict.update({'end': end})
         search_form = IncomingSearchForm(initial={**request_dict})
-        print('request_dict:', request_dict)
         context['search_form'] = search_form
         last_id = Incoming.objects.order_by('id').last()
         if last_id:
@@ -551,10 +550,10 @@ class IncomingTrashList(ListView):
         #     trash_list = trash_list.filter(worker='base2')
         # else:
         #     trash_list = trash_list.exclude(worker='base2')
-        logger.debug('Тест debug')
-        logger.warning('Тест warning')
-        logger.info('Тест info')
-        logger.error('Тест error')
+        # logger.debug('Тест debug')
+        # logger.warning('Тест warning')
+        # logger.info('Тест info')
+        # logger.error('Тест error')
         return trash_list
 
 
@@ -639,8 +638,6 @@ class ColorBankCreate(CreateView):
 
 def get_last(request):
     """Функция поиска последнего id Incoming и последнего id Message/macros для javascript"""
-    print('get_last')
-    print(request.user)
     all_incomings = Incoming.objects.order_by('id').all()
     if request.user.has_perm('users.base2'):
         all_incomings = all_incomings.filter(worker='base2')
@@ -779,9 +776,7 @@ def check_screen(request):
     form = CheckScreenForm(request.POST)
 
     if request.method == 'POST':
-        print('post')
         if form.is_valid():
-            print('valid')
             screen = form.cleaned_data.get('screen')
             image_bytes = screen.image.read()
             context['x'] = 1
@@ -789,7 +784,6 @@ def check_screen(request):
             # with NamedTemporaryFile() as temp_file:
             temp_file = NamedTemporaryFile(mode='wb', suffix='.jpg', prefix='prefix_', delete=False)
             temp_file.write(image_bytes)
-            print(temp_file.name)
             context['file_url'] = temp_file.name
 
         else:

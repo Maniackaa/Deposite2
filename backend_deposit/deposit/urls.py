@@ -54,7 +54,7 @@ urlpatterns = [
     path('check_screen/', views.check_screen, name='check_screen'),
 
     # Работа с um и asu-pay
-    path('test_transactions/', views.test_transactions, name='test_transactions'),
+    # path('test_transactions/', views.test_transactions, name='test_transactions'),
     path('asu-webhook/', views.WebhookReceive.as_view(), name='asu-webhook'),
     path('bkash-webhook/', views.BkashWebhook.as_view(), name='bkash-webhook'),
     ]
