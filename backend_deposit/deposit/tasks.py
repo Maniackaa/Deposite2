@@ -175,7 +175,7 @@ def send_screen_to_payment(incoming_id):
     try:
         retries = Retry(total=5, backoff_factor=3, status_forcelist=[500, 502, 503, 504])
         http = PoolManager(retries=retries)
-        response = http.request('POST', url=f'https://asu-payme.com/create_copy_screen/', json=data
+        response = http.request('POST', url=f'{settings.ASU_HOST}/create_copy_screen/', json=data
                                 )
         logger.debug(f'response: {response}')
     except Exception as err:

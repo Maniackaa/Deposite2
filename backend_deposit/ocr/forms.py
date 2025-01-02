@@ -2,6 +2,7 @@ import logging
 import re
 
 import colorfield.fields
+import structlog
 from colorfield.fields import ColorField
 from django import forms
 from django.contrib.admin import widgets
@@ -12,7 +13,7 @@ from django.forms import CheckboxInput
 
 from ocr.models import ScreenResponse
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 phones = [('jjeyzlhiz9ljeiso', 'Phone 1 ["jjeyzlhiz9ljeiso"]'), ('unknown', 'unknown')]
 

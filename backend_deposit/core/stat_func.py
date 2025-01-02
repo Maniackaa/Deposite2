@@ -3,6 +3,7 @@ import logging
 from dataclasses import dataclass
 
 import pytz
+import structlog
 
 from django.db.models import Sum, Count, Max, Q, F, Avg, Value, Subquery, OuterRef, Window, DateField
 import seaborn as sns
@@ -18,7 +19,7 @@ import base64
 
 from deposit.models import Incoming, CreditCard, Message
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 err_log = logging.getLogger(__name__)
 
 TZ = pytz.timezone(TIME_ZONE)

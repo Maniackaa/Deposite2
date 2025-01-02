@@ -4,6 +4,7 @@ import re
 from copy import copy
 
 import colorfield.fields
+import structlog
 from colorfield.fields import ColorField
 from django import forms
 from django.contrib.admin import widgets
@@ -16,7 +17,7 @@ from django.utils import timezone
 from .models import Deposit, Incoming, ColorBank, BadScreen
 from .widgets import MinimalSplitDateTimeMultiWidget
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 err_log = logging.getLogger(__name__)
 
 

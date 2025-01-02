@@ -2,6 +2,7 @@ import datetime
 import logging
 import re
 
+import structlog
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
@@ -17,7 +18,7 @@ from backend_deposit import settings
 from core.birpay_func import find_birpay_from_id
 from deposit.tasks import check_incoming
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 err_log = logging.getLogger(__name__)
 
 # User = get_user_model()

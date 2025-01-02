@@ -3,12 +3,13 @@ import logging
 
 import pytz
 import requests
+import structlog
 
 from backend_deposit import settings
 from backend_deposit.settings import TIME_ZONE
 
 TZ = pytz.timezone(TIME_ZONE)
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):

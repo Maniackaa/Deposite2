@@ -279,7 +279,7 @@ LOGGING = {
             "propagate": False,
         },
         "ocr": {
-            "handlers": ["ocr", "deposit_error"],
+            "handlers": ["ocr", "deposit_error", "console"],
             "level": "DEBUG",
             "propagate": False,
         },

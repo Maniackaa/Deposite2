@@ -2,10 +2,11 @@ import datetime
 import logging
 
 import pytz
+import structlog
 
 from backend_deposit.settings import TIME_ZONE
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 err_log = logging.getLogger(__name__)
 tz = pytz.timezone(TIME_ZONE)
 

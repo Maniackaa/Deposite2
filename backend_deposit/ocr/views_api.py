@@ -1,23 +1,23 @@
 import datetime
 import json
-import logging
-import pickle
 from http import HTTPStatus
 
 import pytz
+import structlog
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
+from deposit import tasks
 from deposit.models import Incoming
 from ocr.models import ScreenResponse
 from ocr.ocr_func import bytes_to_str, response_text_from_image, date_m10_response
 
 from ocr.screen_response import screen_text_to_pay
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @api_view(['POST'])
@@ -214,35 +214,37 @@ def response_bank1(request: Request):
 
 @api_view(['POST'])
 def receive_pay(request: Request):
-    """Прием распознанного платежа
-    pay: {'response_date': datetime.datetime(2023, 12, 1, 15, 59), 'bank_card': 'IBA MOBILE', 'pay': 25.0, 'balance': 25.0}
+    """Прием распознанного платежа и скрина
     """
     try:
-        pay_dict = request.data.get('pay')
-        pay_dict = json.loads(pay_dict)
+        pay_dict = request.data
         pay = pay_dict.get('pay')
-        bank_card = pay_dict.get('bank_card')
-        balance = pay_dict.get('balance')
         response_date = pay_dict.get('response_date')
-        response_date = datetime.datetime.fromtimestamp(response_date)
+        response_date = datetime.datetime.fromtimestamp(float(response_date))
         worker = request.data.get('worker')
         sms_type = request.data.get('type')
         phone_name = request.data.get('phone_name')
+        sender = request.data.get('sender')
+        transaction = request.data.get('transaction')
+        recipient = request.data.get('recipient')
         image = request.data.get('image')
-        name = request.data.get('name')
         logger.info(f'Принят pay: {pay_dict} от телефона {phone_name} со станции {worker}.')
         new_pay, status = Incoming.objects.get_or_create(
             response_date=response_date,
-            sender=bank_card,
+            transaction=transaction,
+            sender=sender,
             pay=pay,
-            balance=balance,
-            recipient=phone_name,
+            recipient=recipient,
             type=sms_type,
-            worker=worker,
+            worker=phone_name,
         )
-        logger.info(f'{status} {new_pay}')
+        # logger.info(f'{status} {new_pay}')
         if status:
-            new_pay.image.save(name=name, content=image)
+            new_pay.image = image
+            new_pay.save()
+            new_pay.refresh_from_db()
+            tasks.send_screen_to_payment.delay(new_pay.id)
+            return HttpResponse(status=HTTPStatus.CREATED)
         return HttpResponse(status=HTTPStatus.OK)
     except Exception as err:
         logger.error(err, exc_info=True)
@@ -296,7 +298,7 @@ def response_m10new(request: Request):
         image = request.data.get('image')
         image_bytes = image.file.read()
         logger.info(f'Параметры response_screen_m10: {black}-{white} {lang} {oem} {psm} {len(image_bytes)}b')
-        #char_whitelist = '+- :;*•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+        char_whitelist = '+- :;*•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
         first_stoke = response_text_from_image(image_bytes, y_start=4, y_end=10, x_start=10, x_end=100,
                                                black=black, white=white,
                                                oem=oem, psm=psm, lang=lang, strip=False,

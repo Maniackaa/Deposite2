@@ -2,6 +2,7 @@ import logging
 import time
 
 import requests
+import structlog
 from celery import shared_task, group, chunks
 from celery.utils.log import get_task_logger
 from django.contrib.auth import get_user_model
@@ -12,7 +13,7 @@ from ocr.models import ScreenResponse, ScreenResponsePart
 
 User = get_user_model()
 # logger = get_task_logger('celery')
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @shared_task(priority=2)
