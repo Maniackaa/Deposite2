@@ -247,8 +247,8 @@ def receive_pay(request: Request):
             return HttpResponse(status=HTTPStatus.CREATED)
         return HttpResponse(status=HTTPStatus.OK)
     except Exception as err:
-        logger.error(err, exc_info=True)
-        return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=err)
+        logger.error(f'{type(err)}: {err}')
+        return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=str(err))
 
 
 @api_view(['POST'])
