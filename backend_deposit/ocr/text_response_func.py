@@ -494,3 +494,54 @@ def response_sms16(fields, groups) -> dict[str, str | float]:
     except Exception as err:
         err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
         raise err
+
+
+def response_sms17(fields, groups) -> dict[str, str | float]:
+    """
+    24.01.25 18:58
+    M10 TOP UP,
+    AZ KART: ****8512
+    MEBLEG:-2.00 AZN
+    KOM:0.00
+    Balans:7.00AZN
+    ID: 699288 TESEKKUR EDIRIK.BANK OF BAKU.INFO:145
+    :param fields: ['response_date', 'recipient', 'sender', 'pay', 'balance', 'transaction', 'type']
+    :return: dict[str, str | float]
+    """
+    response_fields = {
+        'response_date':    {'pos': 0, 'func': date_response},
+        'recipient':           {'pos': 2},
+        'sender':             {'pos': 1},
+        'pay':              {'pos': 3, 'func': float_digital},
+        'balance':          {'pos': 4, 'func': float_digital},
+    }
+    sms_type = 'sms17'
+    try:
+        result = response_operations(fields, groups, response_fields, sms_type)
+        return result
+    except Exception as err:
+        err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
+        raise err
+
+
+def response_sms18(fields, groups) -> dict[str, str | float]:
+    """
+    KREDIT: 24.01.25 18:56 M10 ACCOUNT TO CARD, AZ Card: ****8512 MEBLEG:2.00 AZN KOM:0.00 Balans: 9.00 AZN. TESEKKUR EDIRIK. BANK OF BAKU
+
+    :param fields: ['response_date', 'recipient', 'sender', 'pay', 'balance', 'transaction', 'type']
+    :return: dict[str, str | float]
+    """
+    response_fields = {
+        'response_date':    {'pos': 0, 'func': date_response},
+        'recipient':           {'pos': 2},
+        'sender':             {'pos': 1},
+        'pay':              {'pos': 3, 'func': float_digital},
+        'balance':          {'pos': 4, 'func': float_digital},
+    }
+    sms_type = 'sms18'
+    try:
+        result = response_operations(fields, groups, response_fields, sms_type)
+        return result
+    except Exception as err:
+        err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
+        raise err

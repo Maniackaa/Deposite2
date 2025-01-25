@@ -19,7 +19,7 @@ from ocr.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
 from ocr.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
     response_sms6, response_sms7, response_sms8, response_sms9, response_sms10, response_sms11, response_sms12, \
-    response_sms13, response_sms14, response_sms15, response_sms16
+    response_sms13, response_sms14, response_sms15, response_sms16, response_sms17, response_sms18
 from ocr.views_api import convert_atb_value
 
 logger = structlog.get_logger(__name__)
@@ -344,7 +344,9 @@ patterns = {
     'sms13': r'Odenis: (.*) AZN\n(.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
     'sms14': r'^.+[medaxil|mexaric]: (.+?) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
     'sms15': r'Medaxil C2C: (.+?) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
-    'sms16': r'.*Summa:\s*(.*?) AZN.*\n*.*\n*.*\nKarta:(.*)\n*Data:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*'
+    'sms16': r'.*Summa:\s*(.*?) AZN.*\n*.*\n*.*\nKarta:(.*)\n*Data:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
+    'sms17': r'(\d{2}\.\d{2}\.\d{2})\s(\d{2}:\d{2})\s(.*?),\s.*?:\s(\*\*\*\*\d+)\sMEBLEG:([-\d.]+)\sAZN.*?Balans:([-\d.]+)AZN',
+    'sms18': r'KREDIT:\s(\d{2}\.\d{2}\.\d{2})\s(\d{2}:\d{2})\s(.*?),\s.*?:\s(\*\*\*\*\d+)\sMEBLEG:([-\d.]+)\sAZN.*?Balans:\s*([-\d.]+) AZN'
 
 }
 response_func = {
@@ -364,6 +366,8 @@ response_func = {
     'sms14': response_sms14,
     'sms15': response_sms15,
     'sms16': response_sms16,
+    'sms17': response_sms17,
+    'sms18': response_sms18,
 }
 
 
