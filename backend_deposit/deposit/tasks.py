@@ -309,7 +309,6 @@ def send_new_transactions_from_birpay_to_asu():
         is_exists = WithdrawTransaction.objects.filter(withdraw_id=withdraw['id']).exists()
         logger.info(f'{withdraw["id"]} is_exists: {is_exists}')
         if not is_exists:
-            count += 1
             # Если еще не брали в работу создадим на асупэй
             expired_month = expired_year = target_phone = card_data = None
             amount = float(withdraw.get('amount'))
@@ -343,11 +342,15 @@ def send_new_transactions_from_birpay_to_asu():
             result = create_asu_withdraw(**withdraw_data)
             if result.get('status') == 'success':
                 # Успешно создана
-                WithdrawTransaction.objects.create(
-                    withdraw_id=withdraw['id'],
-                    status=1,
-                )
+                try:
+                    WithdrawTransaction.objects.create(
+                        withdraw_id=withdraw['id'],
+                        status=1,
+                    )
+                except Exception as err:
+                    logger.warning(err)
 
                 results.append(result)
+                count += 1
     return results
 
