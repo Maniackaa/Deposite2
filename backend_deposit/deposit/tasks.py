@@ -330,7 +330,7 @@ def send_new_transactions_from_birpay_to_asu():
                 }
                 if expired_month and expired_year:
                     card_data['expired_month'] = expired_month
-                    expired_year['expired_year'] = expired_year
+                    card_data['expired_year'] = expired_year
             withdraw_data = {
                 'withdraw_id': withdraw['id'],
                 'amount': amount,
