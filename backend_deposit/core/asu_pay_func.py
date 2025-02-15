@@ -181,8 +181,8 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
 
         log.debug(f'response: {response} {response.reason} {response.text}')
         if response.status_code == 201:
-            return response.json()
-
+            result = response.json()
+        return result
     except Exception as err:
         result = {'withdraw_id': withdraw_id, 'status': 'error', 'error': err}
         log.debug(f'Ошибка при создании withdraw: {err}')
