@@ -147,6 +147,7 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
               'status': 0,
               'uid': 'b3429f24-432b-4796-a8e2-986c39fbbdf7',
               'updatedAt': '2025-02-15T15:56:11+03:00'}"""
+    result = {}
     try:
 
         options = Options.load()
@@ -183,6 +184,6 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
             return response.json()
 
     except Exception as err:
-        result = {'withdraw_id': withdraw_id, 'error': err}
+        result = {'withdraw_id': withdraw_id, 'status': 'error', 'error': err}
         log.debug(f'Ошибка при создании withdraw: {err}')
         return result

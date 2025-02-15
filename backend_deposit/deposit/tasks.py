@@ -298,7 +298,7 @@ def send_new_transactions_from_um_to_asu():
 def send_new_transactions_from_birpay_to_asu():
     withdraw_list = async_to_sync(get_birpay_withdraw)(limit=512)
     total_amount = 0
-    results = {}
+    results = []
     limit = 5
     count = 0
     WithdrawTransaction = apps.get_model('deposit.WithdrawTransaction')
