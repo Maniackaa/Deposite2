@@ -155,7 +155,7 @@ async def get_birpay_withdraw():
         # Обновление токена
         token = get_new_token()
         headers['Authorization'] = f'Bearer {token}'
-    response = requests.post('https://birpay-gate.com/api/operator/payout_order/find', headers=headers, json=json_data)
+        response = requests.post('https://birpay-gate.com/api/operator/payout_order/find', headers=headers, json=json_data)
     result = response.json()
     return result
 
@@ -172,7 +172,7 @@ def approve_birpay_withdraw(withdraw_id, transaction_id):
         # Обновление токена
         token = get_new_token()
         headers['Authorization'] = f'Bearer {token}'
-    response = requests.put('https://birpay-gate.com/api/operator/payout_order/approve', headers=headers, json=json_data)
+        response = requests.put('https://birpay-gate.com/api/operator/payout_order/approve', headers=headers, json=json_data)
     result = response.json()
     logger.debug(f'approve_birpay_withdraw {withdraw_id} {transaction_id}: {response.status_code}. result: {result}')
     return result
