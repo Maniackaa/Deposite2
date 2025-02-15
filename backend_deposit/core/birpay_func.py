@@ -129,7 +129,7 @@ def find_birpay_from_id(birpay_id, results=1):
         logger.error(err)
         raise err
 
-async def get_birpay_withdraw():
+async def get_birpay_withdraw(limit=10):
     token = read_token()
     headers['Authorization'] = f'Bearer {token}'
 
@@ -144,7 +144,7 @@ async def get_birpay_withdraw():
         },
         "limit": {
             "lastId": 0,
-            "maxResults": 100,
+            "maxResults": limit,
             "descending": True,
         },
     }

@@ -4,12 +4,15 @@ import time
 
 import requests
 import structlog
+from asgiref.sync import async_to_sync
 from celery import shared_task
 
 from django.conf import settings
+from django.http import JsonResponse
 from urllib3 import Retry, PoolManager
 
-from core.asu_pay_func import create_payment, send_card_data, send_sms_code
+from core.asu_pay_func import create_payment, send_card_data, send_sms_code, create_asu_withdraw
+from core.birpay_func import get_birpay_withdraw
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ
 from deposit.models import *
@@ -290,4 +293,58 @@ def send_new_transactions_from_um_to_asu():
     return f'Новых: {len(new_transactions)}'
 
 
+
+@shared_task(priority=2, time_limit=30)
+def send_new_transactions_from_birpay_to_asu():
+    withdraw_list = async_to_sync(get_birpay_withdraw)(limit=512)
+    total_amount = 0
+    results = []
+    limit = 5
+    count = 0
+    for withdraw in withdraw_list:
+        if count >= limit:
+            break
+        is_exists = WithdrawTransaction.objects.filter(withdraw_id=withdraw['id']).exists()
+        if not is_exists:
+            count += 1
+            # Если еще не брали в работу создадим на асупэй
+            expired_month = expired_year = target_phone = card_data = None
+            amount = float(withdraw.get('amount'))
+            total_amount += amount
+            wallet_id = withdraw.get('customerWalletId', '')
+            if wallet_id.startswith('994'):
+                target_phone = f'+{wallet_id}'
+            elif len(wallet_id) == 9:
+                target_phone = f'+994{wallet_id}'
+            else:
+                payload = withdraw.get('payload', {})
+                if payload:
+                    card_date = payload.get('card_date')
+                    if card_date:
+                        expired_month, expired_year = card_date.split('/')
+                        if expired_year:
+                            expired_year = expired_year[-2:]
+                card_data = {
+                    "card_number": wallet_id,
+                }
+                if expired_month and expired_year:
+                    card_data['expired_month'] = expired_month
+                    expired_year['expired_year'] = expired_year
+            withdraw_data = {
+                'withdraw_id': withdraw['id'],
+                'amount': amount,
+                'card_data': card_data,
+                'target_phone': target_phone,
+            }
+
+            result = create_asu_withdraw(**withdraw_data)
+            if result.get('status') == 'success':
+                # Успешно создана
+                WithdrawTransaction.objects.create(
+                    withdraw_id=withdraw['id'],
+                    status=1,
+                )
+
+                results.append(result)
+    return JsonResponse(status=200, data=results, safe=False)
 
