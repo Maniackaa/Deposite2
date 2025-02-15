@@ -298,14 +298,16 @@ def send_new_transactions_from_um_to_asu():
 def send_new_transactions_from_birpay_to_asu():
     withdraw_list = async_to_sync(get_birpay_withdraw)(limit=512)
     total_amount = 0
-    results = []
+    results = {}
     limit = 5
     count = 0
     WithdrawTransaction = apps.get_model('deposit.WithdrawTransaction')
+    logger.info(f'Всего транзакций бирпай: {len(withdraw_list)}')
     for withdraw in withdraw_list:
         if count >= limit:
             break
         is_exists = WithdrawTransaction.objects.filter(withdraw_id=withdraw['id']).exists()
+        logger.info(f'{withdraw["id"]} is_exists: {is_exists}')
         if not is_exists:
             count += 1
             # Если еще не брали в работу создадим на асупэй

@@ -180,8 +180,8 @@ def approve_birpay_withdraw(withdraw_id, transaction_id):
 
 def decline_birpay_withdraw(withdraw_id, transaction_id):
     json_data = {
-        'id': withdraw_id,
-        'operatorTransactionId': transaction_id,
+        "id": withdraw_id,
+        "reasonDecline": "err"
     }
     token = read_token()
     headers['Authorization'] = f'Bearer {token}'
