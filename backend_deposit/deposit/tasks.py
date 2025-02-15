@@ -346,5 +346,5 @@ def send_new_transactions_from_birpay_to_asu():
                 )
 
                 results.append(result)
-    return JsonResponse(status=200, data=results, safe=False)
+    return result
 
