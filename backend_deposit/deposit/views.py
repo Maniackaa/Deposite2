@@ -28,7 +28,7 @@ from rest_framework.views import APIView
 from urllib3 import Retry, PoolManager
 
 from core.asu_pay_func import create_payment, send_card_data, create_asu_withdraw
-from core.birpay_func import get_birpay_withdraw, get_new_token
+from core.birpay_func import get_birpay_withdraw, get_new_token, approve_birpay_withdraw, decline_birpay_withdraw
 from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
@@ -883,20 +883,23 @@ class WithdrawWebhookReceive(APIView):
         try:
             data = request.data
             withdraw_id = data.get('withdraw_id')
+            transaction_id = data.get('transaction_id')
             status = data.get('status')
             logger.info(f'Получен вэбхук: {data}')
+            result = {}
             if status == 9:
                 logger.info(f'Подтверждаем на birpay {withdraw_id}')
+                result = approve_birpay_withdraw(withdraw_id, transaction_id)
 
 
             elif status == -1:
                 logger.info(f'Отклоняем на birpay {withdraw_id}')
+                result = decline_birpay_withdraw(withdraw_id, transaction_id)
 
-
-            return HttpResponse(status=200)
+            return JsonResponse(status=200, data=result, safe=False)
         except Exception as err:
             logger.error(err)
-            return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=str(err))
+            return JsonResponse(status=HTTPStatus.BAD_REQUEST, data=str(err), safe=False)
 
 def withdraw_test(request):
 

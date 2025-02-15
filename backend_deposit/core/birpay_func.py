@@ -54,18 +54,6 @@ def get_new_token(username=os.getenv('BIRPAY_LOGIN'), password=os.getenv('BIRPAY
         return token
 
 
-# headers = {
-#     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0',
-#     'Accept': 'application/json, text/plain, */*',
-#     'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-#     'Content-Type': 'application/json;charset=utf-8',
-#     'Referer': 'https://birpay-gate.com/refill-orders/list',
-#     'Origin': 'https://birpay-gate.com',
-#     'Sec-Fetch-Dest': 'empty',
-#     'Sec-Fetch-Mode': 'cors',
-#     'Sec-Fetch-Site': 'same-origin',
-#     'Connection': 'keep-alive',
-# }
 
 def read_token():
     token_file = BASE_DIR / 'token.txt'
@@ -146,18 +134,18 @@ async def get_birpay_withdraw():
     headers['Authorization'] = f'Bearer {token}'
 
     json_data = {
-        'filter': {
-            'status': [
+        "filter": {
+            "status": [
                 0,
             ],
         },
-        'sort': {
-            'isTrusted': True,
+        "sort": {
+            "isTrusted": True,
         },
-        'limit': {
-            'lastId': 0,
-            'maxResults': 100,
-            'descending': True,
+        "limit": {
+            "lastId": 0,
+            "maxResults": 100,
+            "descending": True,
         },
     }
 
@@ -174,8 +162,8 @@ async def get_birpay_withdraw():
 
 def approve_birpay_withdraw(withdraw_id, transaction_id):
     json_data = {
-        'id': withdraw_id,
-        'operatorTransactionId': transaction_id,
+        "id": withdraw_id,
+        "operatorTransactionId": transaction_id,
     }
     token = read_token()
     headers['Authorization'] = f'Bearer {token}'
