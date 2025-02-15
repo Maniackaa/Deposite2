@@ -301,6 +301,7 @@ def send_new_transactions_from_birpay_to_asu():
     results = []
     limit = 5
     count = 0
+    WithdrawTransaction = apps.get_model('deposit.WithdrawTransaction')
     for withdraw in withdraw_list:
         if count >= limit:
             break
