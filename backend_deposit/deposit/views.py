@@ -12,6 +12,7 @@ from types import NoneType
 import pytz
 import requests
 import structlog
+from asgiref.sync import async_to_sync
 from django.db.models.functions import Lag
 
 from django.conf import settings
@@ -26,7 +27,8 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from rest_framework.views import APIView
 from urllib3 import Retry, PoolManager
 
-from core.asu_pay_func import create_payment, send_card_data
+from core.asu_pay_func import create_payment, send_card_data, create_asu_withdraw
+from core.birpay_func import get_birpay_withdraw, get_new_token
 from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
@@ -40,7 +42,7 @@ from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
-    MessageRead, RePattern, IncomingCheck
+    MessageRead, RePattern, IncomingCheck, WithdrawTransaction
 from users.models import Options
 
 logger = structlog.get_logger(__name__)
@@ -869,3 +871,99 @@ class WebhookReceive(APIView):
         except Exception as err:
             logger.error(err)
             return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=str(err))
+
+
+class WithdrawWebhookReceive(APIView):
+    # Получение вэбхука выплаты и подтверждение/отклонение на birpay
+
+    def post(self, request, *args, **kwargs):
+        # {"id": "d874dbad-b55c-4acd-93c2-80627174e372", "withdraw_id": "5e52ab95-5628-43c2-952c-e3341e31890d",
+        #  "amount": 2300, "create_at": "2024-10-15T05:46:22.091818+00:00", "status": 9,
+        #  "confirmed_time": "2024-10-15T05:47:22.091818+00:00"}
+        try:
+            data = request.data
+            withdraw_id = data.get('withdraw_id')
+            status = data.get('status')
+            logger.info(f'Получен вэбхук: {data}')
+            if status == 9:
+                logger.info(f'Подтверждаем на birpay {withdraw_id}')
+
+
+            elif status == -1:
+                logger.info(f'Отклоняем на birpay {withdraw_id}')
+
+
+            return HttpResponse(status=200)
+        except Exception as err:
+            logger.error(err)
+            return HttpResponse(status=HTTPStatus.BAD_REQUEST, reason=str(err))
+
+def withdraw_test(request):
+
+    template = 'deposit/withdraw_test.html'
+
+    token = get_new_token()
+    print(token)
+    # birpay = find_birpay_from_id('710021863')
+    withdraw_list = async_to_sync(get_birpay_withdraw)()
+
+    print(len(withdraw_list))
+    total_amount = 0
+    withdraws_to_work = []
+    results = []
+    limit = 1
+    count = 0
+    for withdraw in withdraw_list:
+        if count >= limit:
+            break
+        is_exists = WithdrawTransaction.objects.filter(withdraw_id=withdraw['id']).exists()
+        if not is_exists:
+            count += 1
+            # Если еще не брали в работу создадим на асупэй
+            expired_month = expired_year = target_phone = card_data = None
+            # print(withdraw)
+            amount = float(withdraw.get('amount'))
+            total_amount += amount
+            wallet_id = withdraw.get('customerWalletId', '')
+            if wallet_id.startswith('994'):
+                target_phone = f'+{wallet_id}'
+            elif len(wallet_id) == 9:
+                target_phone = f'+994{wallet_id}'
+            else:
+                payload = withdraw.get('payload', {})
+                if payload:
+                    card_date = payload.get('card_date')
+                    if card_date:
+                        expired_month, expired_year = card_date.split('/')
+                        if expired_year:
+                            expired_year = expired_year[-2:]
+                card_data = {
+                    "card_number": wallet_id,
+                }
+                if expired_month and expired_year:
+                    card_data['expired_month'] = expired_month
+                    expired_year['expired_year'] = expired_year
+            withdraw_data = {
+                'withdraw_id': withdraw['id'],
+                'amount': amount,
+                'card_data': card_data,
+                'target_phone': target_phone,
+            }
+            withdraws_to_work.append(withdraw_data)
+
+            result = create_asu_withdraw(**withdraw_data)
+            if result.get('status') == 'success':
+                # Успешно создана
+                WithdrawTransaction.objects.create(
+                    withdraw_id=withdraw['id'],
+                    status=1,
+                )
+
+                results.append(result)
+
+    context = {
+        'withdraws_to_work': withdraws_to_work,
+        'results': results,
+    }
+    return render(request, template, context)
+

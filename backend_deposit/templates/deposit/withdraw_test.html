@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Статистика{% endblock %}
+
+
+{% block content %}
+<div><img src='data:image/png;base64,{{fig1}}'/></div>
+    Взяты вработу:<br>
+    {% for withdraw_to_work in withdraws_to_work %}
+        {{ withdraw_to_work }}<br>
+    {% endfor %}
+    <br>
+    Результаты:<br>
+    {{ results }}
+{% endblock %}

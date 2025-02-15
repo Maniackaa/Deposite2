@@ -230,6 +230,16 @@ class UmTransaction(models.Model):
         return f'{self.id}. {self.order_id}: {self.payment_id}'
 
 
+class WithdrawTransaction(models.Model):
+    # Выводы с бирпэй
+    withdraw_id = models.CharField(unique=True, max_length=36, null=True, blank=True)
+    create_at = models.DateTimeField(auto_now_add=True)
+    status = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f'{self.id}.{self.withdraw_id}'
+
+
 class Message(models.Model):
     MESSAGE_TYPES = (
         ('admin', 'От админа'),

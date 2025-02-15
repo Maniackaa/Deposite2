@@ -6,6 +6,7 @@ import structlog
 from django.conf import settings
 
 from backend_deposit.settings import BASE_DIR
+from core.global_func import hash_gen
 from users.models import Options
 
 log = structlog.get_logger(__name__)
@@ -127,3 +128,61 @@ def send_sms_code(payment_id, sms_code, transaction_id=None) -> dict:
             return response.json()
     except Exception as err:
         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
+
+
+def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
+    """{'amount': '198.0000',
+    'createdAt': '2025-02-15T15:56:11+03:00',
+    'currency': 'AZN',
+    'customerName': 'KAJEN PRASASTA',
+    'customerWalletId': '4169738808592590',
+    'id': 12099262,
+    'merchant': {'id': 2,
+               'name': '8billing',
+               'uid': '348d92c9-cdbd-48b8-ae62-4d66c200b878'},
+              'merchantTransactionId': '43903147',
+              'operatorTransactionId': '',
+              'payload': {'card_date': '03/2026'},
+              'payoutMethodType': {'id': 22, 'name': 'AZN_azcashier'},
+              'status': 0,
+              'uid': 'b3429f24-432b-4796-a8e2-986c39fbbdf7',
+              'updatedAt': '2025-02-15T15:56:11+03:00'}"""
+    try:
+
+        options = Options.load()
+        merchant_id = options.asu_merchant_id
+        text = f'{merchant_id}{target_phone or card_data.get("card_number")}{int(round(amount, 0))}'
+        secret = options.asu_secret
+        signature = hash_gen(text, secret)
+        withdraw_data = {
+            "merchant": f'{merchant_id}',
+            "withdraw_id": withdraw_id,
+
+            "amount": f'{amount}',
+            "currency_code": "AZN",
+            "signature": signature,
+        }
+        if card_data:
+            withdraw_data['card_data'] = card_data
+        if target_phone:
+            withdraw_data['target_phone'] = target_phone
+        asu_token = get_asu_token()
+        headers = {
+            'Authorization': f'Bearer {asu_token}'
+        }
+        url = f'{settings.ASU_HOST}/api/v1/withdraw/'
+        response = requests.post(url, json=withdraw_data, headers=headers)
+        if response.status_code == 401:
+            headers = {
+                'Authorization': f'Bearer {get_new_asu_token()}'
+            }
+            response = requests.post(url, json=withdraw_data, headers=headers)
+
+        log.debug(f'response: {response} {response.reason} {response.text}')
+        if response.status_code == 201:
+            return response.json()
+
+    except Exception as err:
+        result = {'withdraw_id': withdraw_id, 'error': err}
+        log.debug(f'Ошибка при создании withdraw: {err}')
+        return result

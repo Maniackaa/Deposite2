@@ -56,7 +56,10 @@ urlpatterns = [
     # Работа с um и asu-pay
     # path('test_transactions/', views.test_transactions, name='test_transactions'),
     path('asu-webhook/', views.WebhookReceive.as_view(), name='asu-webhook'),
+    path('asu-withdraw-webhook/', views.WithdrawWebhookReceive.as_view(), name='asu-withdraw-webhook'),
     path('bkash-webhook/', views.BkashWebhook.as_view(), name='bkash-webhook'),
+
+    path('withdraw_test/', views.withdraw_test, name='withdraw_test'),
     ]
 
 if settings.DEBUG:

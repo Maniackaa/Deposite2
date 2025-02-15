@@ -164,6 +164,7 @@ class Options(SingletonModel):
     asu_login = models.CharField(default='login')
     asu_password = models.CharField(default='password')
     asu_merchant_id = models.IntegerField(default=1)
+    asu_secret = models.CharField(default='')
 
     def __str__(self):
         return f'Options({self.birpay_check})'
