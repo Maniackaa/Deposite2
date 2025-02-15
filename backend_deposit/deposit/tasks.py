@@ -346,5 +346,5 @@ def send_new_transactions_from_birpay_to_asu():
                 )
 
                 results.append(result)
-    return result
+    return results
 
