@@ -311,7 +311,8 @@ def send_new_transactions_from_birpay_to_asu():
         if not is_exists:
             # Если еще не брали в работу создадим на асупэй
             expired_month = expired_year = target_phone = card_data = None
-            amount = float(withdraw.get('amount'))
+            amount = round(float(withdraw.get('amount')), 2)
+            amount = int(amount)
             total_amount += amount
             wallet_id = withdraw.get('customerWalletId', '')
             if wallet_id.startswith('994'):
