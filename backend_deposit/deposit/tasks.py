@@ -296,6 +296,8 @@ def send_new_transactions_from_um_to_asu():
 
 @shared_task(priority=2, time_limit=30)
 def send_new_transactions_from_birpay_to_asu():
+    # Задача по запросу выплат с бирпая со статусом pending (0).
+    logger = structlog.get_logger('birgate')
     withdraw_list = async_to_sync(get_birpay_withdraw)(limit=512)
     total_amount = 0
     results = []
@@ -304,54 +306,60 @@ def send_new_transactions_from_birpay_to_asu():
     WithdrawTransaction = apps.get_model('deposit.WithdrawTransaction')
     logger.info(f'Всего транзакций бирпай: {len(withdraw_list)}')
     for withdraw in withdraw_list:
+        logger = logger.bind(birpay_withdraw_id=withdraw['id'])
         if count >= limit:
             break
         is_exists = WithdrawTransaction.objects.filter(withdraw_id=withdraw['id']).exists()
         logger.info(f'{withdraw["id"]} is_exists: {is_exists}')
         if not is_exists:
-            # Если еще не брали в работу создадим на асупэй
-            expired_month = expired_year = target_phone = card_data = None
-            amount = round(float(withdraw.get('amount')), 2)
-            amount = int(amount)
-            total_amount += amount
-            wallet_id = withdraw.get('customerWalletId', '')
-            if wallet_id.startswith('994'):
-                target_phone = f'+{wallet_id}'
-            elif len(wallet_id) == 9:
-                target_phone = f'+994{wallet_id}'
-            else:
-                payload = withdraw.get('payload', {})
-                if payload:
-                    card_date = payload.get('card_date')
-                    if card_date:
-                        expired_month, expired_year = card_date.split('/')
-                        if expired_year:
-                            expired_year = expired_year[-2:]
-                card_data = {
-                    "card_number": wallet_id,
+            try:
+                # Если еще не брали в работу создадим на асупэй
+                expired_month = expired_year = target_phone = card_data = None
+                amount = round(float(withdraw.get('amount')), 2)
+                amount = int(amount)
+                total_amount += amount
+                wallet_id = withdraw.get('customerWalletId', '')
+                if wallet_id.startswith('994'):
+                    target_phone = f'+{wallet_id}'
+                elif len(wallet_id) == 9:
+                    target_phone = f'+994{wallet_id}'
+                else:
+                    payload = withdraw.get('payload', {})
+                    if payload:
+                        card_date = payload.get('card_date')
+                        if card_date:
+                            expired_month, expired_year = card_date.split('/')
+                            if expired_year:
+                                expired_year = expired_year[-2:]
+                    card_data = {
+                        "card_number": wallet_id,
+                    }
+                    if expired_month and expired_year:
+                        card_data['expired_month'] = expired_month
+                        card_data['expired_year'] = expired_year
+                withdraw_data = {
+                    'withdraw_id': withdraw['id'],
+                    'amount': amount,
+                    'card_data': card_data,
+                    'target_phone': target_phone,
                 }
-                if expired_month and expired_year:
-                    card_data['expired_month'] = expired_month
-                    card_data['expired_year'] = expired_year
-            withdraw_data = {
-                'withdraw_id': withdraw['id'],
-                'amount': amount,
-                'card_data': card_data,
-                'target_phone': target_phone,
-            }
+                logger.info(f'Передача на асупэй: {withdraw_data}')
+                result = create_asu_withdraw(**withdraw_data)
+                logger.debug(f'result: {result}')
+                if result.get('status') == 'success':
+                    # Успешно создана
+                    try:
+                        birpay_withdraw = WithdrawTransaction.objects.create(
+                            withdraw_id=withdraw['id'],
+                            status=1,
+                        )
+                        logger.info(f'Создан WithdrawTransaction: {birpay_withdraw}')
+                    except Exception as err:
+                        logger.warning(f'Ошибка при создании WithdrawTransactio: {err}')
 
-            result = create_asu_withdraw(**withdraw_data)
-            if result.get('status') == 'success':
-                # Успешно создана
-                try:
-                    WithdrawTransaction.objects.create(
-                        withdraw_id=withdraw['id'],
-                        status=1,
-                    )
-                except Exception as err:
-                    logger.warning(err)
-
-                results.append(result)
-                count += 1
+                    results.append(result)
+                    count += 1
+            except Exception as e:
+                logger.error(f'Неизвестная ошибка при обработке birpay_withdraw: {type(e): {e}}')
     return results
 

@@ -129,7 +129,8 @@ def find_birpay_from_id(birpay_id, results=1):
         logger.error(err)
         raise err
 
-async def get_birpay_withdraw(limit=10):
+async def get_birpay_withdraw(limit=512):
+    logger = structlog.getLogger('birpay')
     token = read_token()
     headers['Authorization'] = f'Bearer {token}'
 
@@ -161,6 +162,8 @@ async def get_birpay_withdraw(limit=10):
 
 
 def approve_birpay_withdraw(withdraw_id, transaction_id):
+    logger = structlog.getLogger('birpay')
+    logger = logger.bind(birpay_withdraw_id=withdraw_id, transaction_id=transaction_id)
     json_data = {
         "id": withdraw_id,
         "operatorTransactionId": transaction_id,
@@ -179,6 +182,8 @@ def approve_birpay_withdraw(withdraw_id, transaction_id):
 
 
 def decline_birpay_withdraw(withdraw_id, transaction_id):
+    logger = structlog.getLogger('birpay')
+    logger = logger.bind(birpay_withdraw_id=withdraw_id, transaction_id=transaction_id)
     json_data = {
         "id": withdraw_id,
         "reasonDecline": "err"
