@@ -297,7 +297,7 @@ def send_new_transactions_from_um_to_asu():
 @shared_task(priority=2, time_limit=30)
 def send_new_transactions_from_birpay_to_asu():
     # Задача по запросу выплат с бирпая со статусом pending (0).
-    logger = structlog.get_logger('birgate')
+    logger = structlog.getLogger('birgate')
     withdraw_list = async_to_sync(get_birpay_withdraw)(limit=512)
     total_amount = 0
     results = []

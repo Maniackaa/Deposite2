@@ -904,6 +904,11 @@ class WithdrawWebhookReceive(APIView):
 def withdraw_test(request):
 
     template = 'deposit/withdraw_test.html'
+    logger = structlog.getLogger('birgate')
+    logger.info('тест логгера biragte')
+
+    logger = structlog.getLogger(__name__)
+    logger.info(f'тест логгера {__name__}')
 
     token = get_new_token()
     print(token)
@@ -954,15 +959,15 @@ def withdraw_test(request):
             }
             withdraws_to_work.append(withdraw_data)
 
-            result = create_asu_withdraw(**withdraw_data)
-            if result.get('status') == 'success':
-                # Успешно создана
-                WithdrawTransaction.objects.create(
-                    withdraw_id=withdraw['id'],
-                    status=1,
-                )
-
-                results.append(result)
+            # result = create_asu_withdraw(**withdraw_data)
+            # if result.get('status') == 'success':
+            #     # Успешно создана
+            #     WithdrawTransaction.objects.create(
+            #         withdraw_id=withdraw['id'],
+            #         status=1,
+            #     )
+            #
+            #     results.append(result)
 
     context = {
         'withdraws_to_work': withdraws_to_work,

@@ -199,9 +199,7 @@ LOGGING = {
         },
     },
     "handlers": {
-        "null": {
-            "class": "logging.NullHandler",
-        },
+
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "plain_console",
