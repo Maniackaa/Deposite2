@@ -310,8 +310,8 @@ def send_new_transactions_from_birpay_to_asu():
         if count >= limit:
             break
         is_exists = WithdrawTransaction.objects.filter(withdraw_id=withdraw['id']).exists()
-        logger.info(f'{withdraw["id"]} is_exists: {is_exists}')
         if not is_exists:
+            logger.info(f'{withdraw["id"]} not_exists')
             try:
                 # Если еще не брали в работу создадим на асупэй
                 expired_month = expired_year = target_phone = card_data = None

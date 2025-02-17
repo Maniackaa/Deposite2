@@ -5,12 +5,9 @@ from pprint import pprint
 
 import requests
 import structlog
-from django.conf import settings
 
 from backend_deposit.settings import BASE_DIR
-from core.asu_pay_func import get_asu_token, get_new_asu_token
-from core.global_func import hash_gen
-from users.models import Options
+
 
 logger = structlog.get_logger(__name__)
 
@@ -207,33 +204,16 @@ async def main():
     withdraw_list = await get_birpay_withdraw()
     pprint(withdraw_list)
     print(len(withdraw_list))
-    total_amount = 0
+    ids = "VALUES "
+    for w in withdraw_list:
+        ids += f"('{w['id']}'), "
 
-    for withdraw in withdraw_list[:1]:
-        expired_month = expired_year = target_phone = card_data = None
-        # print(withdraw)
-        amount = float(withdraw.get('amount'))
-        total_amount += amount
-        wallet_id = withdraw.get('customerWalletId', '')
-        if wallet_id.startswith('994'):
-            target_phone = f'+{wallet_id}'
-        else:
-            payload = withdraw.get('payload', {})
-            if payload:
-                card_date = payload.get('card_date')
-                if card_date:
-                    expired_month, expired_year = card_date.split('/')
-                    if expired_year:
-                        expired_year = expired_year[-2:]
-            card_data = {
-                "card_number": wallet_id,
-                "expired_month": expired_month,
-                "expired_year": expired_year
-            }
-        print(withdraw['id'], amount, card_data, target_phone)
-        # await create_asu_withdraw(withdraw_id=withdraw['id'], amount=amount, card_data=card_data, target_phone=target_phone)
-        print()
-    print(total_amount)
+    print(ids)
+    withdraw_id = 12131454
+    transaction_id = 655186681
+    res = approve_birpay_withdraw(withdraw_id, transaction_id)
+    print(res)
+
 
 if __name__ == '__main__':
     asyncio.run(main())

@@ -880,22 +880,24 @@ class WithdrawWebhookReceive(APIView):
         # {"id": "d874dbad-b55c-4acd-93c2-80627174e372", "withdraw_id": "5e52ab95-5628-43c2-952c-e3341e31890d",
         #  "amount": 2300, "create_at": "2024-10-15T05:46:22.091818+00:00", "status": 9,
         #  "confirmed_time": "2024-10-15T05:47:22.091818+00:00"}
+        logger = structlog.getLogger(__name__)
+
         try:
             data = request.data
             withdraw_id = data.get('withdraw_id')
             transaction_id = data.get('transaction_id')
+            logger = logger.bind(birpay_withdraw_id=withdraw_id, transaction_id=transaction_id)
             status = data.get('status')
-            logger.info(f'Получен вэбхук: {data}')
+            logger.info(f'Получен вэбхук withdraw: {data}')
             result = {}
             if status == 9:
                 logger.info(f'Подтверждаем на birpay {withdraw_id}')
                 result = approve_birpay_withdraw(withdraw_id, transaction_id)
-
-
             elif status == -1:
                 logger.info(f'Отклоняем на birpay {withdraw_id}')
                 result = decline_birpay_withdraw(withdraw_id, transaction_id)
 
+            logger.info(f'result: {result}')
             return JsonResponse(status=200, data=result, safe=False)
         except Exception as err:
             logger.error(err)
