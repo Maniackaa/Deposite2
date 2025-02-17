@@ -273,6 +273,11 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+        "core": {
+            "handlers": ["console", "deposit", "errors", "birgate"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "django": {
             "handlers": ["django", "errors"],
             "level": "WARNING",

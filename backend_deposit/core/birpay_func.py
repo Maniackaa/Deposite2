@@ -205,14 +205,17 @@ async def main():
     pprint(withdraw_list)
     print(len(withdraw_list))
     ids = "VALUES "
+    wlist = []
     for w in withdraw_list:
         ids += f"('{w['id']}'), "
+        wlist.append(w['id'])
 
-    print(ids)
-    withdraw_id = 12131454
-    transaction_id = 655186681
-    res = approve_birpay_withdraw(withdraw_id, transaction_id)
-    print(res)
+    # print(ids)
+    # withdraw_id = 12131454
+    # transaction_id = 655186681
+    # res = approve_birpay_withdraw(withdraw_id, transaction_id)
+    # print(res)
+    # print(wlist)
 
 
 if __name__ == '__main__':

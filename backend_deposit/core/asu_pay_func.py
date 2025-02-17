@@ -7,6 +7,7 @@ from django.conf import settings
 
 from backend_deposit.settings import BASE_DIR
 from core.global_func import hash_gen
+from deposit.tasks import logger
 from users.models import Options
 
 log = structlog.get_logger(__name__)
@@ -148,6 +149,8 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
               'uid': 'b3429f24-432b-4796-a8e2-986c39fbbdf7',
               'updatedAt': '2025-02-15T15:56:11+03:00'}"""
     result = {}
+    log = structlog.getLogger('birgate')
+    logger = log.bind(birpay_withdraw_id=withdraw_id)
     try:
 
         options = Options.load()
@@ -172,18 +175,23 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
             'Authorization': f'Bearer {asu_token}'
         }
         url = f'{settings.ASU_HOST}/api/v1/withdraw/'
+        logger.info(f'Отправка на асупэй birpay_withdraw_data: {withdraw_data}')
         response = requests.post(url, json=withdraw_data, headers=headers)
+        logger.debug(f'response: {response} {response.reason} {response.text}')
         if response.status_code == 401:
             headers = {
                 'Authorization': f'Bearer {get_new_asu_token()}'
             }
             response = requests.post(url, json=withdraw_data, headers=headers)
-
-        log.debug(f'response: {response} {response.reason} {response.text}')
         if response.status_code == 201:
+
             result = response.json()
+            logger.debug(f'Успешно создан на Asupay')
+        else:
+            logger.warning(f'response: {response} {response.reason} {response.text}')
+        logger.info(f'Результат: {result}')
         return result
     except Exception as err:
         result = {'withdraw_id': withdraw_id, 'status': 'error', 'error': err}
-        log.debug(f'Ошибка при создании withdraw: {err}')
+        logger.debug(f'Ошибка при создании withdraw: {err}')
         return result
