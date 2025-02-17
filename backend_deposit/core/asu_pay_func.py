@@ -7,7 +7,6 @@ from django.conf import settings
 
 from backend_deposit.settings import BASE_DIR
 from core.global_func import hash_gen
-from deposit.tasks import logger
 from users.models import Options
 
 log = structlog.get_logger(__name__)
