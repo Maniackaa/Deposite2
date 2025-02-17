@@ -354,11 +354,12 @@ def send_new_transactions_from_birpay_to_asu():
                             status=1,
                         )
                         logger.info(f'Создан WithdrawTransaction: {birpay_withdraw}')
+                        count += 1
                     except Exception as err:
                         logger.warning(f'Ошибка при создании WithdrawTransactio: {err}')
 
                     results.append(result)
-                    count += 1
+
                     logger.info(f'count: {count}. Добавлено: {result}')
             except Exception as e:
                 logger.error(f'Неизвестная ошибка при обработке birpay_withdraw: {type(e): {e}}')
