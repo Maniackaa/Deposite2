@@ -223,7 +223,17 @@ LOGGING = {
             'backupCount': 180,
             'encoding': 'UTF-8',
             'formatter': 'plain_console',
-            'level': 'DEBUG',
+            'level': 'DEBUG'
+        },
+        "ummoney": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            'filename': 'logs/ummoney.log',
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 180,
+            'encoding': 'UTF-8',
+            'formatter': 'plain_console',
+            'level': 'DEBUG'
         },
         "deposit": {
             "class": "logging.handlers.TimedRotatingFileHandler",
@@ -263,10 +273,15 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+        "ummoney": {
+            "handlers": ["console", "ummoney", "errors"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "deposit": {
             "handlers": ["console", "deposit", "errors"],
             "level": "DEBUG",
-            "propagate": False,
+            "propagate": True,
         },
         "ocr": {
             "handlers": ["console", "ocr", "errors"],
