@@ -148,7 +148,7 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
               'uid': 'b3429f24-432b-4796-a8e2-986c39fbbdf7',
               'updatedAt': '2025-02-15T15:56:11+03:00'}"""
     result = {}
-    log = structlog.getLogger('birgate')
+    log = structlog.getLogger('birgate_withdraws')
     logger = log.bind(birpay_withdraw_id=withdraw_id)
     try:
 

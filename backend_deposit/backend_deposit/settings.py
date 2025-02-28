@@ -225,6 +225,16 @@ LOGGING = {
             'formatter': 'plain_console',
             'level': 'DEBUG'
         },
+        "birgate_withdraw": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            'filename': 'logs/birgate_withdraw.log',
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 180,
+            'encoding': 'UTF-8',
+            'formatter': 'plain_console',
+            'level': 'DEBUG'
+        },
         "ummoney": {
             "class": "logging.handlers.TimedRotatingFileHandler",
             'filename': 'logs/ummoney.log',
@@ -270,6 +280,11 @@ LOGGING = {
     "loggers": {
         "birgate": {
             "handlers": ["console", "birgate", "errors"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "birgate_withdraw": {
+            "handlers": ["console", "birgate_withdraw", "errors"],
             "level": "DEBUG",
             "propagate": False,
         },

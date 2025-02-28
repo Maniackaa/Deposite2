@@ -296,7 +296,7 @@ def send_new_transactions_from_um_to_asu():
 @shared_task(priority=2, time_limit=30)
 def send_new_transactions_from_birpay_to_asu():
     # Задача по запросу выплат с бирпая со статусом pending (0).
-    logger = structlog.getLogger('birgate')
+    logger = structlog.getLogger('birgate_withdraw')
     withdraw_list = async_to_sync(get_birpay_withdraw)(limit=512)
     total_amount = 0
     results = []
@@ -348,6 +348,7 @@ def send_new_transactions_from_birpay_to_asu():
                 result = create_asu_withdraw(**withdraw_data)
                 logger.debug(f'result: {result}')
                 if result.get('status') == 'success':
+                    logger.debug(f'success')
                     # Успешно создана
                     try:
                         birpay_withdraw = WithdrawTransaction.objects.create(
@@ -362,6 +363,9 @@ def send_new_transactions_from_birpay_to_asu():
                     results.append(result)
 
                     logger.info(f'count: {count}. Добавлено: {result}')
+                else:
+                    logger.debug('unseccess!')
+
             except Exception as e:
                 logger.error(f'Неизвестная ошибка при обработке birpay_withdraw: {type(e): {e}}')
     return results
