@@ -63,8 +63,8 @@ def after_save_trash(sender, instance: TrashIncoming, **kwargs):
                 result_list = check_asu_payment_for_card(card_number=card.card_number, status=5, amount=amount)
                 if result_list and len(result_list) == 0:
                     logger.info('Нужный платеж найден. Передаем смс')
-
-
+                else:
+                    logger.info(f'Нужный платеж не найден. result_list: {result_list}')
 
     except Exception as e:
         logger.error(e)
