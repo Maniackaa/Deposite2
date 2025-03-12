@@ -1,9 +1,8 @@
-import logging
 import re
 
 import structlog
+from django.apps import apps
 
-from deposit.models import RePattern
 from ocr.ocr_func import response_m10, response_m10_short, response_m10new, response_m10new_short
 
 logger = structlog.get_logger(__name__)
@@ -20,7 +19,7 @@ def screen_text_to_pay(text):
         'm10new': r'first: (.+)[\n]*.*\namount:.*[\n]*([+-].*)[mrh].*[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]*Date (.+)[\n]+Sender (.+)[\n]*Recipient (.+)[\n]+.*ID (.+)',
         'm10new_short': r'first: (.+)[\n]+amount:.*([+-].*)m.*[\n]+.*[\n]*.*[\n]*.*[\n]*.*[\n]*Status (.+)[\n]+Date (.+)[\n]+m10 wallet (.+)[\n]+.*ID (.+)'
     }
-
+    RePattern = apps.get_model(app_label='deposit', model_name='RePattern')
     db_patterns = RePattern.objects.all()
     for db_pattern in db_patterns:
         patterns.update({db_pattern.name: db_pattern.pattern})

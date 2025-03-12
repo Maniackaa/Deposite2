@@ -1,10 +1,8 @@
 import datetime
 import logging
 import re
-from distutils.command.check import check
 
 import structlog
-from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
 from django.db.transaction import atomic
@@ -18,9 +16,8 @@ from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from backend_deposit import settings
 from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment
-from core.birpay_func import find_birpay_from_id
 from deposit.tasks import check_incoming
-from ocr.views_api import convert_atb_value
+from ocr.views_api import *
 from users.models import Options
 
 logger = structlog.get_logger(__name__)

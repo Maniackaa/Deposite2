@@ -4,6 +4,7 @@ from http import HTTPStatus
 
 import pytz
 import structlog
+from django.apps import apps
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 
@@ -11,7 +12,6 @@ from rest_framework.decorators import api_view
 from rest_framework.request import Request
 
 from deposit import tasks
-from deposit.models import Incoming
 from ocr.models import ScreenResponse
 from ocr.ocr_func import bytes_to_str, response_text_from_image, date_m10_response
 
@@ -229,6 +229,7 @@ def receive_pay(request: Request):
         recipient = request.data.get('recipient')
         image = request.data.get('image')
         logger.info(f'Принят pay: {pay_dict} от телефона {phone_name} со станции {worker}.')
+        Incoming = apps.get_model('deposit', 'Incoming')
         new_pay, status = Incoming.objects.get_or_create(
             response_date=response_date,
             transaction=transaction,

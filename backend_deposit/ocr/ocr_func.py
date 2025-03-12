@@ -7,13 +7,11 @@ import cv2
 import numpy as np
 import pytesseract
 import pytz
-import requests
 import structlog
 
 from backend_deposit.settings import TIME_ZONE
 
-from backend_deposit import settings
-from deposit.models import Deposit, Incoming, SITE_VAR
+
 from ocr.text_response_func import date_response
 
 TZ = pytz.timezone(TIME_ZONE)
@@ -198,7 +196,7 @@ def make_after_incoming_save(instance):
     Действия после сохранения скрина.
     Находит депозит не ранее 10 минут с такой-же суммой и транзакцией [-1, -1, +1]
     """
-
+    from deposit.models import Deposit, Incoming
     try:
         if instance.confirmed_deposit:
             logger.debug('incoming post_save return')
@@ -237,6 +235,7 @@ def make_after_save_deposit(instance):
     Находит депозит не ранее 10 минут с такой-же суммой и транзакцией [-2, -1, +1]
     """
     try:
+        from deposit.models import Deposit, Incoming
         logger.debug(f'Действие после сохранения депозита: {instance}')
         if instance.input_transaction and instance.status == 'pending':
             threshold = datetime.datetime.now(tz=TZ) - datetime.timedelta(minutes=10)
