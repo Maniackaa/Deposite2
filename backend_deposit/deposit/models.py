@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+from distutils.command.check import check
 
 import structlog
 from django.contrib.auth import get_user_model
@@ -13,10 +14,14 @@ from django.db.models.signals import post_delete, post_save
 from django.utils.html import format_html
 from colorfield.fields import ColorField
 from django_currentuser.middleware import get_current_authenticated_user
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from backend_deposit import settings
+from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment
 from core.birpay_func import find_birpay_from_id
 from deposit.tasks import check_incoming
+from ocr.views_api import convert_atb_value
+from users.models import Options
 
 logger = structlog.get_logger(__name__)
 err_log = logging.getLogger(__name__)
@@ -33,6 +38,36 @@ class TrashIncoming(models.Model):
     def __str__(self):
         string = f'Мусор {self.id} {self.register_date} {self.text[:20]}'
         return string
+
+@receiver(post_save, sender=TrashIncoming)
+def after_save_trash(sender, instance: TrashIncoming, **kwargs):
+    try:
+        pattern = r"Code: (\d*)\n([\d,]+\.\d{2}) AZN\n(\d\*\d\d\d\d)"
+        match = re.search(pattern, instance.text)
+        if match:
+            logger.debug('Мусор по шаблону OTP')
+            code, raw_amount, card_mask = match.groups()
+            amount = convert_atb_value(raw_amount)
+            logger.debug(f'{code, raw_amount, card_mask}')
+            first_char = card_mask[0]
+            last_chars = card_mask[12:]
+            logger.debug(f'Ищем карту {first_char, last_chars}')
+            card = CreditCard.objects.filter(
+                number__startswith=first_char,
+                number__endswith=last_chars
+            ).first()
+            logger.debug(f'card: {card}')
+            if card and card.is_active:
+                logger.debug('Карта активна')
+                # Проверим есть ли активные платежи по этой карте
+                result_list = check_asu_payment_for_card(card_number=card.card_number, status=5, amount=amount)
+                if result_list and len(result_list) == 0:
+                    logger.info('Нужный платеж найден. Передаем смс')
+
+
+
+    except Exception as e:
+        logger.error(e)
 
 
 SITE_VAR = {
@@ -159,6 +194,40 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
                     pay_operator=incoming.pay)
                 logger.info(f'new_check: {new_check.id} {new_check}')
                 check_incoming.apply_async(kwargs={'pk': new_check.id, 'count': 0}, countdown=60)
+
+    except Exception as err:
+        logger.error(err)
+
+    try:
+        # Обработка прихода на нашу карту
+        # Если карта в списке CreditCards и активна то создаем заявку для BirPayShop на asu
+        active_cards = CreditCard.objects.filter(is_active=True).values_list('name', flat=True)
+        logger.info(f'active_cards: {active_cards}')
+        if instance.recipient in active_cards:
+            logger.info(f'Платеж на активную карту {instance.recipient}')
+            active_card = CreditCard.objects.get(name=instance.recipient)
+            bind_contextvars(active_card=active_card.name)
+            min_balance = 300
+            if instance.pay > min_balance:
+                logger.info('Сумма больше лимита')
+                # Проверим есть ли активные платежи по этой карте
+                result = check_asu_payment_for_card(card_number=active_card.card_number)
+                if result:
+                    logger.info('Есть платежи. Отбой')
+                else:
+                    # Активных выплат по карте нет. Создаем новую заявку на асу
+                    #{'merchant': 34, 'order_id': 1586, 'amount': 1560.0, 'user_login': '119281059', 'pay_type': 'card_2'}
+                    payment_data = {
+                        'merchant': Options.load().asu_birshop_merchant_id,
+                        'order_id': instance.pk,
+                        'amount': instance.pay - 1,
+                        'pay_type': 'card_2'}
+                    p = create_birpay_payment(payment_data)
+                    logger.info(f'Создана новая выплата {p}')
+                    active_card.current_payment_id = p
+                    active_card.save()
+                    logger.debug(f'К карте {active_card} привязан {p}')
+            clear_contextvars()
     except Exception as err:
         logger.error(err)
 
@@ -218,6 +287,8 @@ class CreditCard(models.Model):
     cvv = models.CharField(max_length=10, default='', blank=True)
     status = models.CharField(max_length=20, default='', blank=True)
     text = models.CharField(max_length=100, default='', blank=True)
+    is_active = models.BooleanField(default=False)
+    current_payment_id = models.CharField(max_length=64, null=True, blank=True)
 
 
 class UmTransaction(models.Model):

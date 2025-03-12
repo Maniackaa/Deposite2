@@ -54,6 +54,7 @@ def bad_incomings():
 def cards_report() -> dict:
     # Возвращает словарь со статистикой по картам
     credit_cards = CreditCard.objects.all()
+    print(credit_cards)
     cards = Incoming.objects.filter(
         pay__gt=0,
         recipient__iregex=r'\*\d\d\d\d'
