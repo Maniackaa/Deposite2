@@ -890,7 +890,7 @@ class WithdrawWebhookReceive(APIView):
             logger = logger.bind(withdraw_id=withdraw_id, birpay_withdraw_id=birpay_withdraw_id, transaction_id=transaction_id)
             status = data.get('status')
             logger.info(f'Получен вэбхук withdraw: {data}')
-            print()
+
             result = {}
             if status == 9:
                 logger.info(f'Подтверждаем на birpay {birpay_withdraw_id}')

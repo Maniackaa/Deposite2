@@ -38,6 +38,7 @@ class TrashIncoming(models.Model):
 
 @receiver(post_save, sender=TrashIncoming)
 def after_save_trash(sender, instance: TrashIncoming, **kwargs):
+    # Поиск смс в мусоре по активным картам
     try:
         pattern = r"Code: (\d*)\n([\d,]+\.\d{2}) AZN\n(\d\*\d\d\d\d)"
         match = re.search(pattern, instance.text)
