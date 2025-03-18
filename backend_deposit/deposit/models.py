@@ -59,7 +59,7 @@ def after_save_trash(sender, instance: TrashIncoming, **kwargs):
             if card and card.is_active:
                 logger.debug('Карта активна')
                 # Проверим есть ли активные платежи по этой карте
-                result_list = check_asu_payment_for_card(card_number=card.card_number)
+                result_list = check_asu_payment_for_card(card_number=card.number)
                 if result_list and len(result_list) == 0:
                     logger.info('Нужный платеж найден. Передаем смс')
                     message = (

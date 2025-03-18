@@ -290,12 +290,12 @@ def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7,
     """
     logger = log
     try:
-        logger.debug(f'Проверка активных платежейпо карте')
+        logger.debug(f'Проверка активных платежей по карте')
         token = get_asu_birpay_token()
         headers = {
             'Authorization': f'Bearer {token}'
         }
-        status_query = ','.join([x for x in status])
+        status_query = ','.join([str(x) for x in status])
         url = f'{settings.ASU_HOST}/api/v1/payments_archive/?pay_type=card_2&card_number={card_number}&status={status_query}&amount={amount}'
         response = requests.get(url, headers=headers)
         if response.status_code == 401:
