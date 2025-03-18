@@ -87,7 +87,6 @@ class Setting(models.Model):
     def __str__(self):
         return f'Setting({self.name} = {self.value})'
 
-
 class Incoming(models.Model):
 
     def __init__(self, *args, **kwargs) -> None:
