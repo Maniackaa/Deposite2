@@ -306,6 +306,21 @@ class CreditCard(models.Model):
     is_active = models.BooleanField(default=False)
     current_payment_id = models.CharField(max_length=64, null=True, blank=True)
 
+    @property
+    def expired_month(self):
+        try:
+            expired_month, expired_year = self.expire.split('/')
+            return expired_month
+        except Exception:
+            return ''
+
+    @property
+    def expired_year(self):
+        try:
+            expired_month, expired_year = self.expire.split('/')
+            return expired_year
+        except Exception:
+            return ''
 
 class UmTransaction(models.Model):
     order_id = models.CharField(unique=True, max_length=10)
