@@ -200,15 +200,16 @@ def decline_birpay_withdraw(withdraw_id, transaction_id):
 async def main():
     token = get_new_token()
     print(token)
-    # birpay = find_birpay_from_id('710021863')
-    withdraw_list = await get_birpay_withdraw()
-    pprint(withdraw_list)
-    print(len(withdraw_list))
-    ids = "VALUES "
-    wlist = []
-    for w in withdraw_list:
-        ids += f"('{w['id']}'), "
-        wlist.append(w['id'])
+    birpay = find_birpay_from_id('820457444')
+    print(birpay)
+    # withdraw_list = await get_birpay_withdraw()
+    # pprint(withdraw_list)
+    # print(len(withdraw_list))
+    # ids = "VALUES "
+    # wlist = []
+    # for w in withdraw_list:
+    #     ids += f"('{w['id']}'), "
+    #     wlist.append(w['id'])
 
     # print(ids)
     # withdraw_id = 12131454
