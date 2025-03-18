@@ -212,13 +212,13 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
             bind_contextvars(active_card=active_card.name)
             min_balance = 300
             if instance.balance > min_balance:
-                logger.info('Сумма больше лимита')
+                logger.info('Баланс больше лимита')
                 # Проверим есть ли активные платежи по этой карте
-                result = check_asu_payment_for_card(card_number=active_card.number)
-                if result:
+                response = check_asu_payment_for_card(card_number=active_card.number)
+                if response and response.get('result'):
                     logger.info('Есть платежи. Отбой')
                 else:
-                    # Активных выплат по карте нет. Создаем новую заявку на асу
+                    logger.debug(f'Активных выплат по карте нет. Создаем новую заявку на асу')
                     #{'merchant': 34, 'order_id': 1586, 'amount': 1560.0, 'user_login': '119281059', 'pay_type': 'card_2'}
                     payment_data = {
                         'merchant': Options.load().asu_birshop_merchant_id,

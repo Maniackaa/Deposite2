@@ -274,7 +274,7 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
         logger.debug(f'Ошибка при создании withdraw: {err}')
         return result
 
-def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7, 8), amount='') -> list:
+def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7, 8), amount='') -> dict:
     """
     Возвращает список платежей с указанной картой, статусом и суммой
 
@@ -304,9 +304,9 @@ def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7,
             }
             response = requests.get(url, headers=headers)
 
-        logger.debug(f'response: {response} {response.reason} {response.text}')
+        logger.debug(f'активных платежей по карте response: {response} {response.reason} {response.text}')
         if response.status_code == 200:
-            return response.json().get('result')
+            return response.json()
         else:
             logger.warning(f'response: {response} {response.reason} {response.text}')
     except Exception as err:
