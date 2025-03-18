@@ -215,7 +215,7 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
             if instance.pay > min_balance:
                 logger.info('Сумма больше лимита')
                 # Проверим есть ли активные платежи по этой карте
-                result = check_asu_payment_for_card(card_number=active_card.card_number)
+                result = check_asu_payment_for_card(card_number=active_card.number)
                 if result:
                     logger.info('Есть платежи. Отбой')
                 else:
@@ -233,13 +233,15 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
                     logger.debug(f'К карте {active_card} привязан {p}')
                     # Передаем данные карты:
                     card_data = {
-                        "card_number": active_card.card_number,
+                        "card_number": active_card.number,
                         "expired_month": active_card.expired_month,
                         "expired_year": active_card.expired_year,
                         "cvv": active_card.cvv
                     }
                     response = send_card_data_birshop(payment_id=p, card_data=card_data)
                     logger.debug(f'Результат передачи карты response: {response}')
+            else:
+                logger.info(f'Сумма {instance.pay} меньше лимита {min_balance}')
 
             clear_contextvars()
     except Exception as err:
