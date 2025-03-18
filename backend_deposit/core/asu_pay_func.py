@@ -143,6 +143,27 @@ def create_birpay_payment(payment_data):
     except Exception as err:
         logger.debug(f'Ошибка при создании payment: {err}')
 
+
+def send_card_data_birshop(payment_id, card_data) -> dict:
+    logger = log.bind(payment_id=payment_id)
+    try:
+        logger.debug(f'Передача card_data {payment_id} на asu-pay от BirShop')
+        token = get_asu_birpay_token()
+        headers = {
+            'Authorization': f'Bearer {token}'
+        }
+        url = f'{settings.ASU_HOST}/api/v1/payment/{payment_id}/send_card_data/'
+        response = requests.put(url, json=card_data, headers=headers)
+        if response.status_code == 401:
+            headers = {'Authorization': f'Bearer {get_new_asu_birpay_token()}'}
+            response = requests.put(url, json=card_data, headers=headers)
+        logger.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
+        if response.status_code == 200:
+            return response.json()
+    except Exception as err:
+        logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
+
+
 def send_card_data(payment_id, card_data) -> dict:
     logger = log.bind(payment_id=payment_id)
     try:
@@ -254,9 +275,22 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
         return result
 
 def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7, 8), amount='') -> list:
+    """
+    Возвращает список платежей с указанной картой, статусом и суммой
+
+    Parameters
+    ----------
+    card_number
+    status
+    amount
+
+    Returns
+    -------
+
+    """
     logger = log
     try:
-        logger.debug(f'Проверка активных платеже по карте')
+        logger.debug(f'Проверка активных платежейпо карте')
         token = get_asu_birpay_token()
         headers = {
             'Authorization': f'Bearer {token}'

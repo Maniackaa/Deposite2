@@ -15,7 +15,8 @@ from django_currentuser.middleware import get_current_authenticated_user
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from backend_deposit import settings
-from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment
+from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment, send_card_data, send_card_data_birshop
+from core.global_func import send_message_tg
 from deposit.tasks import check_incoming
 from ocr.views_api import *
 from users.models import Options
@@ -58,9 +59,14 @@ def after_save_trash(sender, instance: TrashIncoming, **kwargs):
             if card and card.is_active:
                 logger.debug('Карта активна')
                 # Проверим есть ли активные платежи по этой карте
-                result_list = check_asu_payment_for_card(card_number=card.card_number, status=5, amount=amount)
+                result_list = check_asu_payment_for_card(card_number=card.card_number)
                 if result_list and len(result_list) == 0:
                     logger.info('Нужный платеж найден. Передаем смс')
+                    message = (
+                        f'Смс с рабочей карты {card_mask}:\n'
+                        f'{amount} azn. Code: {code}'
+                    )
+                    send_message_tg(message=message)
                 else:
                     logger.info(f'Нужный платеж не найден. result_list: {result_list}')
 
@@ -225,6 +231,16 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
                     active_card.current_payment_id = p
                     active_card.save()
                     logger.debug(f'К карте {active_card} привязан {p}')
+                    # Передаем данные карты:
+                    card_data = {
+                        "card_number": active_card.card_number,
+                        "expired_month": active_card.expired_month,
+                        "expired_year": active_card.expired_year,
+                        "cvv": active_card.cvv
+                    }
+                    response = send_card_data_birshop(payment_id=p, card_data=card_data)
+                    logger.debug(f'Результат передачи карты response: {response}')
+
             clear_contextvars()
     except Exception as err:
         logger.error(err)
