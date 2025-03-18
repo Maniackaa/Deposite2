@@ -224,7 +224,7 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
                     payment_data = {
                         'merchant': Options.load().asu_birshop_merchant_id,
                         'order_id': instance.pk,
-                        'amount': instance.pay - 1,
+                        'amount': instance.balance - 1,
                         'pay_type': 'card_2'}
                     p = create_birpay_payment(payment_data)
                     logger.info(f'Создана новая выплата {p}')
