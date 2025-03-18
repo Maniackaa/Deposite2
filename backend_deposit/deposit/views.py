@@ -382,7 +382,7 @@ class IncomingCheckList(SuperuserOnlyPerm, ListView):
 
 def incoming_recheck(request, pk):
     result = check_incoming(pk)
-    return JsonResponse(data=result)
+    return JsonResponse(data=result, safe=False)
 
 
 class IncomingFiltered(ListView):

@@ -47,9 +47,9 @@ def after_save_trash(sender, instance: TrashIncoming, **kwargs):
             logger.debug('Мусор по шаблону OTP')
             code, raw_amount, card_mask = match.groups()
             amount = convert_atb_value(raw_amount)
-            logger.debug(f'{code, raw_amount, card_mask}')
+            logger.debug(f'{code, raw_amount, card_mask}') # '4*7498'
             first_char = card_mask[0]
-            last_chars = card_mask[12:]
+            last_chars = card_mask[2:]
             logger.debug(f'Ищем карту {first_char, last_chars}')
             card = CreditCard.objects.filter(
                 number__startswith=first_char,

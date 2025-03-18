@@ -1,18 +1,14 @@
 
 import time
-
 import requests
 import structlog
 from asgiref.sync import async_to_sync
 from celery import shared_task
-
-from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.http import JsonResponse
 from urllib3 import Retry, PoolManager
 
 from core.asu_pay_func import create_payment, send_card_data, send_sms_code, create_asu_withdraw
-from core.birpay_func import get_birpay_withdraw
+from core.birpay_func import get_birpay_withdraw, find_birpay_from_id
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ
 from deposit.models import *
