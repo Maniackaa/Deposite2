@@ -212,7 +212,7 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
             active_card = CreditCard.objects.get(name=instance.recipient)
             bind_contextvars(active_card=active_card.name)
             min_balance = 300
-            if instance.pay > min_balance:
+            if instance.balance > min_balance:
                 logger.info('Сумма больше лимита')
                 # Проверим есть ли активные платежи по этой карте
                 result = check_asu_payment_for_card(card_number=active_card.number)
