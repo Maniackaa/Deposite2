@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.admin import DateFieldListFilter
+from django.db import models
+from django.forms import TextInput, Textarea
 from rangefilter.filters import DateRangeFilterBuilder, DateRangeQuickSelectListFilterBuilder, \
     NumericRangeFilterBuilder, DateTimeRangeFilterBuilder
 
@@ -9,7 +11,9 @@ from deposit.models import Incoming, BadScreen, Deposit, ColorBank, TrashIncomin
 
 class TrashIncomingAdmin(admin.ModelAdmin):
     list_display = ('id', 'register_date', 'text')
-
+    formfield_overrides = {
+        models.CharField: {'widget': Textarea(attrs={"rows":5, "cols":20})},
+    }
 
 class IncomingAdmin(admin.ModelAdmin):
     list_display = (

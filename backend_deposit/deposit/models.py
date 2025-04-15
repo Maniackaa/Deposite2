@@ -8,14 +8,15 @@ from django.db import models, transaction
 from django.db.transaction import atomic
 from django.dispatch import receiver
 
-from django.db.models.signals import post_delete, post_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.utils.html import format_html
 from colorfield.fields import ColorField
 from django_currentuser.middleware import get_current_authenticated_user
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from backend_deposit import settings
-from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment, send_card_data, send_card_data_birshop
+from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment, send_card_data, send_card_data_birshop, \
+    send_sms_code_birpay
 from core.global_func import send_message_tg
 from deposit.tasks import check_incoming
 from ocr.views_api import *
@@ -42,12 +43,13 @@ def after_save_trash(sender, instance: TrashIncoming, **kwargs):
     # Поиск смс в мусоре по активным картам
     try:
         pattern = r"Code: (\d*)\n([\d,]+\.\d{2}) AZN\n(\d\*\d\d\d\d)"
-        match = re.search(pattern, instance.text)
+        text = instance.text.replace('\r\n', '\n')
+        match = re.search(pattern, text)
         if match:
             logger.debug('Мусор по шаблону OTP')
             code, raw_amount, card_mask = match.groups()
             amount = convert_atb_value(raw_amount)
-            logger.debug(f'{code, raw_amount, card_mask}') # '4*7498'
+            logger.debug(f'{code, raw_amount, amount, card_mask}') # '4*7498'
             first_char = card_mask[0]
             last_chars = card_mask[2:]
             logger.debug(f'Ищем карту {first_char, last_chars}')
@@ -59,16 +61,26 @@ def after_save_trash(sender, instance: TrashIncoming, **kwargs):
             if card and card.is_active:
                 logger.debug('Карта активна')
                 # Проверим есть ли активные платежи по этой карте
-                result_list = check_asu_payment_for_card(card_number=card.number)
-                if result_list and len(result_list) == 0:
+                response = check_asu_payment_for_card(card_number=card.number)
+                results = response.json().get('results', [])
+                if response.status_code == 200 and len(results) == 1:
+                    payment = results[0]
                     logger.info('Нужный платеж найден. Передаем смс')
                     message = (
                         f'Смс с рабочей карты {card_mask}:\n'
                         f'{amount} azn. Code: {code}'
                     )
                     send_message_tg(message=message)
+                    # Проверим сумму
+                    logger.info(f'Проверим сумму. сумма заявки: {card.current_payment_amount}, смс: {amount}')
+                    if amount == card.current_payment_amount:
+                        logger.info(f'Сумма совпадает с текущей завкой: {amount}')
+                        send_sms_code_birpay(payment_id=payment["id"], sms_code=code)
+
                 else:
-                    logger.info(f'Нужный платеж не найден. result_list: {result_list}')
+                    logger.info(f'Нужный платеж не найден. result_list: {results}')
+        else:
+            logger.debug(logger.info(f'Не по шаблону BirPay:\n{repr(text)}'))
 
     except Exception as e:
         logger.error(e)
@@ -181,8 +193,12 @@ class IncomingCheck(models.Model):
         ordering = ('-id',)
 
 
+# @receiver(pre_save, sender=Incoming)
+# def pre_save_withdraw(sender, instance: Incoming, raw, using, update_fields, *args, **kwargs):
+
+
 @receiver(post_save, sender=Incoming)
-def after_save_incoming(sender, instance: Incoming, **kwargs):
+def after_save_incoming(sender, instance: Incoming, created, **kwargs):
     try:
         # Если сохранили birpay_id создаем задачу проверки
         if instance.cached_birpay_id != instance.birpay_id and instance.birpay_id:
@@ -201,23 +217,32 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
     except Exception as err:
         logger.error(err)
 
-    try:
-        # Обработка прихода на нашу карту
-        # Если карта в списке CreditCards и активна то создаем заявку для BirPayShop на asu
-        active_cards = CreditCard.objects.filter(is_active=True).values_list('name', flat=True)
-        logger.info(f'active_cards: {active_cards}')
-        if instance.recipient in active_cards:
-            logger.info(f'Платеж на активную карту {instance.recipient}')
-            active_card = CreditCard.objects.get(name=instance.recipient)
-            bind_contextvars(active_card=active_card.name)
-            min_balance = 300
-            if instance.balance > min_balance:
-                logger.info('Баланс больше лимита')
-                # Проверим есть ли активные платежи по этой карте
-                response = check_asu_payment_for_card(card_number=active_card.number)
-                if response and response.get('result'):
-                    logger.info('Есть платежи. Отбой')
-                else:
+    # Обработка прихода на нашу карту
+    if created:
+        try:
+            # Если карта в списке CreditCards и активна то создаем заявку для BirPayShop на asu
+            active_cards = CreditCard.objects.filter(is_active=True).values_list('name', flat=True)
+            logger.info(f'active_cards: {active_cards}')
+            if instance.recipient in active_cards:
+                logger.info(f'Платеж на активную карту {instance.recipient}')
+                active_card = CreditCard.objects.get(name=instance.recipient)
+                bind_contextvars(active_card=active_card.name)
+                min_balance = 300
+                if instance.balance > min_balance:
+                    logger.info('Баланс больше лимита')
+                    # Проверим есть ли активные платежи по этой карте
+                    response = check_asu_payment_for_card(card_number=active_card.number)
+                    logger.debug(f'response: {response.status_code}')
+                    if response.status_code != 200:
+                        raise ValueError('Плохой ответ при проверке активных платежей по карте')
+                    result = response.json()
+                    logger.info(f'result: {result}')
+                    results = result.get('results', [])
+                    logger.info(f'results: {results}')
+                    if results:
+                        logger.info('Есть активные платежи. Отбой')
+                        return
+
                     logger.debug(f'Активных выплат по карте нет. Создаем новую заявку на асу')
                     #{'merchant': 34, 'order_id': 1586, 'amount': 1560.0, 'user_login': '119281059', 'pay_type': 'card_2'}
                     payment_data = {
@@ -227,7 +252,7 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
                         'pay_type': 'card_2'}
                     p = create_birpay_payment(payment_data)
                     logger.info(f'Создана новая выплата {p}')
-                    active_card.current_payment_id = p
+                    active_card.current_payment_amount = instance.balance - 1
                     active_card.save()
                     logger.debug(f'К карте {active_card} привязан {p}')
                     # Передаем данные карты:
@@ -239,12 +264,13 @@ def after_save_incoming(sender, instance: Incoming, **kwargs):
                     }
                     response = send_card_data_birshop(payment_id=p, card_data=card_data)
                     logger.debug(f'Результат передачи карты response: {response}')
-            else:
-                logger.info(f'Сумма {instance.pay} меньше лимита {min_balance}')
 
-            clear_contextvars()
-    except Exception as err:
-        logger.error(err)
+                else:
+                    logger.info(f'Сумма {instance.pay} меньше лимита {min_balance}')
+
+                clear_contextvars()
+        except Exception as err:
+            logger.error(err)
 
 
 class Deposit(models.Model):
@@ -303,7 +329,7 @@ class CreditCard(models.Model):
     status = models.CharField(max_length=20, default='', blank=True)
     text = models.CharField(max_length=100, default='', blank=True)
     is_active = models.BooleanField(default=False)
-    current_payment_id = models.CharField(max_length=64, null=True, blank=True)
+    current_payment_amount = models.FloatField(null=True, blank=True)
 
     @property
     def expired_month(self):

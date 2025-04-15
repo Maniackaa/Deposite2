@@ -1,13 +1,11 @@
 import json
-
 import requests
 import structlog
 
 from django.conf import settings
-
-from backend_deposit.settings import BASE_DIR
 from core.global_func import hash_gen
 from users.models import Options
+
 
 log = structlog.get_logger(__name__)
 
@@ -18,8 +16,8 @@ data = {
 }
 
 
-token_file = BASE_DIR / 'token_asu.txt'
-token_birpay_file = BASE_DIR / 'token_asu_birpay.txt'
+token_file = settings.BASE_DIR / 'token_asu.txt'
+token_birpay_file = settings.BASE_DIR / 'token_asu_birpay.txt'
 
 def get_new_asu_token():
     logger = log
@@ -208,6 +206,29 @@ def send_sms_code(payment_id, sms_code, transaction_id=None) -> dict:
     except Exception as err:
         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
 
+def send_sms_code_birpay(payment_id, sms_code, transaction_id=None) -> dict:
+    if transaction_id:
+        logger = log.bind(transaction_id=transaction_id, payment_id=payment_id)
+    else:
+        logger = log.bind(payment_id=payment_id)
+    try:
+
+        logger.debug(f'Передача sms_code {payment_id} на asu-pay')
+        token = get_asu_birpay_token()
+        headers = {
+            'Authorization': f'Bearer {token}'
+        }
+        url = f'{settings.ASU_HOST}/api/v1/payment/{payment_id}/send_sms_code/'
+        json_data = {'sms_code': sms_code}
+        response = requests.put(url, json=json_data, headers=headers)
+        if response.status_code == 401:
+            headers = {'Authorization': f'Bearer {get_new_asu_birpay_token()}'}
+            response = requests.put(url, json=json_data, headers=headers)
+        logger.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
+        if response.status_code == 200:
+            return response.json()
+    except Exception as err:
+        logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
 
 def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
     """{'amount': '198.0000',
@@ -274,7 +295,7 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
         logger.debug(f'Ошибка при создании withdraw: {err}')
         return result
 
-def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7, 8), amount='') -> dict:
+def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7, 8), amount=''):
     """
     Возвращает список платежей с указанной картой, статусом и суммой
 
@@ -288,6 +309,7 @@ def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7,
     -------
 
     """
+
     logger = log
     try:
         logger.debug(f'Проверка активных платежей по карте')
@@ -296,18 +318,21 @@ def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7,
             'Authorization': f'Bearer {token}'
         }
         status_query = ','.join([str(x) for x in status])
+
         url = f'{settings.ASU_HOST}/api/v1/payments_archive/?pay_type=card_2&card_number={card_number}&status={status_query}&amount={amount}'
+        logger.debug(f'url: {url}')
         response = requests.get(url, headers=headers)
         if response.status_code == 401:
             headers = {
                 'Authorization': f'Bearer {get_new_asu_birpay_token()}'
             }
             response = requests.get(url, headers=headers)
-
         logger.debug(f'активных платежей по карте response: {response} {response.reason} {response.text}')
-        if response.status_code == 200:
-            return response.json()
-        else:
-            logger.warning(f'response: {response} {response.reason} {response.text}')
+        return response
     except Exception as err:
         logger.debug(f'Ошибка при создании payment: {err}')
+
+if __name__ == '__main__':
+
+    x = check_asu_payment_for_card('4169738826837498')
+    print(x)

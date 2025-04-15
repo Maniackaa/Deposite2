@@ -102,8 +102,8 @@ def find_birpay_from_id(birpay_id, results=1):
             # for key, val in data[0].items():
             #     print(f'{key}: {val}')
             #     print('-------------------\n')
-            logger.debug(f'Получено по birpay_id {birpay_id}: {data}')
-
+            logger.info(f'Получено по birpay_id {birpay_id}: {data}')
+            print(f'Получено по birpay_id {birpay_id}: {data}')
             row = data[0]
             transaction_id = row.get('merchantTransactionId')
             status = row.get('status')
@@ -122,6 +122,72 @@ def find_birpay_from_id(birpay_id, results=1):
                     'operator': operator,
                 }
             return result
+    except Exception as err:
+        logger.error(err)
+        raise err
+
+def find_birpay_from_merch_transaction_id(merch_transaction_id, results=1):
+    merch_transaction_id = str(merch_transaction_id).strip()
+    try:
+        token = read_token()
+        cookies = None
+        headers['Authorization'] = f'Bearer {token}'
+
+        json_data = {
+            'filter': {
+                'merchantTransactionId': merch_transaction_id
+            },
+            'sort': {},
+            'limit': {
+                'lastId': 0,
+                'maxResults': results,
+                'descending': True,
+            },
+        }
+
+        response = requests.post(
+            'https://birpay-gate.com/api/operator/payout_order/find',
+            cookies=cookies,
+            headers=headers,
+            json=json_data,
+        )
+        logger.debug(f'find_birpay_from_id: {response.status_code}')
+        if response.status_code == 401:
+            # Обновление токена
+            token = get_new_token()
+            headers['Authorization'] = f'Bearer {token}'
+            response = requests.post(
+                'https://birpay-gate.com/api/operator/payout_order/find',
+                cookies=cookies,
+                headers=headers,
+                json=json_data,
+            )
+
+        if response.status_code == 200:
+            data = response.json()
+            # for key, val in data[0].items():
+            #     print(f'{key}: {val}')
+            #     print('-------------------\n')
+            logger.info(f'Получено по merch_transaction_id {merch_transaction_id}: {data}')
+            print(f'Получено по merch_transaction_id {merch_transaction_id}: {data}')
+            row = data[0]
+            transaction_id = row.get('merchantTransactionId')
+            status = row.get('status')
+            sender = row.get('customerWalletId')
+            requisite = row.get('paymentRequisite')
+            pay = float(row.get('amount'))
+            operator = row.get('operator')
+            created_time = datetime.datetime.fromisoformat(row.get('createdAt'))
+            result = {
+                    'transaction_id': transaction_id,
+                    'status': status,
+                    'sender': sender,
+                    'requisite': requisite,
+                    'created_time': created_time,
+                    'pay': pay,
+                    'operator': operator,
+                }
+            return data
     except Exception as err:
         logger.error(err)
         raise err
@@ -200,8 +266,13 @@ def decline_birpay_withdraw(withdraw_id, transaction_id):
 async def main():
     token = get_new_token()
     print(token)
-    birpay = find_birpay_from_id('820457444')
-    print(birpay)
+    #13691648
+    # birpay = find_birpay_from_id('45829239')
+    # print(birpay)
+    t = find_birpay_from_merch_transaction_id(45829239)
+    pprint(t)
+    t = find_birpay_from_merch_transaction_id(45829236)
+    pprint(t)
     # withdraw_list = await get_birpay_withdraw()
     # pprint(withdraw_list)
     # print(len(withdraw_list))
