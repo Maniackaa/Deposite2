@@ -10,6 +10,7 @@ import seaborn as sns
 import pandas as pd
 import matplotlib
 from django.db.models.functions import TruncDate, ExtractHour, Cast, Coalesce
+from django.utils import timezone
 
 from backend_deposit.settings import TIME_ZONE
 
@@ -55,9 +56,12 @@ def cards_report() -> dict:
     # Возвращает словарь со статистикой по картам
     credit_cards = CreditCard.objects.all()
     print(credit_cards)
+    one_month_ago = timezone.now() - datetime.timedelta(days=30)
+
     cards = Incoming.objects.filter(
         pay__gt=0,
-        recipient__iregex=r'\*\d\d\d\d'
+        recipient__iregex=r'\*\d\d\d\d',
+        register_date__gte=one_month_ago,
     ).all().values('recipient').annotate(
         count=Count('pk'),
         sum=Sum('pay'),

@@ -40,6 +40,21 @@ class TrashIncoming(models.Model):
 
 @receiver(post_save, sender=TrashIncoming)
 def after_save_trash(sender, instance: TrashIncoming, **kwargs):
+
+    try:
+        """
+        Передачас смс-кодов kapital в AsuPay для выплат на m10
+        3DS
+        Code: 1933
+        1.00 AZN
+        4*9412
+        www.birbank.az
+        NWGI9CfwoU7
+        """
+        pattern = r"3DS\nCode: (\d\d\d\d)\n(\d+\.\d\d) AZN\n(\d\*\d{4})\nwww.birbank.az"
+    except Exception as e:
+        logger.error(e, exc_info=True)
+
     # Поиск смс в мусоре по активным картам
     try:
         pattern = r"Code: (\d*)\n([\d,]+\.\d{2}) AZN\n(\d\*\d\d\d\d)"

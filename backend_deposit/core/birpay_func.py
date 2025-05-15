@@ -269,10 +269,10 @@ async def main():
     #13691648
     # birpay = find_birpay_from_id('45829239')
     # print(birpay)
-    t = find_birpay_from_merch_transaction_id(45829239)
-    pprint(t)
-    t = find_birpay_from_merch_transaction_id(45829236)
-    pprint(t)
+    # t = find_birpay_from_merch_transaction_id(45829239)
+    # pprint(t)
+    # t = find_birpay_from_merch_transaction_id(45829236)
+    # pprint(t)
     # withdraw_list = await get_birpay_withdraw()
     # pprint(withdraw_list)
     # print(len(withdraw_list))
@@ -283,10 +283,10 @@ async def main():
     #     wlist.append(w['id'])
 
     # print(ids)
-    # withdraw_id = 12131454
-    # transaction_id = 655186681
-    # res = approve_birpay_withdraw(withdraw_id, transaction_id)
-    # print(res)
+    withdraw_id = 13864000
+    transaction_id = 755119964
+    res = approve_birpay_withdraw(withdraw_id, transaction_id)
+    print(res)
     # print(wlist)
 
 
