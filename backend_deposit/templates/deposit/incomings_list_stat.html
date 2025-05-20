@@ -56,6 +56,7 @@
            <th>Pay</th>
            <th>Б</th>
            <th>Тр-я</th>
+            <th>Апрув</th>
            <th>Бирпай</th>
        </tr>
      </thead>
@@ -91,7 +92,7 @@
             </td>
 
             <td title="{{ incoming.transaction }}">{{ incoming.transaction|default_if_none:""|make_list|slice:'-4:'|join:'' }}</td>
-
+                    <td>{{ incoming.birpay_confirm_time|date:"d.m H:i" }}</td>
          {% load l10n %}
          {% localize off %}
             <td class="text-nowrap">

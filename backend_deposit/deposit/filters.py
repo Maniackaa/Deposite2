@@ -47,16 +47,16 @@ class IncomingCheckFilter(django_filters.FilterSet):
 
 
 class IncomingStatSearch(django_filters.FilterSet):
-    register_date__gte = django_filters.DateTimeFilter(
-        field_name='register_date',
+    birpay_confirm_time__gte = django_filters.DateTimeFilter(
+        field_name='birpay_confirm_time',
         lookup_expr='gte',
-        label='Дата регистрации от',
+        label='Дата апрува от',
         widget=DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'})
     )
-    register_date__lt = django_filters.DateTimeFilter(
-        field_name='register_date',
+    birpay_confirm_time__lt = django_filters.DateTimeFilter(
+        field_name='birpay_confirm_time',
         lookup_expr='lt',
-        label='Дата регистрации до',
+        label='Дата апрува до',
         widget=DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'})
     )
     only_with_birpay = django_filters.BooleanFilter(
@@ -72,4 +72,4 @@ class IncomingStatSearch(django_filters.FilterSet):
 
     class Meta:
         model = Incoming
-        fields = ['register_date__gte', 'register_date__lt', 'only_with_birpay']
+        fields = ['birpay_confirm_time__gte', 'birpay_confirm_time__lt', 'only_with_birpay']
