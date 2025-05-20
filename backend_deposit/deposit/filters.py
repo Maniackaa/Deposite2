@@ -3,8 +3,9 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import F, Value
 from django.db.models.functions import Extract
+from django.forms import DateTimeInput, CheckboxInput
 
-from deposit.models import IncomingCheck
+from deposit.models import IncomingCheck, Incoming
 
 
 class MyDateInput(forms.DateInput):
@@ -43,3 +44,32 @@ class IncomingCheckFilter(django_filters.FilterSet):
     class Meta:
         model = IncomingCheck
         fields = ['id', 'birpay_id', 'user', 'operator', 'status']
+
+
+class IncomingStatSearch(django_filters.FilterSet):
+    register_date__gte = django_filters.DateTimeFilter(
+        field_name='register_date',
+        lookup_expr='gte',
+        label='Дата регистрации от',
+        widget=DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'})
+    )
+    register_date__lt = django_filters.DateTimeFilter(
+        field_name='register_date',
+        lookup_expr='lt',
+        label='Дата регистрации до',
+        widget=DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'})
+    )
+    only_with_birpay = django_filters.BooleanFilter(
+        label='Только с BirPay ID',
+        method='filter_with_birpay',
+        widget=CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+
+    def filter_with_birpay(self, queryset, name, value):
+        if value:
+            return queryset.exclude(birpay_id__isnull=True).exclude(birpay_id='')
+        return queryset
+
+    class Meta:
+        model = Incoming
+        fields = ['register_date__gte', 'register_date__lt', 'only_with_birpay']

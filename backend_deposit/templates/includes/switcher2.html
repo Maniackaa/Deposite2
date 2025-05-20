@@ -32,6 +32,13 @@
           Поиск платежей
         </a>
       </li>
+          <li class="nav-item">
+        <a
+           class="nav-link {% if view_name == 'deposit:incoming_stat_search' %}active{% endif %}"
+           href="{% url 'deposit:incoming_stat_search' %}">
+          Новый поиск
+        </a>
+      </li>
       <li class="nav-item">
         <a
            class="nav-link {% if view_name == 'deposit:trash' %}active{% endif %}"

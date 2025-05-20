@@ -19,7 +19,7 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import F, Q, OuterRef, Window, Exists, Value
+from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count
 from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -33,7 +33,7 @@ from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
 from deposit import tasks
-from deposit.filters import IncomingCheckFilter
+from deposit.filters import IncomingCheckFilter, IncomingStatSearch
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
@@ -979,3 +979,24 @@ def withdraw_test(request):
     }
     return render(request, template, context)
 
+class IncomingStatSearchView(ListView):
+    model = Incoming
+    template_name = 'deposit/incomings_list_stat.html'  # тот же шаблон
+    context_object_name = 'page_obj'
+    paginate_by = 50
+
+    def get_queryset(self):
+        qs = super().get_queryset().order_by('-register_date')
+        self.filterset = IncomingStatSearch(self.request.GET, queryset=qs)
+        return self.filterset.qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_form'] = self.filterset.form
+        # Статистика по фильтру
+        qs = self.filterset.qs
+        context['filtered_total'] = qs.aggregate(
+            total_pay=Sum('pay'),
+            count=Count('id')
+        )
+        return context
