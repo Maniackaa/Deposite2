@@ -38,7 +38,7 @@ from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrder
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
-from deposit.permissions import SuperuserOnlyPerm
+from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
@@ -386,7 +386,7 @@ def incoming_recheck(request, pk):
     return JsonResponse(data=result, safe=False)
 
 
-class IncomingFiltered(ListView):
+class IncomingFiltered(StaffOnlyPerm, ListView):
     # Отфильтровованные платежи
     model = Incoming
     template_name = 'deposit/incomings_list.html'
@@ -1004,11 +1004,10 @@ class IncomingStatSearchView(ListView):
         return context
 
 
-class BirpayOrderView(ListView):
+class BirpayOrderView(StaffOnlyPerm, ListView):
     model = BirpayOrder
     template_name = 'deposit/birpay_orders.html'  # тот же шаблон
-    # context_object_name = 'page_obj'
-    paginate_by = 500
+    paginate_by = 512
 
     def get_queryset(self):
         qs = super().get_queryset().order_by('-created_at')
