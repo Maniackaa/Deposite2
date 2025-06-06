@@ -78,4 +78,6 @@ class IncomingStatSearch(django_filters.FilterSet):
 class BirpayOrderFilter(django_filters.FilterSet):
     class Meta:
         model = BirpayOrder
-        fields = ['birpay_id', 'created_at', 'updated_at']
+        fields = [
+            'birpay_id', 'status', 'merchant_transaction_id', 'customer_name', 'merchant_name', 'merchant_user_id', 'operator'
+        ]

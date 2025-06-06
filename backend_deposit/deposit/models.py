@@ -384,7 +384,7 @@ class WithdrawTransaction(models.Model):
 
 class BirpayOrder(models.Model):
     birpay_id = models.IntegerField(unique=True, db_index=True)
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(db_index=True)
     updated_at = models.DateTimeField()
     merchant_transaction_id = models.CharField(max_length=16, db_index=True)
     merchant_user_id = models.CharField(max_length=16, db_index=True)
@@ -397,6 +397,9 @@ class BirpayOrder(models.Model):
     amount = models.FloatField()
     operator = models.CharField(max_length=128, null=True, blank=True)
     raw_data = models.JSONField()
+
+    class Meta:
+        ordering = ('-created_at',)
 
 
 class Message(models.Model):

@@ -446,7 +446,7 @@ class IncomingSearch(ListView):
     # Поиск платежей
     model = Incoming
     template_name = 'deposit/incomings_list.html'
-    paginate_by = 1000
+    paginate_by = 50
     search_date = None
 
     def get(self, request, *args, **kwargs):
@@ -1007,7 +1007,7 @@ class IncomingStatSearchView(ListView):
 class BirpayOrderView(ListView):
     model = BirpayOrder
     template_name = 'deposit/birpay_orders.html'  # тот же шаблон
-    context_object_name = 'page_obj'
+    # context_object_name = 'page_obj'
     paginate_by = 500
 
     def get_queryset(self):
