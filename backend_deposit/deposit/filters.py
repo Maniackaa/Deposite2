@@ -5,7 +5,7 @@ from django.db.models import F, Value
 from django.db.models.functions import Extract
 from django.forms import DateTimeInput, CheckboxInput
 
-from deposit.models import IncomingCheck, Incoming
+from deposit.models import IncomingCheck, Incoming, BirpayOrder
 
 
 class MyDateInput(forms.DateInput):
@@ -73,3 +73,9 @@ class IncomingStatSearch(django_filters.FilterSet):
     class Meta:
         model = Incoming
         fields = ['birpay_confirm_time__gte', 'birpay_confirm_time__lt', 'only_with_birpay']
+
+
+class BirpayOrderFilter(django_filters.FilterSet):
+    class Meta:
+        model = BirpayOrder
+        fields = ['birpay_id', 'created_at', 'updated_at']

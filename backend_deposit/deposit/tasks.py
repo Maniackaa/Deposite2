@@ -1,22 +1,23 @@
-
 import time
 import requests
 import structlog
 from asgiref.sync import async_to_sync
 from celery import shared_task
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+from django.utils.dateparse import parse_datetime
 from urllib3 import Retry, PoolManager
 
 from core.asu_pay_func import create_payment, send_card_data, send_sms_code, create_asu_withdraw
-from core.birpay_func import get_birpay_withdraw, find_birpay_from_id
+from core.birpay_func import get_birpay_withdraw, find_birpay_from_id, get_birpays
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
-from core.global_func import send_message_tg, TZ
+from core.global_func import send_message_tg, TZ, Timer
 from deposit.models import *
 from django.apps import apps
 
 User = get_user_model()
 
-logger = structlog.get_logger('tasks')
+logger = structlog.get_logger('deposite')
 
 
 def find_time_between_good_screen(last_good_screen_time) -> int:
@@ -289,11 +290,10 @@ def send_new_transactions_from_um_to_asu():
     return f'Новых: {len(new_transactions)}'
 
 
-
 @shared_task(priority=2, time_limit=30)
 def send_new_transactions_from_birpay_to_asu():
     # Задача по запросу выплат с бирпая со статусом pending (0).
-    logger = structlog.getLogger('birgate_withdraw')
+    logger = structlog.get_logger('deposite')
     withdraw_list = async_to_sync(get_birpay_withdraw)(limit=512)
     total_amount = 0
     results = []
@@ -367,3 +367,102 @@ def send_new_transactions_from_birpay_to_asu():
                 logger.error(f'Неизвестная ошибка при обработке birpay_withdraw: {type(e): {e}}')
     return results
 
+
+def process_birpay_order(data):
+    birpay_id = data['id']
+
+    check_file_url = data.get('payload', {}).get('check_file')
+
+    order_data = {
+        'created_at': parse_datetime(data['createdAt']),
+        'updated_at': parse_datetime(data['updatedAt']),
+        'birpay_id': data['id'],
+        'merchant_transaction_id': data['merchantTransactionId'],
+        'merchant_user_id': data['merchantUserId'],
+        'merchant_name': data['merchant']['name'] if 'merchant' in data and data['merchant'] else None,
+        'customer_name': data.get('customerName'),
+        'status': data['status'],
+        'amount': float(data['amount']),
+        'operator': None,
+        'raw_data': data,
+        'check_file_url': check_file_url,
+    }
+
+    if 'operator' in data and data['operator'] and 'username' in data['operator']:
+        order_data['operator'] = data['operator']['username']
+    elif 'user' in data and data['user'] and 'username' in data['user']:
+        order_data['operator'] = data['user']['username']
+
+    logger.info(f"Обработка заказа birpay_id={birpay_id}")
+    BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
+    order, created = BirpayOrder.objects.get_or_create(birpay_id=birpay_id, defaults=order_data)
+
+    if created:
+        logger.info(f"Создан новый заказ birpay_id={birpay_id}")
+    else:
+        logger.info(f"Заказ birpay_id={birpay_id} уже существует, проверяем обновления...")
+
+    updated = False
+
+    if not created:
+        for field, value in order_data.items():
+            if getattr(order, field) != value:
+                logger.info(f"Поле '{field}' изменено: {getattr(order, field)} → {value}")
+                setattr(order, field, value)
+                updated = True
+
+        # Работа с файлом
+        if not order.check_file and not order.check_file_failed and check_file_url:
+            try:
+                logger.info(f"Пробуем скачать файл для заказа {birpay_id} с {check_file_url}")
+                response = requests.get(check_file_url)
+                if response.ok:
+                    filename = check_file_url.split('/')[-1]
+                    order.check_file.save(filename, ContentFile(response.content), save=False)
+                    order.check_file_failed = False
+                    logger.info(f"Файл для заказа {birpay_id} успешно скачан и сохранён: {filename}")
+                    updated = True
+                else:
+                    order.check_file_failed = True
+                    logger.warning(f"Файл для заказа {birpay_id} не скачан (код {response.status_code})")
+                    updated = True
+            except Exception as e:
+                order.check_file_failed = True
+                logger.error(f"Ошибка при скачивании файла для заказа {birpay_id}: {e}")
+                updated = True
+
+        if updated:
+            order.save()
+            logger.info(f"Заказ birpay_id={birpay_id} обновлён.")
+    else:
+        if check_file_url:
+            try:
+                logger.info(f"Пробуем скачать файл для нового заказа {birpay_id} с {check_file_url}")
+                response = requests.get(check_file_url)
+                if response.ok:
+                    filename = check_file_url.split('/')[-1]
+                    order.check_file.save(filename, ContentFile(response.content), save=True)
+                    order.check_file_failed = False
+                    logger.info(f"Файл для нового заказа {birpay_id} успешно скачан и сохранён: {filename}")
+                else:
+                    order.check_file_failed = True
+                    order.save()
+                    logger.warning(f"Файл для нового заказа {birpay_id} не скачан (код {response.status_code})")
+            except Exception as e:
+                order.check_file_failed = True
+                order.save()
+                logger.error(f"Ошибка при скачивании файла для нового заказа {birpay_id}: {e}")
+        pass
+    return order, created, updated
+
+
+@shared_task(priority=2, time_limit=55)
+def refresh_birpay_data():
+    birpay_data = get_birpays()
+    if birpay_data:
+        for row in birpay_data:
+            b_id = row.get('id')
+            with Timer(f'Обработка {b_id}'):
+                result = process_birpay_order(row)
+                logger.info(f'Обработка birpay_id {b_id}: {result}')
+    return birpay_data

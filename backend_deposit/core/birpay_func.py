@@ -9,7 +9,7 @@ import structlog
 from backend_deposit.settings import BASE_DIR
 
 
-logger = structlog.get_logger(__name__)
+logger = structlog.get_logger('deposite')
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0',
@@ -23,6 +23,7 @@ headers = {
     'Sec-Fetch-Mode': 'cors',
     'Sec-Fetch-Site': 'same-origin',
 }
+
 
 def get_new_token(username=os.getenv('BIRPAY_LOGIN'), password=os.getenv('BIRPAY_PASSWORD')):
     # headers = {
@@ -51,7 +52,6 @@ def get_new_token(username=os.getenv('BIRPAY_LOGIN'), password=os.getenv('BIRPAY
         return token
 
 
-
 def read_token():
     token_file = BASE_DIR / 'token.txt'
     if not token_file.exists():
@@ -59,6 +59,7 @@ def read_token():
     with open(BASE_DIR / 'token.txt', 'r') as file:
         token = file.read()
         return token
+
 
 def find_birpay_from_id(birpay_id, results=1):
     birpay_id = str(birpay_id).strip()
@@ -126,6 +127,74 @@ def find_birpay_from_id(birpay_id, results=1):
         logger.error(err)
         raise err
 
+
+def get_birpays(results=512) -> dict:
+    # Полчение данных по первой таблице birpay
+    try:
+        token = read_token()
+        cookies = None
+        headers['Authorization'] = f'Bearer {token}'
+
+        json_data = {
+            'filter': {
+            },
+            'sort': {'isTrusted': True},
+            'limit': {
+                'lastId': 0,
+                'maxResults': results,
+                'descending': True,
+            },
+        }
+
+        response = requests.post(
+            'https://birpay-gate.com/api/operator/refill_order/find',
+            cookies=cookies,
+            headers=headers,
+            json=json_data,
+        )
+        logger.debug(f'find_birpay_from_id: {response.status_code}')
+        if response.status_code == 401:
+            # Обновление токена
+            token = get_new_token()
+            headers['Authorization'] = f'Bearer {token}'
+            response = requests.post(
+                'https://birpay-gate.com/api/operator/refill_order/find',
+                cookies=cookies,
+                headers=headers,
+                json=json_data,
+            )
+
+        if response.status_code == 200:
+            data = response.json()
+            # for key, val in data[0].items():
+            #     print(f'{key}: {val}')
+            #     print('-------------------\n')
+            logger.info(f'Получено : {len(data)}')
+            results = []
+            for row in data:
+                transaction_id = row.get('merchantTransactionId')
+                status = row.get('status')
+                sender = row.get('customerWalletId')
+                requisite = row.get('paymentRequisite')
+                pay = float(row.get('amount'))
+                operator = row.get('operator')
+                created_time = datetime.datetime.fromisoformat(row.get('createdAt'))
+                result = {
+                        'transaction_id': transaction_id,
+                        'status': status,
+                        'sender': sender,
+                        'requisite': requisite,
+                        'created_time': created_time,
+                        'pay': pay,
+                        'operator': operator,
+                    }
+                results.append(result)
+            return data
+    except Exception as err:
+        logger.error(err)
+        raise err
+
+
 def find_birpay_from_merch_transaction_id(merch_transaction_id, results=1):
     merch_transaction_id = str(merch_transaction_id).strip()
     try:
@@ -192,8 +261,9 @@ def find_birpay_from_merch_transaction_id(merch_transaction_id, results=1):
         logger.error(err)
         raise err
 
+
 async def get_birpay_withdraw(limit=512):
-    logger = structlog.getLogger('birgate')
+    logger = structlog.get_logger('deposite')
     token = read_token()
     headers['Authorization'] = f'Bearer {token}'
 
@@ -225,7 +295,7 @@ async def get_birpay_withdraw(limit=512):
 
 
 def approve_birpay_withdraw(withdraw_id, transaction_id):
-    logger = structlog.getLogger('birgate')
+    logger = structlog.get_logger('deposite')
     logger = logger.bind(birpay_withdraw_id=withdraw_id, transaction_id=transaction_id)
     json_data = {
         "id": withdraw_id,
@@ -245,7 +315,7 @@ def approve_birpay_withdraw(withdraw_id, transaction_id):
 
 
 def decline_birpay_withdraw(withdraw_id, transaction_id):
-    logger = structlog.getLogger('birgate')
+    logger = structlog.get_logger('deposite')
     logger = logger.bind(birpay_withdraw_id=withdraw_id, transaction_id=transaction_id)
     json_data = {
         "id": withdraw_id,
@@ -262,6 +332,7 @@ def decline_birpay_withdraw(withdraw_id, transaction_id):
     result = response.json()
     logger.debug(f'decline_birpay_withdraw {withdraw_id} {transaction_id}: {response.status_code}. result: {result}')
     return result
+
 
 async def main():
     token = get_new_token()

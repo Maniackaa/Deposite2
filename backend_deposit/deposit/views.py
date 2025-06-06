@@ -28,25 +28,26 @@ from rest_framework.views import APIView
 from urllib3 import Retry, PoolManager
 
 from core.asu_pay_func import create_payment, send_card_data, create_asu_withdraw
-from core.birpay_func import get_birpay_withdraw, get_new_token, approve_birpay_withdraw, decline_birpay_withdraw
+from core.birpay_func import get_birpay_withdraw, get_new_token, approve_birpay_withdraw, decline_birpay_withdraw, \
+    get_birpays
 from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
 from deposit import tasks
-from deposit.filters import IncomingCheckFilter, IncomingStatSearch
+from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrderFilter
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
 from deposit.permissions import SuperuserOnlyPerm
-from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu
+from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
-    MessageRead, RePattern, IncomingCheck, WithdrawTransaction
+    MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder
 from users.models import Options
 
-logger = structlog.get_logger(__name__)
-err_log = logging.getLogger(__name__)
+logger = structlog.get_logger('deposite')
+err_log = structlog.get_logger('deposite')
 
 
 @staff_member_required(login_url='users:login')
@@ -880,7 +881,7 @@ class WithdrawWebhookReceive(APIView):
         # {"id": "d874dbad-b55c-4acd-93c2-80627174e372", "withdraw_id": "5e52ab95-5628-43c2-952c-e3341e31890d",
         #  "amount": 2300, "create_at": "2024-10-15T05:46:22.091818+00:00", "status": 9,
         #  "confirmed_time": "2024-10-15T05:47:22.091818+00:00"}
-        logger = structlog.getLogger(__name__)
+        logger = structlog.get_logger('deposite')
 
         try:
             data = request.data
@@ -908,10 +909,10 @@ class WithdrawWebhookReceive(APIView):
 def withdraw_test(request):
 
     template = 'deposit/withdraw_test.html'
-    logger = structlog.getLogger('birgate')
+    logger = structlog.get_logger('deposite')
     logger.info('тест логгера biragte')
 
-    logger = structlog.getLogger(__name__)
+    logger = structlog.get_logger('deposite')
     logger.info(f'тест логгера {__name__}')
 
     token = get_new_token()
@@ -979,6 +980,7 @@ def withdraw_test(request):
     }
     return render(request, template, context)
 
+
 class IncomingStatSearchView(ListView):
     model = Incoming
     template_name = 'deposit/incomings_list_stat.html'  # тот же шаблон
@@ -1000,3 +1002,29 @@ class IncomingStatSearchView(ListView):
             count=Count('id')
         )
         return context
+
+
+class BirpayOrderView(ListView):
+    model = BirpayOrder
+    template_name = 'deposit/birpay_orders.html'  # тот же шаблон
+    context_object_name = 'page_obj'
+    paginate_by = 500
+
+    def get_queryset(self):
+        qs = super().get_queryset().order_by('-created_at')
+        self.filterset = BirpayOrderFilter(self.request.GET, queryset=qs)
+        return self.filterset.qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_form'] = self.filterset.form
+        page_obj = context['page_obj']
+        for order in page_obj:
+            order.raw_data_json = json.dumps(order.raw_data, ensure_ascii=False)
+
+        return context
+
+
+def test(request):
+    result = refresh_birpay_data()
+    return JsonResponse(result, safe=False)

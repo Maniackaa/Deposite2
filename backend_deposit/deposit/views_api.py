@@ -22,7 +22,7 @@ from ocr.text_response_func import response_sms1, response_sms2, response_sms3, 
     response_sms13, response_sms14, response_sms15, response_sms16, response_sms17, response_sms18
 from ocr.views_api import convert_atb_value
 
-logger = structlog.get_logger(__name__)
+logger = structlog.get_logger('deposite')
 TZ = pytz.timezone(TIME_ZONE)
 
 

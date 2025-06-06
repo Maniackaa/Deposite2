@@ -20,8 +20,8 @@ import base64
 
 from deposit.models import Incoming, CreditCard, Message
 
-logger = structlog.get_logger(__name__)
-err_log = logging.getLogger(__name__)
+logger = structlog.get_logger('deposite')
+err_log = structlog.get_logger('deposite')
 
 TZ = pytz.timezone(TIME_ZONE)
 

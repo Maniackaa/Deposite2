@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import time
 
 import pytz
 import requests
@@ -9,7 +10,7 @@ from backend_deposit import settings
 from backend_deposit.settings import TIME_ZONE
 
 TZ = pytz.timezone(TIME_ZONE)
-logger = structlog.get_logger(__name__)
+logger = structlog.get_logger('deposite')
 
 
 def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):
@@ -41,3 +42,19 @@ def hash_gen(text, salt):
     formatted_string = f'{text}' + f'{salt}'
     m = hashlib.sha256(formatted_string.encode('UTF-8'))
     return m.hexdigest()
+
+
+class Timer:
+
+    def __init__(self, text):
+        self.text = text
+        super().__init__()
+
+    def __enter__(self):
+        self.start = time.perf_counter()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        end = time.perf_counter()
+        delta = end - self.start
+        print(f'Время выполнения "{self.text}": {round(delta,2)} c.')
+        logger.debug(f'Время выполнения "{self.text}": {round(delta,2)} c.')

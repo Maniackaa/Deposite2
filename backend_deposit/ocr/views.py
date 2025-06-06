@@ -15,7 +15,7 @@ from ocr.forms import ScreenForm, ScreenDeviceSelectFrom
 from ocr.models import ScreenResponse
 from ocr.tasks import response_parts
 
-logger = structlog.get_logger(__name__)
+logger = structlog.get_logger('deposite')
 
 
 class ScreenListView(ListView, PermissionRequiredMixin):

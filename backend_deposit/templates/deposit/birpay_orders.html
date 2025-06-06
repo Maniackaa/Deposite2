@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Список платежей{% endblock %}
+
+
+{% block content %}
+         {% load l10n %}
+         {% localize off %}
+<script>
+function showRawData(orderId) {
+    var data = JSON.parse(document.getElementById('rawdata-' + orderId).textContent);
+    alert(JSON.stringify(data, null, 2));
+}
+</script>
+
+{% include 'includes/operator_menu.html' %}
+<div class="container-fluid ">
+{% include 'includes/switcher2.html' %}
+
+
+  {% with request.resolver_match.view_name as view_name %}
+    {% if view_name == 'deposit:incomings_filter' %}
+       Ваш фильтр на получателя: {{ user.profile.my_filter }}
+       <a class="changelink" href="{% url 'deposit:my_filter' %}">Изменить</a>
+    {% endif %}
+
+    <span class="row justify-content-start">
+      <div class="col-6">
+        <form method="GET">
+
+          {% if search_form %}
+            {{ search_form.as_p }}
+          {% endif %}
+          <input class="btn btn-success " type="submit" name="date_search" value="Найти">
+        {% if filtered_total %}
+<div class="alert alert-info" style="margin-bottom: 10px">
+    <b>Статистика по фильтру:</b><br>
+    <b>Всего платежей:</b> {{ filtered_total.count }}<br>
+    <b>Сумма платежей:</b> {{ filtered_total.total_pay|floatformat:2 }}
+</div>
+{% endif %}
+
+
+     {% include 'includes/paginator.html' %}
+     <div class="container-fluid ">
+     <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+<thead>
+            <tr>
+                <th>ID</th>
+                <th>Merchant Tx ID</th>
+                <th>Created</th>
+                <th>Changed</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Merchant</th>
+                <th>User</th>
+                <th>Customer Name</th>
+                <th>Operator</th>
+                <th>Check File (Скачанный)</th>
+                <th>Check File URL (Исходный)</th>
+                <th>Failed?</th>
+                <th>Raw Data</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for order in page_obj %}
+            <tr>
+                <td>{{ order.birpay_id }}</td>
+                <td>{{ order.merchant_transaction_id }}</td>
+                <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
+                <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>
+                <td>{{ order.status }}</td>
+                <td>{{ order.amount }}</td>
+                <td>{{ order.merchant_name }}</td>
+                <td>{{ order.merchant_user_id }}</td>
+                <td>{{ order.customer_name }}</td>
+                <td>{{ order.operator }}</td>
+                <td>
+                    {% if order.check_file %}
+                        <a href="{{ order.check_file.url }}" target="_blank">Скачанный файл</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if order.check_file_url %}
+                        <a href="{{ order.check_file_url }}" target="_blank">Оригинал</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="{% if order.check_file_failed %}failed{% endif %}">
+                    {% if order.check_file_failed %}Да{% else %}Нет{% endif %}
+                </td>
+            <td>
+                <a href="#" onclick="showRawData('{{ order.birpay_id }}'); return false;">Просмотр</a>
+                <script id="rawdata-{{ order.birpay_id }}" type="application/json">
+                    {{ order.raw_data_json|safe }}
+                </script>
+            </td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="14">Нет данных</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+   </table>
+   </div>
+   {% include 'includes/paginator.html' %}
+  {% endwith %}
+</div>
+{% endlocalize %}
+{% endblock %}

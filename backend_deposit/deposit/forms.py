@@ -17,8 +17,8 @@ from django.utils import timezone
 from .models import Deposit, Incoming, ColorBank, BadScreen
 from .widgets import MinimalSplitDateTimeMultiWidget
 
-logger = structlog.get_logger(__name__)
-err_log = logging.getLogger(__name__)
+logger = structlog.get_logger('deposite')
+err_log = structlog.get_logger('deposite')
 
 
 class DepositForm(forms.ModelForm):

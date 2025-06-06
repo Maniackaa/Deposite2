@@ -13,7 +13,7 @@ from django.forms import CheckboxInput
 
 from ocr.models import ScreenResponse
 
-logger = structlog.get_logger(__name__)
+logger = structlog.get_logger('deposite')
 
 phones = [('jjeyzlhiz9ljeiso', 'Phone 1 ["jjeyzlhiz9ljeiso"]'), ('unknown', 'unknown')]
 

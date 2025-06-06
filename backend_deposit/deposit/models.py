@@ -22,8 +22,8 @@ from deposit.tasks import check_incoming
 from ocr.views_api import *
 from users.models import Options
 
-logger = structlog.get_logger(__name__)
-err_log = logging.getLogger(__name__)
+logger = structlog.get_logger('deposite')
+err_log = structlog.get_logger('deposite')
 
 # User = get_user_model()
 
@@ -380,6 +380,23 @@ class WithdrawTransaction(models.Model):
 
     def __str__(self):
         return f'{self.id}.{self.withdraw_id}'
+
+
+class BirpayOrder(models.Model):
+    birpay_id = models.IntegerField(unique=True, db_index=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    merchant_transaction_id = models.CharField(max_length=16, db_index=True)
+    merchant_user_id = models.CharField(max_length=16, db_index=True)
+    merchant_name = models.CharField(max_length=64, null=True, blank=True)
+    customer_name = models.CharField(max_length=128, null=True, blank=True)
+    check_file = models.ImageField(upload_to='birpay_check', null=True, blank=True)
+    check_file_url = models.URLField(null=True, blank=True)
+    check_file_failed = models.BooleanField(default=False)
+    status = models.SmallIntegerField()
+    amount = models.FloatField()
+    operator = models.CharField(max_length=128, null=True, blank=True)
+    raw_data = models.JSONField()
 
 
 class Message(models.Model):

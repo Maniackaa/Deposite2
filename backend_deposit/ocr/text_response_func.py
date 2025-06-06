@@ -6,7 +6,7 @@ import structlog
 
 from backend_deposit.settings import TIME_ZONE
 
-logger = structlog.get_logger(__name__)
+logger = structlog.get_logger('deposite')
 err_log = logging.getLogger(__name__)
 tz = pytz.timezone(TIME_ZONE)
 

@@ -41,6 +41,13 @@
       </li>
       <li class="nav-item">
         <a
+           class="nav-link {% if view_name == 'deposit:birpay_orders' %}active{% endif %}"
+           href="{% url 'deposit:birpay_orders' %}">
+          birpay_orders
+        </a>
+      </li>
+      <li class="nav-item">
+        <a
            class="nav-link {% if view_name == 'deposit:trash' %}active{% endif %}"
            href="{% url 'deposit:trash' %}">
           Мусор

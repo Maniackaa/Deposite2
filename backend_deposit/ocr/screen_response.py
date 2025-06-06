@@ -5,7 +5,7 @@ from django.apps import apps
 
 from ocr.ocr_func import response_m10, response_m10_short, response_m10new, response_m10new_short
 
-logger = structlog.get_logger(__name__)
+logger = structlog.get_logger('deposite')
 
 
 def screen_text_to_pay(text):
