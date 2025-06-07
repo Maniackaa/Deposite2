@@ -1008,6 +1008,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
     model = BirpayOrder
     template_name = 'deposit/birpay_orders.html'  # тот же шаблон
     paginate_by = 512
+    filterset_class = BirpayOrderFilter
 
     def get_queryset(self):
         qs = super().get_queryset().order_by('-created_at')
