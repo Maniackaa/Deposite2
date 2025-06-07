@@ -30,17 +30,29 @@
   </div>
 </div>
 
-    {% if birpay_stats %}
-<div class="alert alert-info" style="margin-bottom: 10px;">
-    <b>Статистика по фильтру:</b><br>
-    <b>Всего строк:</b> {{ birpay_stats.total }}<br>
-    <b>Где есть incoming_id:</b> {{ birpay_stats.with_incoming }}<br>
-    <b>Сумма incoming_pay:</b> {{ birpay_stats.sum_incoming_pay|floatformat:2 }}<br>
-    <b>Сумма amount:</b> {{ birpay_stats.sum_amount|floatformat:2 }}<br>
-    <b>Статусов 0:</b> {{ birpay_stats.status_0 }}<br>
-    <b>Статусов 1:</b> {{ birpay_stats.status_1 }}<br>
-    <b>Статусов 2:</b> {{ birpay_stats.status_2 }}<br>
-</div>
+{% if birpay_stats %}
+<table class="table table-bordered table-sm mb-2" style="width:auto; font-size:13px; margin-bottom:8px;">
+    <tbody>
+        <tr>
+            <td><b>Всего</b></td>
+            <td>{{ birpay_stats.total }}</td>
+            <td><b>С incoming_id</b></td>
+            <td>{{ birpay_stats.with_incoming }}</td>
+            <td><b>Сумма incoming_pay</b></td>
+            <td>{{ birpay_stats.sum_incoming_pay|floatformat:2 }}</td>
+            <td><b>Сумма amount</b></td>
+            <td>{{ birpay_stats.sum_amount|floatformat:2 }}</td>
+            <td><b>Сумма delta</b></td>
+            <td>{{ birpay_stats.sum_delta|floatformat:2 }}</td>
+            <td><b>Статус 0</b></td>
+            <td>{{ birpay_stats.status_0 }}</td>
+            <td><b>Статус 1</b></td>
+            <td>{{ birpay_stats.status_1 }}</td>
+            <td><b>Статус 2</b></td>
+            <td>{{ birpay_stats.status_2 }}</td>
+        </tr>
+    </tbody>
+</table>
 {% endif %}
 
     {% include 'includes/paginator.html' %}

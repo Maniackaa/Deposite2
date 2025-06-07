@@ -1036,6 +1036,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
             'with_incoming': qs.exclude(incoming_id__isnull=True).count(),
             'sum_incoming_pay': qs.aggregate(sum=Sum('incoming_pay'))['sum'] or 0,
             'sum_amount': qs.aggregate(sum=Sum('amount'))['sum'] or 0,
+            'sum_delta': qs.aggregate(sum=Sum('delta'))['sum'] or 0,  # <--- вот эта строчка
             'status_0': qs.filter(status=0).count(),
             'status_1': qs.filter(status=1).count(),
             'status_2': qs.filter(status=2).count(),
