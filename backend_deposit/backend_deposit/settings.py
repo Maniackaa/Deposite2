@@ -343,7 +343,7 @@ os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_IDS = os.getenv('ADMIN_IDS').split(',')
 ALARM_IDS = os.getenv('ALARM_IDS').split(',')
-PAGINATE = 100
+PAGINATE = 300
 USE_THOUSAND_SEPARATOR = True
 
 # Celery settings
