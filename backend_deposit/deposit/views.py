@@ -1018,8 +1018,11 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
         context = super().get_context_data(**kwargs)
         context['search_form'] = self.filterset.form
         page_obj = context['page_obj']
+        # incomings = Incoming.objects.filter(birpay_id__in=page_obj.values('id'))
         for order in page_obj:
             order.raw_data_json = json.dumps(order.raw_data, ensure_ascii=False)
+            incoming = Incoming.objects.filter(birpay_id=order.merchant_transaction_id).first()
+            order.incoming = incoming
 
         return context
 

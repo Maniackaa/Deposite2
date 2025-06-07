@@ -31,7 +31,7 @@
          <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
             <thead>
                 <tr>
-                    <th>birpay_id</th>
+                    <th>наш incoming</th>
                     <th>Merchant Tx ID</th>
                     <th>Created</th>
                     <th>Changed</th>
@@ -50,7 +50,10 @@
             <tbody>
             {% for order in page_obj %}
                 <tr>
-                    <td>{{ order.birpay_id }}</td>
+                    <td>{% if order.incoming %}
+                        {{ order.incoming.id }}. {{ order.incoming.pay }} azn <a href="{{ order.incoming.get_absolute_url }}">тык</a>
+                        {% endif %}
+                    </td>
                     <td>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>
@@ -59,7 +62,7 @@
                     <td>{{ order.merchant_name }}</td>
                     <td>{{ order.merchant_user_id }}</td>
                     <td>{{ order.customer_name }}</td>
-                    <td>{{ order.operator }}</td>
+                    <td>{{ order.operator|default_if_none:"" }}</td>
                     <td>
                         {% if order.check_file %}
                             <a href="{{ order.check_file.url }}" target="_blank">Скачанный файл</a>

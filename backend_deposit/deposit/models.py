@@ -9,6 +9,7 @@ from django.db.transaction import atomic
 from django.dispatch import receiver
 
 from django.db.models.signals import post_delete, post_save, pre_save
+from django.urls import reverse
 from django.utils.html import format_html
 from colorfield.fields import ColorField
 from django_currentuser.middleware import get_current_authenticated_user
@@ -114,6 +115,7 @@ class Setting(models.Model):
     def __str__(self):
         return f'Setting({self.name} = {self.value})'
 
+
 class Incoming(models.Model):
 
     def __init__(self, *args, **kwargs) -> None:
@@ -134,7 +136,7 @@ class Incoming(models.Model):
     birpay_confirm_time = models.DateTimeField('Время подтверждения', null=True, blank=True)
     birpay_edit_time = models.DateTimeField('Время ручной корректировки', null=True, blank=True)
     confirmed_deposit = models.OneToOneField('Deposit', null=True, blank=True, on_delete=models.SET_NULL)
-    birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True)
+    birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True, db_index=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
 
     class Meta:
@@ -143,6 +145,9 @@ class Incoming(models.Model):
             ("can_hand_edit", "Может делать ручные корректировки"),
             # ("can_see_bad_warning", "Видит уведомления о новых BadScreen"),
         ]
+
+    def get_absolute_url(self):
+        return reverse('deposit:incoming_edit', kwargs={'pk': self.pk})
 
     def __iter__(self):
         for field in self._meta.fields:
