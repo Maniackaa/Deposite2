@@ -1020,9 +1020,13 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
         page_obj = context['page_obj']
         # incomings = Incoming.objects.filter(birpay_id__in=page_obj.values('id'))
         for order in page_obj:
+            # logger.info(f'order: {order} {order.amount}')
             order.raw_data_json = json.dumps(order.raw_data, ensure_ascii=False)
             incoming = Incoming.objects.filter(birpay_id=order.merchant_transaction_id).first()
-            order.incoming = incoming
+            if incoming:
+                order.incoming = incoming
+                order.delta = incoming.pay - order.amount
+                # logger.info(f'incoming.pay: {incoming.pay} order.amount: {order.amount}')
 
         return context
 

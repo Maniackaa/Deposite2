@@ -32,6 +32,7 @@
             <thead>
                 <tr>
                     <th>наш incoming</th>
+                    <th>Дельта</th>
                     <th>Merchant Tx ID</th>
                     <th>Created</th>
                     <th>Changed</th>
@@ -42,7 +43,7 @@
                     <th>Customer Name</th>
                     <th>Operator</th>
                     <th>Check File (Скачанный)</th>
-                    <th>Check File URL (Исходный)</th>
+<!--                    <th>Check File URL (Исходный)</th>-->
                     <th>Failed?</th>
                     <th>Raw Data</th>
                 </tr>
@@ -54,6 +55,7 @@
                         {{ order.incoming.id }}. {{ order.incoming.pay }} azn <a href="{{ order.incoming.get_absolute_url }}">тык</a>
                         {% endif %}
                     </td>
+                    <td>{{ order.delta }}</td>
                     <td>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>
@@ -70,13 +72,13 @@
                             -
                         {% endif %}
                     </td>
-                    <td>
-                        {% if order.check_file_url %}
-                            <a href="{{ order.check_file_url }}" target="_blank">Оригинал</a>
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
+<!--                    <td>-->
+<!--                        {% if order.check_file_url %}-->
+<!--                            <a href="{{ order.check_file_url }}" target="_blank">Оригинал</a>-->
+<!--                        {% else %}-->
+<!--                            - -->
+<!--                        {% endif %}-->
+<!--                    </td>-->
                     <td class="{% if order.check_file_failed %}failed{% endif %}">
                         {% if order.check_file_failed %}Да{% else %}Нет{% endif %}
                     </td>
