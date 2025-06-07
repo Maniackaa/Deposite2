@@ -29,6 +29,20 @@
     </form>
   </div>
 </div>
+
+    {% if birpay_stats %}
+<div class="alert alert-info" style="margin-bottom: 10px;">
+    <b>Статистика по фильтру:</b><br>
+    <b>Всего строк:</b> {{ birpay_stats.total }}<br>
+    <b>Где есть incoming_id:</b> {{ birpay_stats.with_incoming }}<br>
+    <b>Сумма incoming_pay:</b> {{ birpay_stats.sum_incoming_pay|floatformat:2 }}<br>
+    <b>Сумма amount:</b> {{ birpay_stats.sum_amount|floatformat:2 }}<br>
+    <b>Статусов 0:</b> {{ birpay_stats.status_0 }}<br>
+    <b>Статусов 1:</b> {{ birpay_stats.status_1 }}<br>
+    <b>Статусов 2:</b> {{ birpay_stats.status_2 }}<br>
+</div>
+{% endif %}
+
     {% include 'includes/paginator.html' %}
      <div class="container-fluid ">
          <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">

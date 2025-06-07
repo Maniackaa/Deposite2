@@ -1029,19 +1029,20 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_form'] = self.filterset.form
-        page_obj = context['page_obj']
-        # incomings = Incoming.objects.filter(birpay_id__in=page_obj.values('id'))
-        for order in page_obj:
-            # logger.info(f'order: {order} {order.amount}')
-            order.raw_data_json = json.dumps(order.raw_data, ensure_ascii=False)
-            incoming = Incoming.objects.filter(birpay_id=order.merchant_transaction_id).first()
-            if incoming:
-                order.incoming = incoming
-                order.delta = incoming.pay - order.amount
-                # logger.info(f'incoming.pay: {incoming.pay} order.amount: {order.amount}')
+        qs = self.filterset.qs  # qs — это весь отфильтрованный QuerySet
 
+        stats = {
+            'total': qs.count(),
+            'with_incoming': qs.exclude(incoming_id__isnull=True).count(),
+            'sum_incoming_pay': qs.aggregate(sum=Sum('incoming_pay'))['sum'] or 0,
+            'sum_amount': qs.aggregate(sum=Sum('amount'))['sum'] or 0,
+            'status_0': qs.filter(status=0).count(),
+            'status_1': qs.filter(status=1).count(),
+            'status_2': qs.filter(status=2).count(),
+        }
+
+        context['birpay_stats'] = stats
         return context
-
 
 def test(request):
     result = refresh_birpay_data()
