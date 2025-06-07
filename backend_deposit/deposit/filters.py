@@ -78,16 +78,79 @@ class IncomingStatSearch(django_filters.FilterSet):
 class MyTimeInput(DateTimeInput):
     input_type = 'datetime-local'
 
+
 class BirpayOrderFilter(django_filters.FilterSet):
-    updated_at_gte = django_filters.DateTimeFilter(label='От включая', field_name='updated_at', lookup_expr='gte',
-                                                   widget=MyTimeInput({'class': 'form-control'})
-                                                   )
-    updated_at_lt = django_filters.DateTimeFilter(label='до (не включая)', field_name='updated_at', lookup_expr='lt',
-                                                   widget=MyTimeInput({'class': 'form-control'})
-                                                   )
+    incoming_id = django_filters.BooleanFilter(
+        method='filter_incoming_id',
+        label='Есть incoming'
+    )
+    incoming_id_exact = django_filters.NumberFilter(
+        field_name='incoming_id',
+        lookup_expr='exact',
+        label='ID incoming'
+    )
+    updated_at_gte = django_filters.DateTimeFilter(
+        label='От включая', field_name='updated_at', lookup_expr='gte',
+        widget=MyTimeInput({'class': 'form-control'})
+    )
+    updated_at_lt = django_filters.DateTimeFilter(
+        label='до (не включая)', field_name='updated_at', lookup_expr='lt',
+        widget=MyTimeInput({'class': 'form-control'})
+    )
+    incoming_pay_gte = django_filters.NumberFilter(
+        field_name='incoming_pay', lookup_expr='gte', label='Наш amount >='
+    )
+    incoming_pay_lte = django_filters.NumberFilter(
+        field_name='incoming_pay', lookup_expr='lte', label='Наш amount Pay <='
+    )
+    delta_gte = django_filters.NumberFilter(
+        field_name='delta', lookup_expr='gte', label='Delta >='
+    )
+    delta_lte = django_filters.NumberFilter(
+        field_name='delta', lookup_expr='lte', label='Delta <='
+    )
+
+    # Все текстовые поля icontains
+    merchant_transaction_id = django_filters.CharFilter(
+        lookup_expr='icontains', label='Merchant Tx ID'
+    )
+    customer_name = django_filters.CharFilter(
+        lookup_expr='icontains', label='customer_name'
+    )
+    merchant_name = django_filters.CharFilter(
+        lookup_expr='icontains', label='Мерчант'
+    )
+    merchant_user_id = django_filters.CharFilter(
+        lookup_expr='icontains', label='User'
+    )
+
+    # Оператор — выбор из уникальных значений
+    operator = django_filters.ChoiceFilter(
+        label='Оператор',
+        choices=lambda: [
+            (op, op) for op in BirpayOrder.objects.order_by('operator')
+                .values_list('operator', flat=True).distinct().exclude(operator__isnull=True).exclude(operator__exact='')
+        ]
+    )
+
+    # Статус — мультивыбор
+    status = django_filters.MultipleChoiceFilter(
+        choices=[(0, '0'), (1, '1'), (2, '2')],
+        widget=forms.CheckboxSelectMultiple,
+        label='Статус'
+    )
+
+
+    def filter_incoming_id(self, queryset, name, value):
+        if value:
+            return queryset.exclude(incoming_id__isnull=True)
+        else:
+            return queryset.filter(incoming_id__isnull=True)
+
     class Meta:
         model = BirpayOrder
         fields = [
-            'birpay_id', 'status', 'merchant_transaction_id', 'customer_name', 'merchant_name', 'merchant_user_id', 'operator',
-
+            'status', 'merchant_transaction_id', 'customer_name', 'merchant_name',
+            'merchant_user_id', 'operator',
+            # аннотированные поля НЕ указывать здесь
         ]

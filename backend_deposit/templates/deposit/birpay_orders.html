@@ -15,17 +15,20 @@
 <div class="container-fluid ">
     {% include 'includes/switcher2.html' %}
 
-    <span class="row justify-content-start">
-      <div class="col-6">
-        <form method="GET">
-
-          {% if search_form %}
-            {{ search_form.as_p }}
-          {% endif %}
-          <input class="btn btn-success " type="submit" name="date_search" value="Найти">
-        </form>
-      </div>
-    </span>
+<div class="row mb-3">
+  <div class="col-12">
+    <form method="GET" class="form-inline flex-wrap gap-2 align-items-end" style="display: flex; flex-wrap: wrap; gap: 10px;">
+      {% if search_form %}
+        {% for field in search_form %}
+          <div class="form-group mb-2" style="min-width: 180px; margin-right: 10px;">
+            {{ field.label_tag }}{{ field }}
+          </div>
+        {% endfor %}
+      {% endif %}
+      <button class="btn btn-success mb-2" type="submit" name="date_search">Найти</button>
+    </form>
+  </div>
+</div>
     {% include 'includes/paginator.html' %}
      <div class="container-fluid ">
          <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
@@ -51,11 +54,11 @@
             <tbody>
             {% for order in page_obj %}
                 <tr>
-                    <td>{% if order.incoming %}
-                        {{ order.incoming.id }}. {{ order.incoming.pay }} azn <a href="{{ order.incoming.get_absolute_url }}">тык</a>
-                        {% endif %}
+                    <td>
+                        {{ order.incoming_id|default_if_none:"" }} {{ order.incoming_pay|default_if_none:"" }}
+
                     </td>
-                    <td>{{ order.delta }}</td>
+                    <td>{{ order.delta|default_if_none:"" }}</td>
                     <td>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>

@@ -19,7 +19,7 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count
+from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count, Subquery, ExpressionWrapper, FloatField
 from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -1012,6 +1012,17 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
 
     def get_queryset(self):
         qs = super().get_queryset().order_by('-created_at')
+        incoming_qs = Incoming.objects.filter(
+            birpay_id=OuterRef('merchant_transaction_id')
+        ).order_by('-register_date')
+        qs = qs.annotate(
+            incoming_pay=Subquery(incoming_qs.values('pay')[:1]),
+            delta=ExpressionWrapper(
+                Subquery(incoming_qs.values('pay')[:1]) - F('amount'),
+                output_field=FloatField()
+            ),
+            incoming_id=Subquery(incoming_qs.values('id')[:1])
+        )
         self.filterset = BirpayOrderFilter(self.request.GET, queryset=qs)
         return self.filterset.qs
 
