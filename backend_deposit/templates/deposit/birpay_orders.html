@@ -66,15 +66,17 @@
                     <th>Created</th>
                     <th>Changed</th>
                     <th>Status</th>
+
                     <th>Amount</th>
+                    <th>Card</th>
                     <th>Merchant</th>
                     <th>User</th>
                     <th>Customer Name</th>
                     <th>Operator</th>
                     <th>Check File (Скачанный)</th>
 <!--                    <th>Check File URL (Исходный)</th>-->
-                    <th>Failed?</th>
                     <th>Raw Data</th>
+                    <th>GPT Data</th>
                 </tr>
             </thead>
             <tbody>
@@ -90,6 +92,7 @@
                     <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.status }}</td>
                     <td>{{ order.amount }}</td>
+                    <td>{{ order.card_number }}</td>
                     <td>{{ order.merchant_name }}</td>
                     <td>{{ order.merchant_user_id }}</td>
                     <td>{{ order.customer_name }}</td>
@@ -108,20 +111,20 @@
 <!--                            - -->
 <!--                        {% endif %}-->
 <!--                    </td>-->
-                    <td class="{% if order.check_file_failed %}failed{% endif %}">
-                        {% if order.check_file_failed %}Да{% else %}Нет{% endif %}
+
+                    <td>
+                        <a href="#" onclick="showRawData('{{ order.birpay_id }}'); return false;">Просмотр</a>
+                        <script id="rawdata-{{ order.birpay_id }}" type="application/json">
+                            {{ order.raw_data_json|safe }}
+                        </script>
                     </td>
-                <td>
-                    <a href="#" onclick="showRawData('{{ order.birpay_id }}'); return false;">Просмотр</a>
-                    <script id="rawdata-{{ order.birpay_id }}" type="application/json">
-                        {{ order.raw_data_json|safe }}
-                    </script>
-                </td>
+                    <td>{{ order.gpt_data }}</td>
                 </tr>
             {% empty %}
                 <tr>
                     <td colspan="14">Нет данных</td>
                 </tr>
+
             {% endfor %}
             </tbody>
          </table>

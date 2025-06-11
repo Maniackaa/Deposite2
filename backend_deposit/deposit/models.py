@@ -18,7 +18,8 @@ from structlog.contextvars import bind_contextvars, clear_contextvars
 from backend_deposit import settings
 from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment, send_card_data, send_card_data_birshop, \
     send_sms_code_birpay
-from core.global_func import send_message_tg
+from core.global_func import send_message_tg, Timer
+from core.gpt_func import gpt_recognize_check, extract_json, send_image_to_gpt
 from deposit.tasks import check_incoming
 from ocr.views_api import *
 from users.models import Options
@@ -390,21 +391,39 @@ class WithdrawTransaction(models.Model):
 class BirpayOrder(models.Model):
     birpay_id = models.IntegerField(unique=True, db_index=True)
     created_at = models.DateTimeField(db_index=True)
-    updated_at = models.DateTimeField()
+    updated_at = models.DateTimeField(db_index=True)
     merchant_transaction_id = models.CharField(max_length=16, db_index=True)
     merchant_user_id = models.CharField(max_length=16, db_index=True)
     merchant_name = models.CharField(max_length=64, null=True, blank=True)
     customer_name = models.CharField(max_length=128, null=True, blank=True)
+    card_number = models.CharField(max_length=20, null=True, blank=True, db_index=True)
     check_file = models.ImageField(upload_to='birpay_check', null=True, blank=True)
     check_file_url = models.URLField(null=True, blank=True)
     check_file_failed = models.BooleanField(default=False)
-    status = models.SmallIntegerField()
+    status = models.SmallIntegerField(db_index=True)
     amount = models.FloatField()
-    operator = models.CharField(max_length=128, null=True, blank=True)
+    operator = models.CharField(max_length=128, null=True, blank=True, db_index=True)
     raw_data = models.JSONField()
+    gpt_data = models.JSONField(default=dict)
 
     class Meta:
         ordering = ('-created_at',)
+
+
+@receiver(post_save, sender=BirpayOrder)
+def after_save_incoming(sender, instance: BirpayOrder, **kwargs):
+    if instance.check_file and not instance.gpt_data:
+        try:
+            with Timer('Обработка чека GPT'):
+                # gpt_data = gpt_recognize_check(instance.check_file.file)
+                gpt_data = send_image_to_gpt(instance.check_file)
+                result = extract_json(gpt_data)
+                result = json.loads(result)
+                if result:
+                    instance.gpt_data = result
+                    instance.save()
+        except Exception as e:
+            logger.error(e)
 
 
 class Message(models.Model):

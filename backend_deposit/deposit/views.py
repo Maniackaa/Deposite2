@@ -13,6 +13,7 @@ import pytz
 import requests
 import structlog
 from asgiref.sync import async_to_sync
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models.functions import Lag
 
 from django.conf import settings
@@ -1041,7 +1042,14 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
             'status_1': qs.filter(status=1).count(),
             'status_2': qs.filter(status=2).count(),
         }
-
+        for order in context['page_obj']:
+            if hasattr(order, 'raw_data'):
+                try:
+                    order.raw_data_json = json.dumps(order.raw_data, ensure_ascii=False, cls=DjangoJSONEncoder)
+                except Exception:
+                    order.raw_data_json = '{}'
+            else:
+                order.raw_data_json = '{}'
         context['birpay_stats'] = stats
         return context
 

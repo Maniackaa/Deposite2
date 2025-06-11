@@ -381,6 +381,7 @@ def process_birpay_order(data):
         'merchant_user_id': data['merchantUserId'],
         'merchant_name': data['merchant']['name'] if 'merchant' in data and data['merchant'] else None,
         'customer_name': data.get('customerName'),
+        'card_number': data.get('paymentRequisite', {}).get('payload', {}).get('card_number'),
         'status': data['status'],
         'amount': float(data['amount']),
         'operator': None,

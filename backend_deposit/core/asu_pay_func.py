@@ -117,6 +117,7 @@ def create_payment(payment_data):
     except Exception as err:
         logger.debug(f'Ошибка при создании payment: {err}')
 
+
 def create_birpay_payment(payment_data):
     logger = log
     try:
@@ -205,6 +206,7 @@ def send_sms_code(payment_id, sms_code, transaction_id=None) -> dict:
     except Exception as err:
         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
 
+
 def send_sms_code_birpay(payment_id, sms_code, transaction_id=None) -> dict:
     if transaction_id:
         logger = log.bind(transaction_id=transaction_id, payment_id=payment_id)
@@ -228,6 +230,7 @@ def send_sms_code_birpay(payment_id, sms_code, transaction_id=None) -> dict:
             return response.json()
     except Exception as err:
         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
+
 
 def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
     """{'amount': '198.0000',
@@ -330,6 +333,30 @@ def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7,
         return response
     except Exception as err:
         logger.debug(f'Ошибка при создании payment: {err}')
+
+#
+# def gpt_response_check(data):
+#     logger = log
+#     try:
+#         logger.debug(f'Запрос GPT на asu-pay: {data}')
+#         token = get_asu_token()
+#         headers = {
+#             'Authorization': f'Bearer {token}'
+#         }
+#         url = f'{settings.ASU_HOST}/api/v2/gpt/check/'
+#         response = requests.post(url, json=data, headers=headers)
+#         if response.status_code == 401:
+#             headers = {
+#                 'Authorization': f'Bearer {get_new_asu_token()}'
+#             }
+#             response = requests.post(url, json=data, headers=headers)
+#
+#         logger.debug(f'response: {response} {response.reason} {response.text}')
+#         if response.status_code == 201:
+#             return response.json()
+#     except Exception as err:
+#         logger.debug(f'Ошибка при Запрос GPT на asu-pay: {err}')
+
 
 if __name__ == '__main__':
 
