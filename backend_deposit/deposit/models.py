@@ -421,6 +421,7 @@ class BirpayOrder(models.Model):
 
 @receiver(post_save, sender=BirpayOrder)
 def after_save_incoming(sender, instance: BirpayOrder, **kwargs):
+    Options = apps.get_model('users', "Options")
     options = Options.load()
     # Распознавание чека GPT
     if options.gpt_chek_is_active and instance.check_file and not instance.gpt_data:
