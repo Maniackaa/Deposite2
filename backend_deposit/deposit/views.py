@@ -40,7 +40,8 @@ from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
-from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data
+from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data, \
+    send_image_to_gpt_task
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
@@ -1071,5 +1072,6 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
 
 
 def test(request):
-    result = refresh_birpay_data()
+    # result = refresh_birpay_data()
+    result = send_image_to_gpt_task(74859148)
     return JsonResponse(result, safe=False)
