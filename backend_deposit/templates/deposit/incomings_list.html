@@ -4,7 +4,7 @@
 
 {% block content %}
 {% include 'includes/operator_menu.html' %}
-<div class="container-fluid ">
+<div class="container">
 {% include 'includes/switcher2.html' %}
 
 
@@ -37,7 +37,7 @@
 
      {% include 'includes/paginator.html' %}
      <div class="container-fluid ">
-     <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+     <table id="table" class="table table-bordered table-hover table-sm table-mini" style="font-size: 14px; line-height: 100%; width: auto; padding: .1rem .1rem .1rem .1rem">
      <thead class="">
      <tr class="">
            <th>id</th>
@@ -64,7 +64,7 @@
                   *
                 {% endif %}
             </td>
-            <td>{{ incoming.register_date|date:"d.m H:i" }}</td>
+            <td>{{ incoming.register_date|date:"d.m H:i:s" }}</td>
             <td>{{ incoming.response_date|date:"d.m H:i" }}</td>
             <td>{{ incoming.recipient }}</td>
 
