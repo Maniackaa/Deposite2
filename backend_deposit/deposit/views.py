@@ -47,8 +47,8 @@ from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Mes
     MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder
 from users.models import Options
 
-logger = structlog.get_logger('deposite')
-err_log = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
+err_log = structlog.get_logger('deposit')
 
 
 @staff_member_required(login_url='users:login')
@@ -882,7 +882,7 @@ class WithdrawWebhookReceive(APIView):
         # {"id": "d874dbad-b55c-4acd-93c2-80627174e372", "withdraw_id": "5e52ab95-5628-43c2-952c-e3341e31890d",
         #  "amount": 2300, "create_at": "2024-10-15T05:46:22.091818+00:00", "status": 9,
         #  "confirmed_time": "2024-10-15T05:47:22.091818+00:00"}
-        logger = structlog.get_logger('deposite')
+        logger = structlog.get_logger('deposit')
 
         try:
             data = request.data
@@ -910,10 +910,10 @@ class WithdrawWebhookReceive(APIView):
 def withdraw_test(request):
 
     template = 'deposit/withdraw_test.html'
-    logger = structlog.get_logger('deposite')
+    logger = structlog.get_logger('deposit')
     logger.info('тест логгера biragte')
 
-    logger = structlog.get_logger('deposite')
+    logger = structlog.get_logger('deposit')
     logger.info(f'тест логгера {__name__}')
 
     token = get_new_token()

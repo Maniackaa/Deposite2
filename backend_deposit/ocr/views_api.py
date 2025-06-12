@@ -17,7 +17,7 @@ from ocr.ocr_func import bytes_to_str, response_text_from_image, date_m10_respon
 
 from ocr.screen_response import screen_text_to_pay
 
-logger = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
 
 
 @api_view(['POST'])

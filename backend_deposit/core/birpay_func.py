@@ -9,7 +9,7 @@ import structlog
 from backend_deposit.settings import BASE_DIR
 
 
-logger = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0',
@@ -263,7 +263,7 @@ def find_birpay_from_merch_transaction_id(merch_transaction_id, results=1):
 
 
 async def get_birpay_withdraw(limit=512):
-    logger = structlog.get_logger('deposite')
+    logger = structlog.get_logger('deposit')
     token = read_token()
     headers['Authorization'] = f'Bearer {token}'
 
@@ -295,7 +295,7 @@ async def get_birpay_withdraw(limit=512):
 
 
 def approve_birpay_withdraw(withdraw_id, transaction_id):
-    logger = structlog.get_logger('deposite')
+    logger = structlog.get_logger('deposit')
     logger = logger.bind(birpay_withdraw_id=withdraw_id, transaction_id=transaction_id)
     json_data = {
         "id": withdraw_id,
@@ -315,7 +315,7 @@ def approve_birpay_withdraw(withdraw_id, transaction_id):
 
 
 def decline_birpay_withdraw(withdraw_id, transaction_id):
-    logger = structlog.get_logger('deposite')
+    logger = structlog.get_logger('deposit')
     logger = logger.bind(birpay_withdraw_id=withdraw_id, transaction_id=transaction_id)
     json_data = {
         "id": withdraw_id,

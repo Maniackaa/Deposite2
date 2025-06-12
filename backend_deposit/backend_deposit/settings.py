@@ -273,7 +273,7 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": True,
         },
-        "deposite": {
+        "deposit": {
             "handlers": ["console", "deposit", "deposit_info", "errors"],
             "level": "DEBUG",
             "propagate": False,

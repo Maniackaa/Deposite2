@@ -15,7 +15,7 @@ from backend_deposit.settings import TIME_ZONE
 from ocr.text_response_func import date_response
 
 TZ = pytz.timezone(TIME_ZONE)
-logger = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
 
 
 def get_unrecognized_field_error_text(response_fields, result):

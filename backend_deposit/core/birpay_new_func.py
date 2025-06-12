@@ -8,7 +8,7 @@ from backend_deposit.settings import BASE_DIR
 from users.models import Options
 from core.global_func import TZ
 
-logger = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
 
 
 token_file = BASE_DIR / 'token_new.txt'

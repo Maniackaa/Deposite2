@@ -17,7 +17,7 @@ from django.apps import apps
 
 User = get_user_model()
 
-logger = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
 
 
 def find_time_between_good_screen(last_good_screen_time) -> int:
@@ -293,7 +293,7 @@ def send_new_transactions_from_um_to_asu():
 @shared_task(priority=2, time_limit=30)
 def send_new_transactions_from_birpay_to_asu():
     # Задача по запросу выплат с бирпая со статусом pending (0).
-    logger = structlog.get_logger('deposite')
+    logger = structlog.get_logger('deposit')
     withdraw_list = async_to_sync(get_birpay_withdraw)(limit=512)
     total_amount = 0
     results = []
@@ -444,7 +444,7 @@ def process_birpay_order(data):
 @shared_task(priority=3, time_limit=10)
 def send_image_to_gpt_task(birpay_id, server_url="http://45.14.247.139:9000/recognize/"):  # Резерв Payment
     logger.info(f'Стартовала задача GPT {birpay_id}')
-    BirpayOrder = apps.get_model('deposite', 'BirpayOrder')
+    BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     order = BirpayOrder.objects.get(birpay_id=birpay_id)
     image_field = order.check_file
     with image_field.open('rb') as f:

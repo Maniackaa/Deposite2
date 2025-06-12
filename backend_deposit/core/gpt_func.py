@@ -12,7 +12,7 @@ from django.conf import settings
 
 from core.global_func import Timer
 
-logger = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
 
 
 def encode_image(image_path):

@@ -24,8 +24,8 @@ from deposit.tasks import check_incoming, send_image_to_gpt_task
 from ocr.views_api import *
 from users.models import Options
 
-logger = structlog.get_logger('deposite')
-err_log = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
+err_log = structlog.get_logger('deposit')
 
 # User = get_user_model()
 

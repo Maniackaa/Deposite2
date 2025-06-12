@@ -10,7 +10,7 @@ from backend_deposit import settings
 from backend_deposit.settings import TIME_ZONE
 
 TZ = pytz.timezone(TIME_ZONE)
-logger = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
 
 
 def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):

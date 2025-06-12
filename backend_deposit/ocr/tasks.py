@@ -13,7 +13,7 @@ from ocr.models import ScreenResponse, ScreenResponsePart
 
 User = get_user_model()
 # logger = get_task_logger('celery')
-logger = structlog.get_logger('deposite')
+logger = structlog.get_logger('deposit')
 
 
 @shared_task(priority=2)

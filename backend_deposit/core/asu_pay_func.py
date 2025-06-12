@@ -6,7 +6,7 @@ from django.conf import settings
 from core.global_func import hash_gen
 from users.models import Options
 
-log = structlog.get_logger('deposite')
+log = structlog.get_logger('deposit')
 
 
 data = {
@@ -250,7 +250,7 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
               'uid': 'b3429f24-432b-4796-a8e2-986c39fbbdf7',
               'updatedAt': '2025-02-15T15:56:11+03:00'}"""
     result = {}
-    logg = structlog.get_logger('deposite')
+    logg = structlog.get_logger('deposit')
     logger = log.bind(birpay_withdraw_id=withdraw_id)
     try:
 
