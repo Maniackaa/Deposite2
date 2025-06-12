@@ -450,13 +450,14 @@ def send_image_to_gpt_task(birpay_id, server_url="http://45.14.247.139:9000/reco
         with Timer("Отправляю файл на сервер..."):
             response = requests.post(server_url, files=files, timeout=10)
     gpt_data = response.json().get('result')
-    result = extract_json(gpt_data)
-    result = json.loads(result)
-    logger.info(f'GPT result {birpay_id}: {result}')
-    if result:
-        order.gpt_data = result
-        order.save()
-    return result
+    if gpt_data:
+        result = extract_json(gpt_data)
+        result = json.loads(result)
+        logger.info(f'GPT result {birpay_id}: {result}')
+        if result:
+            order.gpt_data = result
+            order.save()
+        return result
 
 
 @shared_task(priority=1, time_limit=15)
