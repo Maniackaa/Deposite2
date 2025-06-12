@@ -421,7 +421,9 @@ class BirpayOrder(models.Model):
 
 @receiver(post_save, sender=BirpayOrder)
 def after_save_incoming(sender, instance: BirpayOrder, **kwargs):
-    if instance.check_file and not instance.gpt_data:
+    options = Options.load()
+    # Распознавание чека GPT
+    if options.gpt_chek_is_active and instance.check_file and not instance.gpt_data:
         try:
             logger.info(f'Старт задачи GPT для {instance.birpay_id}')
             send_image_to_gpt_task.delay(instance.birpay_id)
