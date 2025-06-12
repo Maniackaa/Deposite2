@@ -415,7 +415,6 @@ def process_birpay_order(data):
     elif 'user' in data and data['user'] and 'username' in data['user']:
         order_data['operator'] = data['user']['username']
 
-    logger.info(f"Обработка заказа birpay_id={birpay_id}")
     BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     order, created = BirpayOrder.objects.get_or_create(birpay_id=birpay_id, defaults=order_data)
 
@@ -429,7 +428,6 @@ def process_birpay_order(data):
                 updated = True
         if updated:
             order.save()
-            logger.info(f"Заказ birpay_id={birpay_id} обновлён.")
     else:
         logger.info(f"Создан новый заказ birpay_id={birpay_id}")
 
@@ -469,5 +467,5 @@ def refresh_birpay_data():
             b_id = row.get('id')
             with Timer(f'Обработка {b_id}'):
                 result = process_birpay_order(row)
-                logger.info(f'Обработка birpay_id {b_id}: {result}')
+                # logger.info(f'Обработка birpay_id {b_id}: {result}')
     return birpay_data
