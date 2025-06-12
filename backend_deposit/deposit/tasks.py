@@ -464,9 +464,9 @@ def send_image_to_gpt_task(birpay_id, server_url="http://45.14.247.139:9000/reco
 def refresh_birpay_data():
     birpay_data = get_birpays()
     if birpay_data:
-        for row in birpay_data:
-            b_id = row.get('id')
-            with Timer(f'Обработка {b_id}'):
+        with Timer(f'Обработка birpay_data'):
+            for row in birpay_data:
+                b_id = row.get('id')
                 result = process_birpay_order(row)
                 # logger.info(f'Обработка birpay_id {b_id}: {result}')
     return birpay_data
