@@ -103,10 +103,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="#" onclick="showRawData('{{ order.birpay_id }}'); return false;">RAW</a>
-                        <script id="rawdata-{{ order.birpay_id }}" type="application/json">
-                            {{ order.raw_data_json|safe }}
-                        </script>
+                        <a href="{% url 'deposit:birpay_order_raw' order.birpay_id %}">RAW</a>
                     </td>
                     <td>{{ order.gpt_data }}</td>
                 </tr>

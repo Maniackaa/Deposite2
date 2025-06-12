@@ -63,6 +63,7 @@ urlpatterns = [
     path('withdraw_test/', views.withdraw_test, name='withdraw_test'),
     path('test/', views.test, name='test'),
     path('birpay_orders/', views.BirpayOrderView.as_view(), name='birpay_orders'),
+    path('birpay_orders/raw/<int:birpay_id>/', views.BirpayOrderRawView.as_view(), name='birpay_order_raw'),
     ]
 
 if settings.DEBUG:

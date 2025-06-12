@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Birpay Order #{{ object.id }}</h1>
+<h2>Raw JSON</h2>
+<pre style="background: #f6f8fa; padding: 1em; border-radius: 5px;">{{ raw_json_pretty|safe }}</pre>
+{% endblock %}

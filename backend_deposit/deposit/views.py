@@ -1005,6 +1005,22 @@ class IncomingStatSearchView(ListView):
         return context
 
 
+class BirpayOrderRawView(StaffOnlyPerm, DetailView):
+    model = BirpayOrder
+    template_name = 'deposit/birpay_order_raw.html'
+    slug_field = 'birpay_id'
+    slug_url_kwarg = 'birpay_id'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        raw = self.object.raw_data
+        try:
+            context['raw_json_pretty'] = json.dumps(raw, ensure_ascii=False, indent=2)
+        except Exception:
+            context['raw_json_pretty'] = raw  # если вдруг невалидный JSON
+        return context
+
+
 class BirpayOrderView(StaffOnlyPerm, ListView):
     model = BirpayOrder
     template_name = 'deposit/birpay_orders.html'  # тот же шаблон
