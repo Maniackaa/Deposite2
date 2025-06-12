@@ -1053,6 +1053,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
         context['birpay_stats'] = stats
         return context
 
+
 def test(request):
     result = refresh_birpay_data()
     return JsonResponse(result, safe=False)

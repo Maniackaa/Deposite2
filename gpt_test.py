@@ -100,13 +100,13 @@ if __name__ == "__main__":
 
     for image_path in image_files:
         print(image_path)
-        # try:
-        #     result = recognize_text(image_path)
-        #     print(f'result: {json.loads(result)}')
-        #
-        # except Exception as e:
-        #     print(f"Ошибка при обработке {image_path.name}: {e}")
-        # break
-        result = send_image(image_path)
-        print(result)
+        try:
+            result = recognize_text(image_path)
+            print(f'result: {json.loads(result)}')
+
+        except Exception as e:
+            print(f"Ошибка при обработке {image_path.name}: {e}")
+        break
+        # result = send_image(image_path)
+        # print(result)
 

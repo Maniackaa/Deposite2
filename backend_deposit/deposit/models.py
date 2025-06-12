@@ -20,7 +20,7 @@ from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment,
     send_sms_code_birpay
 from core.global_func import send_message_tg, Timer
 from core.gpt_func import gpt_recognize_check, extract_json, send_image_to_gpt
-from deposit.tasks import check_incoming
+from deposit.tasks import check_incoming, send_image_to_gpt_task
 from ocr.views_api import *
 from users.models import Options
 
@@ -414,14 +414,8 @@ class BirpayOrder(models.Model):
 def after_save_incoming(sender, instance: BirpayOrder, **kwargs):
     if instance.check_file and not instance.gpt_data:
         try:
-            with Timer('Обработка чека GPT'):
-                # gpt_data = gpt_recognize_check(instance.check_file.file)
-                gpt_data = send_image_to_gpt(instance.check_file)
-                result = extract_json(gpt_data)
-                result = json.loads(result)
-                if result:
-                    instance.gpt_data = result
-                    instance.save()
+            logger.info(f'Старт задачи GPT для {instance.birpay_id}')
+            send_image_to_gpt_task.delay(instance.birpay_id)
         except Exception as e:
             logger.error(e)
 

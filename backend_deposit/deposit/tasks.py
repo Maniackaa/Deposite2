@@ -190,7 +190,7 @@ def send_transaction_action_task(transaction_id, action):
     return json_data
 
 
-@shared_task(priority=2, time_limit=60)
+@shared_task(priority=1, time_limit=60)
 def send_new_transactions_from_um_to_asu():
     countdown = 7
     # Получение новых um транзакций и их обработка
@@ -368,15 +368,36 @@ def send_new_transactions_from_birpay_to_asu():
     return results
 
 
+@shared_task(prority=2, timeout=10)
+def download_birpay_check_file(order_id, check_file_url):
+    from deposit.models import BirpayOrder
+    order = BirpayOrder.objects.get(id=order_id)
+    try:
+        response = requests.get(check_file_url)
+        if response.ok:
+            filename = check_file_url.split('/')[-1]
+            order.check_file.save(filename, ContentFile(response.content), save=True)
+            order.check_file_failed = False
+            order.save(update_fields=['check_file', 'check_file_failed'])
+            return f"OK: {filename}"
+        else:
+            order.check_file_failed = True
+            order.save(update_fields=['check_file_failed'])
+            return f"Failed: status={response.status_code}"
+    except Exception as e:
+        order.check_file_failed = True
+        order.save(update_fields=['check_file_failed'])
+        return f"Error: {e}"
+
+
 def process_birpay_order(data):
     birpay_id = data['id']
-
     check_file_url = data.get('payload', {}).get('check_file')
 
     order_data = {
         'created_at': parse_datetime(data['createdAt']),
         'updated_at': parse_datetime(data['updatedAt']),
-        'birpay_id': data['id'],
+        'birpay_id': birpay_id,
         'merchant_transaction_id': data['merchantTransactionId'],
         'merchant_user_id': data['merchantUserId'],
         'merchant_name': data['merchant']['name'] if 'merchant' in data and data['merchant'] else None,
@@ -398,11 +419,6 @@ def process_birpay_order(data):
     BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     order, created = BirpayOrder.objects.get_or_create(birpay_id=birpay_id, defaults=order_data)
 
-    if created:
-        logger.info(f"Создан новый заказ birpay_id={birpay_id}")
-    else:
-        logger.info(f"Заказ birpay_id={birpay_id} уже существует, проверяем обновления...")
-
     updated = False
 
     if not created:
@@ -411,53 +427,41 @@ def process_birpay_order(data):
                 logger.info(f"Поле '{field}' изменено: {getattr(order, field)} → {value}")
                 setattr(order, field, value)
                 updated = True
-
-        # Работа с файлом
-        if not order.check_file and not order.check_file_failed and check_file_url:
-            try:
-                logger.info(f"Пробуем скачать файл для заказа {birpay_id} с {check_file_url}")
-                response = requests.get(check_file_url)
-                if response.ok:
-                    filename = check_file_url.split('/')[-1]
-                    order.check_file.save(filename, ContentFile(response.content), save=False)
-                    order.check_file_failed = False
-                    logger.info(f"Файл для заказа {birpay_id} успешно скачан и сохранён: {filename}")
-                    updated = True
-                else:
-                    order.check_file_failed = True
-                    logger.warning(f"Файл для заказа {birpay_id} не скачан (код {response.status_code})")
-                    updated = True
-            except Exception as e:
-                order.check_file_failed = True
-                logger.error(f"Ошибка при скачивании файла для заказа {birpay_id}: {e}")
-                updated = True
-
         if updated:
             order.save()
             logger.info(f"Заказ birpay_id={birpay_id} обновлён.")
     else:
-        if check_file_url:
-            try:
-                logger.info(f"Пробуем скачать файл для нового заказа {birpay_id} с {check_file_url}")
-                response = requests.get(check_file_url)
-                if response.ok:
-                    filename = check_file_url.split('/')[-1]
-                    order.check_file.save(filename, ContentFile(response.content), save=True)
-                    order.check_file_failed = False
-                    logger.info(f"Файл для нового заказа {birpay_id} успешно скачан и сохранён: {filename}")
-                else:
-                    order.check_file_failed = True
-                    order.save()
-                    logger.warning(f"Файл для нового заказа {birpay_id} не скачан (код {response.status_code})")
-            except Exception as e:
-                order.check_file_failed = True
-                order.save()
-                logger.error(f"Ошибка при скачивании файла для нового заказа {birpay_id}: {e}")
-        pass
+        logger.info(f"Создан новый заказ birpay_id={birpay_id}")
+
+    if check_file_url and not order.check_file and not order.check_file_failed:
+        order.check_file_failed = True   # Резервируем скачивание — повторно не поставим
+        order.save(update_fields=['check_file_failed'])
+        download_birpay_check_file.delay(order.id, check_file_url)
+        logger.info(f"Задача на скачивание файла для заказа {birpay_id} отправлена в celery.")
     return order, created, updated
 
 
-@shared_task(priority=2, time_limit=55)
+@shared_task(priority=3, time_limit=10)
+def send_image_to_gpt_task(birpay_id, server_url="http://45.14.247.139:9000/recognize/"):  # Резерв Payment
+    logger.info(f'Стартовала задача GPT {birpay_id}')
+    BirpayOrder = apps.get_model('deposite', 'BirpayOrder')
+    order = BirpayOrder.objects.get(birpay_id=birpay_id)
+    image_field = order.check_file
+    with image_field.open('rb') as f:
+        files = {'file': (image_field.name, f, 'image/jpeg')}
+        with Timer("Отправляю файл на сервер..."):
+            response = requests.post(server_url, files=files, timeout=10)
+    gpt_data = response.json().get('result')
+    result = extract_json(gpt_data)
+    result = json.loads(result)
+    logger.info(f'GPT result {birpay_id}: {result}')
+    if result:
+        order.gpt_data = result
+        order.save()
+    return result
+
+
+@shared_task(priority=1, time_limit=15)
 def refresh_birpay_data():
     birpay_data = get_birpays()
     if birpay_data:
