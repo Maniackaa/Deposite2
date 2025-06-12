@@ -54,7 +54,6 @@
     </tbody>
 </table>
 {% endif %}
-
     {% include 'includes/paginator.html' %}
      <div class="container">
          <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
@@ -64,9 +63,9 @@
                     <th>Дельта</th>
                     <th>Merchant Tx ID</th>
                     <th>Created</th>
+                    <th>З</th>
                     <th>Changed</th>
                     <th>Status</th>
-
                     <th>Amount</th>
                     <th>Card</th>
                     <th>Merchant</th>
@@ -74,7 +73,6 @@
                     <th>Customer Name</th>
                     <th>Operator</th>
                     <th>Чек</th>
-<!--                    <th>Check File URL (Исходный)</th>-->
                     <th>Raw Data</th>
                     <th>GPT Data</th>
                 </tr>
@@ -84,11 +82,11 @@
                 <tr>
                     <td>
                         {{ order.incoming_id|default_if_none:"" }} {{ order.incoming_pay|default_if_none:"" }}
-
                     </td>
                     <td>{{ order.delta|default_if_none:"" }}</td>
                     <td>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ order.delay|floatformat:0}}</td>
                     <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.status }}</td>
                     <td>{{ order.amount }}</td>
@@ -104,14 +102,6 @@
                             -
                         {% endif %}
                     </td>
-<!--                    <td>-->
-<!--                        {% if order.check_file_url %}-->
-<!--                            <a href="{{ order.check_file_url }}" target="_blank">Оригинал</a>-->
-<!--                        {% else %}-->
-<!--                            - -->
-<!--                        {% endif %}-->
-<!--                    </td>-->
-
                     <td>
                         <a href="#" onclick="showRawData('{{ order.birpay_id }}'); return false;">RAW</a>
                         <script id="rawdata-{{ order.birpay_id }}" type="application/json">
@@ -124,7 +114,6 @@
                 <tr>
                     <td colspan="14">Нет данных</td>
                 </tr>
-
             {% endfor %}
             </tbody>
          </table>

@@ -10,6 +10,7 @@ from django.dispatch import receiver
 
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import format_html
 from colorfield.fields import ColorField
 from django_currentuser.middleware import get_current_authenticated_user
@@ -390,6 +391,7 @@ class WithdrawTransaction(models.Model):
 
 class BirpayOrder(models.Model):
     birpay_id = models.IntegerField(unique=True, db_index=True)
+    sended_at = models.DateTimeField(verbose_name='Созадась у нас', auto_now_add=True, null=True, blank=True)
     created_at = models.DateTimeField(db_index=True)
     updated_at = models.DateTimeField(db_index=True)
     merchant_transaction_id = models.CharField(max_length=16, db_index=True)
@@ -408,6 +410,13 @@ class BirpayOrder(models.Model):
 
     class Meta:
         ordering = ('-created_at',)
+
+    @property
+    def delay(self):
+        try:
+            return (self.sended_at - self.created_at).total_seconds()
+        except Exception:
+            pass
 
 
 @receiver(post_save, sender=BirpayOrder)
