@@ -5,6 +5,7 @@ import json
 import datetime
 from asgiref.sync import async_to_sync
 from celery import shared_task
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.utils.dateparse import parse_datetime

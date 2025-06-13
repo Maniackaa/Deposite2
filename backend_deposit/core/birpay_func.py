@@ -86,7 +86,7 @@ def find_birpay_from_id(birpay_id, results=1):
             headers=headers,
             json=json_data,
         )
-        logger.debug(f'find_birpay_from_id: {response.status_code}')
+        logger.debug(f'find_birpay_from_id status_code: {response.status_code}')
         if response.status_code == 401:
             # Обновление токена
             token = get_new_token()
