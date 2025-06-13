@@ -407,6 +407,7 @@ class BirpayOrder(models.Model):
     operator = models.CharField(max_length=128, null=True, blank=True, db_index=True)
     raw_data = models.JSONField()
     gpt_data = models.JSONField(default=dict)
+    gpt_processing = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('-created_at',)
@@ -422,10 +423,16 @@ class BirpayOrder(models.Model):
 @receiver(post_save, sender=BirpayOrder)
 def after_save_incoming(sender, instance: BirpayOrder, **kwargs):
     options = Options.load()
-    # Распознавание чека GPT
-    if options.gpt_chek_is_active and instance.check_file and not instance.gpt_data:
+    if (
+        options.gpt_chek_is_active
+        and instance.check_file
+        and not instance.gpt_data
+        and not instance.gpt_processing
+    ):
         try:
             logger.info(f'Старт задачи GPT для {instance.birpay_id}')
+            instance.gpt_processing = True
+            instance.save(update_fields=["gpt_processing"])
             send_image_to_gpt_task.delay(instance.birpay_id)
         except Exception as e:
             logger.error(e)
