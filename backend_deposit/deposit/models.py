@@ -218,7 +218,7 @@ def after_save_incoming(sender, instance: Incoming, created, raw, using, update_
         # Если сохранили birpay_id создаем задачу проверки
         if instance.cached_birpay_id != instance.birpay_id and instance.birpay_id:
             logger.info(f'Проверяем {instance.birpay_id}')
-            # incoming = Incoming.objects.get(pk=instance.pk
+            # incoming = Incoming.objects.get(pk=instance.pk)
             logger.debug(f'instance.worker: {instance.worker}')
             if instance.worker != 'base2':
                 user = get_current_authenticated_user()

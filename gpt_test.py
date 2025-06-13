@@ -26,8 +26,6 @@ def encode_image(image_path):
 
 
 def recognize_text(image_path):
-    os.environ["HTTP_PROXY"] = "http://dZAYaxg6:pKSC24ap@91.220.90.245:62786"
-
     base64_image = encode_image(image_path)
     response = client.chat.completions.create(
         model="gpt-4o",
