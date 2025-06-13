@@ -426,8 +426,8 @@ def after_save_incoming(sender, instance: BirpayOrder, **kwargs):
     if (
         options.gpt_chek_is_active
         and instance.check_file
-        and not instance.gpt_data
         and not instance.gpt_processing
+        and (not instance.gpt_data or instance.gpt_data == {})
     ):
         try:
             logger.info(f'Старт задачи GPT для {instance.birpay_id}')
