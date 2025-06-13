@@ -416,7 +416,7 @@ class BirpayOrder(models.Model):
 
 
 @receiver(post_save, sender=BirpayOrder)
-def after_save_incoming(sender, instance: BirpayOrder, **kwargs):
+def after_save_birpay_order(sender, instance: BirpayOrder, **kwargs):
     options = Options.load()
     if (
         options.gpt_chek_is_active
