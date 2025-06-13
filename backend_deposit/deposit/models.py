@@ -1,38 +1,33 @@
-import datetime
-import logging
 import re
 
 import structlog
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.db import models, transaction
-from django.db.transaction import atomic
+from django.db import models
+
 from django.dispatch import receiver
 
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.urls import reverse
-from django.utils import timezone
+
 from django.utils.html import format_html
 from colorfield.fields import ColorField
 from django_currentuser.middleware import get_current_authenticated_user
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from backend_deposit import settings
+
 from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment, send_card_data, send_card_data_birshop, \
     send_sms_code_birpay
 from core.global_func import send_message_tg, Timer
-from core.gpt_func import gpt_recognize_check, extract_json, send_image_to_gpt
 from deposit.tasks import check_incoming, send_image_to_gpt_task
 from ocr.views_api import *
 from users.models import Options
 
 logger = structlog.get_logger('deposit')
-err_log = structlog.get_logger('deposit')
 
 # User = get_user_model()
 
 
 class TrashIncoming(models.Model):
-
     register_date = models.DateTimeField('Время добавления в базу', auto_now_add=True)
     text = models.CharField('Текст сообщения', max_length=1000)
     worker = models.CharField(max_length=50, null=True)
@@ -40,6 +35,7 @@ class TrashIncoming(models.Model):
     def __str__(self):
         string = f'Мусор {self.id} {self.register_date} {self.text[:20]}'
         return string
+
 
 @receiver(post_save, sender=TrashIncoming)
 def after_save_trash(sender, instance: TrashIncoming, **kwargs):
@@ -197,7 +193,7 @@ class IncomingChange(models.Model):
                 )
                 new_comment.save()
         except Exception as err:
-            err_log.error(f'Ошибка при сохранении истории: {err}')
+            logger.error(f'Ошибка при сохранении истории: {err}')
 
 
 class IncomingCheck(models.Model):
@@ -215,24 +211,22 @@ class IncomingCheck(models.Model):
         ordering = ('-id',)
 
 
-# @receiver(pre_save, sender=Incoming)
-# def pre_save_withdraw(sender, instance: Incoming, raw, using, update_fields, *args, **kwargs):
-
-
 @receiver(post_save, sender=Incoming)
-def after_save_incoming(sender, instance: Incoming, created, **kwargs):
+def after_save_incoming(sender, instance: Incoming, created, raw, using, update_fields, *args, **kwargs):
     try:
+        logger.debug(f'cached_birpay_id: {instance.cached_birpay_id}. instance.birpay_id: {instance.birpay_id}')
         # Если сохранили birpay_id создаем задачу проверки
         if instance.cached_birpay_id != instance.birpay_id and instance.birpay_id:
             logger.info(f'Проверяем {instance.birpay_id}')
-            incoming = Incoming.objects.get(pk=instance.pk)
-            if incoming.worker != 'base2':
+            # incoming = Incoming.objects.get(pk=instance.pk
+            logger.debug(f'instance.worker: {instance.worker}')
+            if instance.worker != 'base2':
                 user = get_current_authenticated_user()
                 new_check, _ = IncomingCheck.objects.get_or_create(
                     user=user,
-                    incoming=incoming,
-                    birpay_id=incoming.birpay_id,
-                    pay_operator=incoming.pay)
+                    incoming=instance,
+                    birpay_id=instance.birpay_id,
+                    pay_operator=instance.pay)
                 logger.info(f'new_check: {new_check.id} {new_check}')
                 check_incoming.apply_async(kwargs={'pk': new_check.id, 'count': 0}, countdown=60)
 
