@@ -69,10 +69,13 @@ class MessageAdmin(admin.ModelAdmin):
     )
     list_display_links = ('id', 'created', 'title', )
 
+
 class IncomingCheckAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'change_time', 'incoming', 'birpay_id', 'user', 'operator', 'pay_operator', 'pay_birpay'
     )
+    raw_id_fields = ('incoming',)
+
 
 class RePatternAdmin(admin.ModelAdmin):
     pass

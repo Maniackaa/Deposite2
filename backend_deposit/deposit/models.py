@@ -199,8 +199,8 @@ class IncomingChange(models.Model):
 class IncomingCheck(models.Model):
     create_at = models.DateTimeField('Время создания', auto_now_add=True, null=True)
     change_time = models.DateTimeField('Время изменения в базе', auto_now=True, null=True)
-    incoming = models.ForeignKey(Incoming, on_delete=models.CASCADE, related_name='checks')
-    birpay_id = models.CharField(max_length=50)
+    incoming = models.ForeignKey(Incoming, on_delete=models.CASCADE, related_name='checks', db_index=True)
+    birpay_id = models.CharField(max_length=50, db_index=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True)
     operator = models.CharField(max_length=50, null=True, blank=True)
     pay_operator = models.FloatField(null=True, blank=True)
