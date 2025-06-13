@@ -2,6 +2,7 @@ import time
 import requests
 import structlog
 import json
+import datetime
 from asgiref.sync import async_to_sync
 from celery import shared_task
 from django.contrib.auth import get_user_model
