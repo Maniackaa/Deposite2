@@ -72,24 +72,24 @@ def check_macros():
         return True
 
 
-@shared_task(priority=1, time_limit=30)
-def check_incoming(pk, count=0):
+@shared_task(bind=True, priority=1, time_limit=15, max_retries=5)
+def check_incoming(self, pk, count=0):
     """Функция проверки incoming в birpay"""
+    check = {}
     try:
         logger.info(f'Проверка опера. Попытка {count + 1}')
-        check = None
         IncomingCheck = apps.get_model('deposit', 'IncomingCheck')
         incoming_check = IncomingCheck.objects.get(pk=pk)
-        logger.info(f'incoming_check: {incoming_check}')
+        check = find_birpay_from_id(birpay_id=incoming_check.birpay_id)
+    except Exception as err:
+        logger.error(f'Ошибка проверки incoming в birpay: {err}')
         try:
-            check = find_birpay_from_id(birpay_id=incoming_check.birpay_id)
-        except Exception as err:
-            count += 1
-            logger.debug(f'Неудачных попыток: {count}')
-            if count < 5:
-                check_incoming.apply_async(kwargs={'pk': pk, 'count': count}, countdown=count * 15)
-                return
+            self.retry(exc=err, countdown=(count + 1) * 15)
+        except self.MaxRetriesExceededError:
+            logger.error(f'Превышено количество попыток для pk={pk}')
+            return f'Превышено количество попыток для pk={pk}'
 
+    try:
         logger.info(f'check result {count}: {check}')
         msg = ''
         if check:

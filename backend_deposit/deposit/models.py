@@ -369,6 +369,7 @@ class CreditCard(models.Model):
         except Exception:
             return ''
 
+
 class UmTransaction(models.Model):
     order_id = models.CharField(unique=True, max_length=10)
     payment_id = models.CharField(unique=True, max_length=36, null=True, blank=True)
