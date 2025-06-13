@@ -444,16 +444,19 @@ def process_birpay_order(data):
 
 @shared_task(bind=True, max_retries=2)
 def send_image_to_gpt_task(self, birpay_id):
+    logger = structlog.get_logger('deposit')
+    logger.info(f' send_image_to_gpt_task {birpay_id}')
     BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     try:
         order = BirpayOrder.objects.get(birpay_id=birpay_id)
+        logger.debug(f'Найден BirpayOrder: {order}')
     except BirpayOrder.DoesNotExist:
         logger.error(f"BirpayOrder {birpay_id} не найден")
-        return
+        return f"BirpayOrder {birpay_id} не найден"
 
     if order.gpt_processing or order.gpt_data:
         logger.warning(f"BirpayOrder {birpay_id}: уже обрабатывается или уже есть gpt_data")
-        return
+        return f"BirpayOrder {birpay_id}: уже обрабатывается или уже есть gpt_data"
 
     order.gpt_processing = True
     order.save(update_fields=["gpt_processing"])
@@ -461,7 +464,7 @@ def send_image_to_gpt_task(self, birpay_id):
     try:
         if not order.check_file:
             logger.error(f"BirpayOrder {birpay_id}: Нет файла чека")
-            return
+            return f"BirpayOrder {birpay_id}: Нет файла чека"
         logger.info(f"BirpayOrder {birpay_id}: отправка файла {order.check_file.name}")
         with order.check_file.open("rb") as f:
             files = {'file': (order.check_file.name, f, 'image/jpeg')}
@@ -477,9 +480,11 @@ def send_image_to_gpt_task(self, birpay_id):
     except Exception as e:
         order.gpt_data = {"error": str(e)}
         logger.exception(f"BirpayOrder {birpay_id}: исключение: {e}")
+        return f"BirpayOrder {birpay_id}: исключение: {e}"
     finally:
         order.gpt_processing = False
         order.save(update_fields=["gpt_processing", "gpt_data"])
+        return 'OK'
 
 
 @shared_task(priority=1, time_limit=15)
