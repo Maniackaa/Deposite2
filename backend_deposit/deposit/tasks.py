@@ -440,9 +440,10 @@ def process_birpay_order(data):
     return order, created, updated
 
 
+# response = requests.post("http://45.14.247.139:9000/recognize/", files=files, timeout=15)
+
 @shared_task(bind=True, max_retries=2)
 def send_image_to_gpt_task(self, birpay_id):
-    logger.info(f'send_image_to_gpt_task: {send_image_to_gpt_task}')
     BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     try:
         order = BirpayOrder.objects.get(birpay_id=birpay_id)
@@ -450,35 +451,32 @@ def send_image_to_gpt_task(self, birpay_id):
         logger.error(f"BirpayOrder {birpay_id} не найден")
         return
 
-    # Не повторяем, если уже был распознан или уже в процессе
     if order.gpt_processing or order.gpt_data:
-        logger.info(f"BirpayOrder {birpay_id} уже обрабатывается или уже есть gpt_data")
+        logger.warning(f"BirpayOrder {birpay_id}: уже обрабатывается или уже есть gpt_data")
         return
 
-    # Ставим флаг обработки
     order.gpt_processing = True
     order.save(update_fields=["gpt_processing"])
 
     try:
-        # *** Сюда подставь свою функцию, например, отправку на FastAPI сервер ***
-        # Пример отправки через requests к своему серверу:
         if not order.check_file:
-            logger.warning(f"BirpayOrder {birpay_id}: Нет файла чека для GPT")
+            logger.error(f"BirpayOrder {birpay_id}: Нет файла чека")
             return
-
+        logger.info(f"BirpayOrder {birpay_id}: отправка файла {order.check_file.name}")
         with order.check_file.open("rb") as f:
             files = {'file': (order.check_file.name, f, 'image/jpeg')}
             response = requests.post("http://45.14.247.139:9000/recognize/", files=files, timeout=15)
+            logger.info(f"BirpayOrder {birpay_id}: ответ FastAPI code={response.status_code}")
             if response.ok:
                 result = response.json().get("result")
                 order.gpt_data = result
-                logger.info(f"BirpayOrder {birpay_id}: GPT чек успешно обработан: {result}")
+                logger.info(f"BirpayOrder {birpay_id}: gpt_data успешно записано: {result}")
             else:
                 order.gpt_data = {"error": f"HTTP {response.status_code}", "text": response.text}
-                logger.error(f"BirpayOrder {birpay_id}: Ошибка HTTP {response.status_code} при обработке чека")
+                logger.error(f"BirpayOrder {birpay_id}: ошибка HTTP {response.status_code}")
     except Exception as e:
         order.gpt_data = {"error": str(e)}
-        logger.error(f"BirpayOrder {birpay_id}: Исключение при обработке чека: {e}")
+        logger.exception(f"BirpayOrder {birpay_id}: исключение: {e}")
     finally:
         order.gpt_processing = False
         order.save(update_fields=["gpt_processing", "gpt_data"])
