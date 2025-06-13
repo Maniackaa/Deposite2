@@ -454,13 +454,6 @@ def send_image_to_gpt_task(self, birpay_id):
         logger.error(f"BirpayOrder {birpay_id} не найден")
         return f"BirpayOrder {birpay_id} не найден"
 
-    if order.gpt_processing or order.gpt_data:
-        logger.warning(f"BirpayOrder {birpay_id}: уже обрабатывается или уже есть gpt_data")
-        return f"BirpayOrder {birpay_id}: уже обрабатывается или уже есть gpt_data"
-
-    order.gpt_processing = True
-    order.save(update_fields=["gpt_processing"])
-
     try:
         if not order.check_file:
             logger.error(f"BirpayOrder {birpay_id}: Нет файла чека")

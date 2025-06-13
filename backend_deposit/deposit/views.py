@@ -1073,5 +1073,9 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
 
 def test(request):
     # result = refresh_birpay_data()
-    result = send_image_to_gpt_task(74859142)
+    # result = send_image_to_gpt_task(74859142)
+    order = BirpayOrder.objects.get(birpay_id=75481582)
+    result = order.gpt_data
+    print(result, type(result), bool(result))
+
     return JsonResponse(result, safe=False)
