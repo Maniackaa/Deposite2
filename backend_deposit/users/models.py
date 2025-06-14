@@ -170,7 +170,8 @@ class Options(SingletonModel):
     asu_birshop_password = models.CharField(verbose_name='Пароль для магазина BirpayShop', default='password')
     asu_birshop_merchant_id = models.CharField(default=1)
 
-    gpt_chek_is_active = models.BooleanField(verbose_name='Делать проерку чекоа GPT', default=0)
+    gpt_chek_is_active = models.BooleanField(verbose_name='Делать проерку чеков GPT', default=0)
+    # gpt_prompt = models.TextField(verbose_name='Запрос для чеков', default='')
 
 
 

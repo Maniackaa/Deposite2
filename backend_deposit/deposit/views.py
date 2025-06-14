@@ -1,16 +1,11 @@
-import base64
 import datetime
 import json
-import logging
-import os
 import uuid
 from http import HTTPStatus
-from sys import platform
 from tempfile import NamedTemporaryFile
 from types import NoneType
 
 import pytz
-import requests
 import structlog
 from asgiref.sync import async_to_sync
 from django.core.serializers.json import DjangoJSONEncoder
@@ -26,7 +21,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from rest_framework.views import APIView
-from urllib3 import Retry, PoolManager
 
 from core.asu_pay_func import create_payment, send_card_data, create_asu_withdraw
 from core.birpay_func import get_birpay_withdraw, get_new_token, approve_birpay_withdraw, decline_birpay_withdraw, \
@@ -46,7 +40,6 @@ from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
     MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder
-from users.models import Options
 
 logger = structlog.get_logger('deposit')
 err_log = structlog.get_logger('deposit')
@@ -1054,7 +1047,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
             'with_incoming': qs.exclude(incoming_id__isnull=True).count(),
             'sum_incoming_pay': qs.aggregate(sum=Sum('incoming_pay'))['sum'] or 0,
             'sum_amount': qs.aggregate(sum=Sum('amount'))['sum'] or 0,
-            'sum_delta': qs.aggregate(sum=Sum('delta'))['sum'] or 0,  # <--- вот эта строчка
+            'sum_delta': qs.aggregate(sum=Sum('delta'))['sum'] or 0,
             'status_0': qs.filter(status=0).count(),
             'status_1': qs.filter(status=1).count(),
             'status_2': qs.filter(status=2).count(),
@@ -1072,10 +1065,11 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
 
 
 def test(request):
+    result = {}
     # result = refresh_birpay_data()
     # result = send_image_to_gpt_task(74859142)
     order = BirpayOrder.objects.get(birpay_id=75481582)
-    result = order.gpt_data
-    print(result, type(result), bool(result))
-
+    # result = order.gpt_data
+    # print(result, type(result), bool(result))
+    logger.info(f'{order} {order.check_file} {type(order.check_file)} {bool(order.check_file)} {order.check_file is None}')
     return JsonResponse(result, safe=False)

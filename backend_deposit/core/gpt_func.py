@@ -8,6 +8,7 @@ import structlog
 from PIL import Image
 from io import BytesIO
 import openai
+from django.apps import apps
 from django.conf import settings
 
 from core.global_func import Timer
@@ -36,9 +37,28 @@ def extract_json(text):
     return text.strip()
 
 
+gpt_prompt = (
+"Это банковский чек, полученный от клиента. "
+"Распознай его и выведи информацию в виде json c ключами:\n"
+"Сумма: amount\n"
+"Статус: status (1 если транзакция успешна, -1 если не успешна. 0 Если не понятно\n"
+"Дата и время: create_at\n"
+"Карта отправителя: sender\n"
+"Банк отправителя: bank\n"
+"Карта получателя: recepient\n"
+"Имя получателя: owner_name\n"
+"Если на чеке есть печать банка — скорее всего операция успешна. "
+"На чеках Unibank, если карта получателя указана в верхнем тексте перед основной таблицей, это всё равно получатель."
+"Если чек из банковского приложения или интерфейса, и нет явных признаков неуспеха (например, красной надписи об ошибке или отказе), считать транзакцию успешной"
+"На выходе должен получится чистый JSON без лишних символов: символов json в резудьтате быть не должно. amount брать модуль числа"
+)
+
+
 def gpt_recognize_check(image_path):
     client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
     base64_image = encode_image(image_path)
+    # options = apps.get_model('users', 'Options')
+    # gpt_prompt = options.load().gpt_prompt
     response = client.chat.completions.create(
         model="gpt-4o",
         temperature=0,
@@ -54,21 +74,7 @@ def gpt_recognize_check(image_path):
                     },
                     {
                         "type": "text",
-                        "text": (
-                            "Это банковский чек, полученный от клиента. "
-                            "Распознай его и выведи информацию в виде json c ключами:\n"
-                            "Сумма: amount\n"
-                            "Статус: status (1 если транзакция успешна, -1 если не успешна. 0 Если не понятно\n"
-                            "Дата и время: create_at\n"
-                            "Карта отправителя: sender\n"
-                            "Банк отправителя: bank\n"
-                            "Карта получателя: recepient\n"
-                            "Имя получателя: owner_name\n"
-                            "Если на чеке есть печать банка — скорее всего операция успешна. "
-                            "На чеках Unibank, если карта получателя указана в верхнем тексте перед основной таблицей, это всё равно получатель."
-                            "Если чек из банковского приложения или интерфейса, и нет явных признаков неуспеха (например, красной надписи об ошибке или отказе), считать транзакцию успешной"
-                            "На выходе должен получится чистый JSON без лишних символов: символов json в резудьтате быть не должно. amount брать модуль числа"
-                        )
+                        "text": gpt_prompt
                     }
                 ]
             }

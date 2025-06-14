@@ -1,12 +1,14 @@
 import django_filters
+import structlog
 from django import forms
 from django.contrib.auth import get_user_model
-from django.db.models import F, Value
+from django.db.models import F, Value, Q
 from django.db.models.functions import Extract
 from django.forms import DateTimeInput, CheckboxInput
 
 from deposit.models import IncomingCheck, Incoming, BirpayOrder
 
+logger = structlog.get_logger('deposit')
 
 class MyDateInput(forms.DateInput):
     input_type = 'date'
@@ -139,13 +141,33 @@ class BirpayOrderFilter(django_filters.FilterSet):
         widget=forms.CheckboxSelectMultiple,
         label='Статус'
     )
+    check_download = django_filters.BooleanFilter(
+        method='check_present',
+        label='Скачан чек'
+    )
+    gpt_data = django_filters.BooleanFilter(
+        method='gpt_data_present',
+        label='Чек рапознан'
+    )
 
+    def gpt_data_present(self, queryset, name, value):
+        if value:
+            return queryset.exclude(gpt_data={})
+        else:
+            return queryset.filter(gpt_data={})
 
     def filter_incoming_id(self, queryset, name, value):
         if value:
             return queryset.exclude(incoming_id__isnull=True)
         else:
             return queryset.filter(incoming_id__isnull=True)
+
+    def check_present(self, queryset, name, value):
+        logger.info(f'{name} {value}')
+        if value:
+            return queryset.exclude(check_file='').exclude(check_file__isnull=True)
+        else:
+            return queryset.filter(Q(check_file__isnull=True) | Q(check_file=''))
 
     class Meta:
         model = BirpayOrder
