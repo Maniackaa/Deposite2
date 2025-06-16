@@ -484,7 +484,7 @@ def send_image_to_gpt_task(self, birpay_id):
         # Автоматическое подтверждение.
         try:
             fresh_order = order.refresh_from_db()
-            gpt_data = order.gpt_data
+            gpt_data = json.loads(order.gpt_data)
             order_amount = order.amount
             gpt_amount = gpt_data['amount']
             gpt_status = gpt_data['status']
@@ -513,7 +513,7 @@ def send_image_to_gpt_task(self, birpay_id):
                 else:
                     logger.info(f'Автоматически не подтверждаем - суммы не равны')
             else:
-                logger.warning(f'Однозначная смс не найдена')
+                logger.warning(f'Однозначная смс не найдена', exc_info=True)
 
         except ValueError as e:
             logger.warning(e)
