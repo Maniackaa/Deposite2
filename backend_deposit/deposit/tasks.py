@@ -495,6 +495,7 @@ def send_image_to_gpt_task(self, birpay_id):
             max_time = target_time + datetime.timedelta(minutes=1)
             logger.info(f'Ищем смс пришедшие {min_time} - {max_time}')
             # Найдем подходящие смс:
+            Incoming = apps.get_model('deposit', 'Incoming')
             incomings = Incoming.objects.filter(
                 pay=order_amount,
                 register_date__gte=min_time, register_date__lte=max_time,
