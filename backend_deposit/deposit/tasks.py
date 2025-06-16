@@ -483,14 +483,14 @@ def send_image_to_gpt_task(self, birpay_id):
 
         # Автоматическое подтверждение.
         try:
-            fresh_order = order.refresh_from_db()
+            order.refresh_from_db()
             gpt_data = json.loads(order.gpt_data)
             order_amount = order.amount
             gpt_amount = gpt_data['amount']
             gpt_status = gpt_data['status']
             if gpt_status != 1:
                 raise ValueError(f'Статус GPT не 1')
-            target_time = fresh_order.created_at
+            target_time = order.created_at
             min_time = target_time - datetime.timedelta(minutes=1)
             max_time = target_time + datetime.timedelta(minutes=1)
             logger.info(f'Ищем смс пришедшие {min_time} - {max_time}')
