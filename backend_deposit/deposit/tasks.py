@@ -14,7 +14,7 @@ from urllib3 import Retry, PoolManager
 from core.asu_pay_func import create_payment, send_card_data, send_sms_code, create_asu_withdraw
 from core.birpay_func import get_birpay_withdraw, find_birpay_from_id, get_birpays
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
-from core.global_func import send_message_tg, TZ, Timer
+from core.global_func import send_message_tg, TZ, Timer, mask_compare
 from deposit.models import *
 from django.apps import apps
 
@@ -488,6 +488,7 @@ def send_image_to_gpt_task(self, birpay_id):
             order_amount = order.amount
             gpt_amount = float(gpt_data['amount'])
             gpt_status = gpt_data['status']
+            gpt_recipient = gpt_data['recipient']
             if gpt_status != 1:
                 raise ValueError(f'Статус GPT не 1')
             target_time = order.created_at
@@ -506,11 +507,19 @@ def send_image_to_gpt_task(self, birpay_id):
                 incoming = incomings.first()
                 logger.info(f'Суммы равны: gpt - {gpt_amount} order - {order_amount} смс - {incoming.pay} {gpt_amount == order_amount and order_amount == incoming.pay}')
                 if gpt_amount == order_amount and order_amount == incoming.pay:
-                    logger.info(f'Подтверждаем {birpay_id}')
-                    order.gpt_status = 1
-                    order.save(update_fields=["gpt_status"])
-                    # Отметим что смс занята
-                    # incoming.birpay_id = birpay_id
+                    logger.info(f'Суммы совпадают')
+                    # Проверим получателя
+                    sms_recipient = incoming.recipient
+                    recepient_is_correct = mask_compare(sms_recipient, gpt_recipient)
+                    logger.info(f'маски равны? {sms_recipient} = {gpt_recipient}: {recepient_is_correct}')
+                    if recepient_is_correct:
+                        logger.info(f'Подтверждаем {birpay_id}')
+                        order.gpt_status = 1
+                        order.save(update_fields=["gpt_status"])
+                        # Отметим что смс занята
+                        # incoming.birpay_id = birpay_id
+                    else:
+                        logger.info(f'Автоматически не подтверждаем - маски получателя не равны')
                 else:
                     logger.info(f'Автоматически не подтверждаем - суммы не равны')
             else:

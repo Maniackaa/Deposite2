@@ -44,6 +44,34 @@ def hash_gen(text, salt):
     return m.hexdigest()
 
 
+
+def mask_compare(mask1, mask2):
+    def get_visible_parts(card_mask):
+        # Собираем подряд идущие цифры с начала и с конца
+        start_digits = ''
+        for c in card_mask:
+            if c.isdigit():
+                start_digits += c
+            else:
+                break
+        end_digits = ''
+        for c in reversed(card_mask):
+            if c.isdigit():
+                end_digits = c + end_digits
+            else:
+                break
+        return start_digits, end_digits
+
+    start1, end1 = get_visible_parts(mask1)
+    start2, end2 = get_visible_parts(mask2)
+    # Сравниваем первые N символов, где N - минимальная длина начальных видимых цифр
+    n_start = min(len(start1), len(start2))
+    n_end = min(len(end1), len(end2))
+    start_match = (start1[:n_start] == start2[:n_start]) if n_start else True
+    end_match = (end1[-n_end:] == end2[-n_end:]) if n_end else True
+    return start_match and end_match
+
+
 class Timer:
 
     def __init__(self, text):
@@ -58,3 +86,13 @@ class Timer:
         delta = end - self.start
         print(f'Время выполнения "{self.text}": {round(delta,2)} c.')
         logger.debug(f'Время выполнения "{self.text}": {round(delta,2)} c.')
+
+if __name__ == '__main__':
+    print(mask_compare('531599****9459', '5*459'))  # True
+    print(mask_compare('531599****9459', '5315**9459'))  # True
+    print(mask_compare('1234****5678', '1234****567'))  # False
+    print(mask_compare('1234****5678', '1234****5678'))  # True
+    print(mask_compare('****5678', '*5678'))  # True
+    print(mask_compare('****5678', '1234****5678'))  # True
+    print(mask_compare('1234****5678', '****5678'))  # True
+    print(mask_compare('531599****9459', '*9459'))

@@ -73,18 +73,18 @@ services:
     entrypoint: bash /app/entrypoint.sh
 
 
-#  celery2:
-#    container_name: celery2
-#    build: ./backend_deposit
-#    restart: always
-##    command: celery -A backend_deposit.celery:app worker -l warning -n myworker --concurrency=4
-#    volumes:
-#      - media2:/app/media/
-#      - ./logs:/app/logs
-#    env_file: .env
-#    depends_on:
-#      - redis2
-#    entrypoint: bash /app/celery_entrypoint.sh
+  celery2:
+    container_name: celery2
+    build: ./backend_deposit
+    restart: always
+#    command: celery -A backend_deposit.celery:app worker -l warning -n myworker --concurrency=4
+    volumes:
+      - media2:/app/media/
+      - ./logs:/app/logs
+    env_file: .env
+    depends_on:
+      - redis2
+    entrypoint: bash /app/celery_entrypoint.sh
 
 #  celery-beat:
 #    build: ./backend_deposit
