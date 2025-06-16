@@ -47,18 +47,19 @@ def hash_gen(text, salt):
 
 def mask_compare(mask1, mask2):
     def get_visible_parts(card_mask):
-        # Собираем подряд идущие цифры с начала и с конца
+        # Берём подряд цифры с начала
         start_digits = ''
         for c in card_mask:
             if c.isdigit():
                 start_digits += c
-            else:
+            elif c in '*•.':
                 break
+        # Берём подряд цифры с конца
         end_digits = ''
         for c in reversed(card_mask):
             if c.isdigit():
                 end_digits = c + end_digits
-            else:
+            elif c in '*•.':
                 break
         return start_digits, end_digits
 
@@ -96,3 +97,5 @@ if __name__ == '__main__':
     print(mask_compare('****5678', '1234****5678'))  # True
     print(mask_compare('1234****5678', '****5678'))  # True
     print(mask_compare('531599****9459', '*9459'))
+
+    print(mask_compare('4169 73 ** ** ** 5422', '41697*5422'))
