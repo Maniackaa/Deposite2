@@ -1069,8 +1069,8 @@ def test(request):
     result = {}
     result = refresh_birpay_data()
     # result = send_image_to_gpt_task(74859142)
-    order = BirpayOrder.objects.get(birpay_id=75481582)
+    # order = BirpayOrder.objects.get(birpay_id=75481582)
     # result = order.gpt_data
     # print(result, type(result), bool(result))
-    logger.info(f'{order} {order.check_file} {type(order.check_file)} {bool(order.check_file)} {order.check_file is None}')
+    # logger.info(f'{order} {order.check_file} {type(order.check_file)} {bool(order.check_file)} {order.check_file is None}')
     return JsonResponse(result, safe=False)

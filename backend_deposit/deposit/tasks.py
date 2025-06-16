@@ -486,7 +486,7 @@ def send_image_to_gpt_task(self, birpay_id):
             order.refresh_from_db()
             gpt_data = json.loads(order.gpt_data)
             order_amount = order.amount
-            gpt_amount = gpt_data['amount']
+            gpt_amount = float(gpt_data['amount'])
             gpt_status = gpt_data['status']
             if gpt_status != 1:
                 raise ValueError(f'Статус GPT не 1')
