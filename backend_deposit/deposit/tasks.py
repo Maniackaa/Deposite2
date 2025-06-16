@@ -488,7 +488,7 @@ def send_image_to_gpt_task(self, birpay_id):
             order_amount = order.amount
             gpt_amount = float(gpt_data['amount'])
             gpt_status = gpt_data['status']
-            gpt_recipient = gpt_data['recipient']
+            gpt_recipient = gpt_data['recepient']
             if gpt_status != 1:
                 raise ValueError(f'Статус GPT не 1')
             target_time = order.created_at
