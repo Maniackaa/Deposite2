@@ -371,7 +371,7 @@ def send_new_transactions_from_birpay_to_asu():
     return results
 
 
-@shared_task(prority=2, timeout=10)
+@shared_task(prority=2, timeout=15)
 def download_birpay_check_file(order_id, check_file_url):
     from deposit.models import BirpayOrder
     order = BirpayOrder.objects.get(id=order_id)

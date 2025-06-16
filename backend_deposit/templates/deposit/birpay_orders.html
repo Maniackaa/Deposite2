@@ -61,6 +61,7 @@
                 <tr>
                     <th>наш incoming</th>
                     <th>Дельта</th>
+                    <th>смс</th>
                     <th>Merchant Tx ID</th>
                     <th>Created</th>
                     <th>З</th>
@@ -84,6 +85,7 @@
                         {{ order.incoming_id|default_if_none:"" }} {{ order.incoming_pay|default_if_none:"" }}
                     </td>
                     <td>{{ order.delta|default_if_none:"" }}</td>
+                    <td>{{ order.incoming_register_date|date:"H:i:s" }}</td>
                     <td>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.delay|floatformat:0}}</td>

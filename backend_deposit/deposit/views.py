@@ -1032,7 +1032,8 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
                 Subquery(incoming_qs.values('pay')[:1]) - F('amount'),
                 output_field=FloatField()
             ),
-            incoming_id=Subquery(incoming_qs.values('id')[:1])
+            incoming_id=Subquery(incoming_qs.values('id')[:1]),
+            incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
         )
         self.filterset = BirpayOrderFilter(self.request.GET, queryset=qs)
         return self.filterset.qs
