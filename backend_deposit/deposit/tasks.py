@@ -18,6 +18,7 @@ from core.global_func import send_message_tg, TZ, Timer
 from deposit.models import *
 from django.apps import apps
 
+
 User = get_user_model()
 
 logger = structlog.get_logger('deposit')
@@ -479,6 +480,46 @@ def send_image_to_gpt_task(self, birpay_id):
     finally:
         order.gpt_processing = False
         order.save(update_fields=["gpt_processing", "gpt_data"])
+
+        # Автоматическое подтверждение.
+        try:
+            fresh_order = order.refresh_from_db()
+            gpt_data = order.gpt_data
+            order_amount = order.amount
+            gpt_amount = gpt_data['amount']
+            gpt_status = gpt_data['status']
+            if gpt_status != 1:
+                raise ValueError(f'Статус GPT не 1')
+            target_time = fresh_order.created_at
+            min_time = target_time - datetime.timedelta(minutes=1)
+            max_time = target_time + datetime.timedelta(minutes=1)
+            logger.info(f'Ищем смс пришедшие {min_time} - {max_time}')
+            # Найдем подходящие смс:
+            incomings = Incoming.objects.filter(
+                pay=order_amount,
+                register_date__gte=min_time, register_date__lte=max_time,
+                birpay_id__isnull=True,
+            )
+            logger.info(f'Найдены смс: {incomings}')
+            if incomings.count() == 1:
+                incoming = incomings.first()
+                logger.info(f'Суммы равны: gpt - {gpt_amount} order - {order_amount} смс - {incoming.pay} {gpt_amount == order_amount and order_amount == incoming.pay}')
+                if gpt_amount == order_amount and order_amount == incoming.pay:
+                    logger.info(f'Подтверждаем {birpay_id}')
+                    fresh_order.gpt_status = 1
+                    fresh_order.save(update_fields=["gpt_status"])
+                    # Отметим что смс занята
+                    # incoming.birpay_id = birpay_id
+                else:
+                    logger.info(f'Автоматически не подтверждаем - суммы не равны')
+            else:
+                logger.warning(f'Однозначная смс не найдена')
+
+        except ValueError as e:
+            logger.warning(e)
+        except Exception as e:
+            logger.error(f'Не смог обработать авто подтверждение BirpayOrder {birpay_id}: {e}')
+
         return 'OK'
 
 

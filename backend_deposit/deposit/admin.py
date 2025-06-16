@@ -6,7 +6,7 @@ from rangefilter.filters import DateRangeFilterBuilder, DateRangeQuickSelectList
     NumericRangeFilterBuilder, DateTimeRangeFilterBuilder
 
 from deposit.models import Incoming, BadScreen, Deposit, ColorBank, TrashIncoming, IncomingChange, CreditCard, Message, \
-    MessageRead, RePattern, IncomingCheck
+    MessageRead, RePattern, IncomingCheck, BirpayOrder
 
 
 class TrashIncomingAdmin(admin.ModelAdmin):
@@ -80,6 +80,12 @@ class IncomingCheckAdmin(admin.ModelAdmin):
 class RePatternAdmin(admin.ModelAdmin):
     pass
 
+
+class BirpayOrderAdmin(admin.ModelAdmin):
+    pass
+
+
+admin.site.register(BirpayOrder, BirpayOrderAdmin)
 admin.site.register(Incoming, IncomingAdmin)
 admin.site.register(TrashIncoming, TrashIncomingAdmin)
 admin.site.register(BadScreen, BadScreenAdmin)

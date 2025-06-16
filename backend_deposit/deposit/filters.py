@@ -150,6 +150,13 @@ class BirpayOrderFilter(django_filters.FilterSet):
         label='Чек рапознан'
     )
 
+    gpt_status = django_filters.MultipleChoiceFilter(
+        choices=[(0, '0'), (1, 'Подтвердил')],
+        widget=forms.CheckboxSelectMultiple,
+        label='Gpt ИМХО'
+    )
+
+
     def gpt_data_present(self, queryset, name, value):
         if value:
             return queryset.exclude(gpt_data={})
