@@ -507,8 +507,8 @@ def send_image_to_gpt_task(self, birpay_id):
                 logger.info(f'Суммы равны: gpt - {gpt_amount} order - {order_amount} смс - {incoming.pay} {gpt_amount == order_amount and order_amount == incoming.pay}')
                 if gpt_amount == order_amount and order_amount == incoming.pay:
                     logger.info(f'Подтверждаем {birpay_id}')
-                    fresh_order.gpt_status = 1
-                    fresh_order.save(update_fields=["gpt_status"])
+                    order.gpt_status = 1
+                    order.save(update_fields=["gpt_status"])
                     # Отметим что смс занята
                     # incoming.birpay_id = birpay_id
                 else:
