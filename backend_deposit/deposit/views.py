@@ -1076,14 +1076,14 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
 
     def get_queryset(self):
         now = timezone.now()
-        threshold = now - datetime.timedelta(minutes=30000)
+        threshold = now - datetime.timedelta(minutes=30)
         qs = BirpayOrder.objects.filter(sended_at__gt=threshold, status=0)
         return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         now = timezone.now()
-        threshold = now - datetime.timedelta(minutes=30000)
+        threshold = now - datetime.timedelta(minutes=30)
         incomings = Incoming.objects.filter(birpay_id__isnull=True, register_date__gte=threshold).order_by('-register_date')[:50]
         context["incomings"] = incomings
         return context
