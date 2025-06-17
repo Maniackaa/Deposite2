@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block title %}Список платежей{% endblock %}
+
+{% block content %}
+<style>
+    .my-input {
+        height: 50%;
+        width: 10ch;
+        box-sizing:border-box;
+        padding:0px;
+        font-size:13px;"
+    }
+</style>
+    {% load l10n %}
+{% localize off %}
+
+
+{% include 'includes/operator_menu.html' %}
+<div class="container-fluid ">
+    {% include 'includes/switcher2.html' %}
+
+<div class="row mb-3">
+  <div class="col-12">
+
+      
+      
+  </div>
+</div>
+
+{% if birpay_stats %}
+<table class="table table-bordered table-sm mb-2" style="width:auto; font-size:13px; margin-bottom:8px;">
+    <tbody>
+        <tr>
+            <td><b>Всего</b></td>
+            <td>{{ birpay_stats.total }}</td>
+            <td><b>С incoming_id</b></td>
+            <td>{{ birpay_stats.with_incoming }}</td>
+            <td><b>Сумма incoming_pay</b></td>
+            <td>{{ birpay_stats.sum_incoming_pay|floatformat:2 }}</td>
+            <td><b>Сумма amount</b></td>
+            <td>{{ birpay_stats.sum_amount|floatformat:2 }}</td>
+            <td><b>Сумма delta</b></td>
+            <td>{{ birpay_stats.sum_delta|floatformat:2 }}</td>
+            <td><b>Статус 0</b></td>
+            <td>{{ birpay_stats.status_0 }}</td>
+            <td><b>Статус 1</b></td>
+            <td>{{ birpay_stats.status_1 }}</td>
+            <td><b>Статус 2</b></td>
+            <td>{{ birpay_stats.status_2 }}</td>
+        </tr>
+    </tbody>
+</table>
+{% endif %}
+    {% include 'includes/paginator.html' %}
+    <div class="row">
+    <div class="col-md-6" >
+         <table id="table" class="table table-bordered table-hover table-sm width:auto;" style="font-size: 14px; line-height: 100%; width: auto; padding: .1rem .1rem .1rem .1rem">
+            <thead>
+                <tr>
+                    <th>Tx ID</th>
+                    <th>Created</th>
+                    <th>Status</th>
+                    <th>Amount</th>
+                    <th>Card</th>
+                    <th>Чек</th>
+                    <th>Подтвердить</th>
+                    <th>OK</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for order in page_obj %}
+                <tr >
+                    <td>{{ order.merchant_transaction_id }}</td>
+                    <td>{{ order.created_at|date:"H:i:s" }}</td>
+                   <td>{{ order.status }}</td>
+                    <td>{{ order.amount }}</td>
+                    <td>{{ order.card_number }}</td>
+                    <td>
+                        {% if order.check_file_url %}
+                            <a href="{{ order.check_file_url }}" target="_blank">Чек</a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td><input class="my-input button"></td>
+                    <td class="text-nowrap">
+                        <form action="{% url 'deposit:birpay_panel' %}" method="post">
+                            {% csrf_token %}
+
+                              <button style="margin-bottom: -10px; margin-top: -10px; height: 22px;font-size: small" type="submit" class="btn btn-warning btn-sm">Ok</button>
+
+                        </form>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="14">Нет данных</td>
+                </tr>
+
+            {% endfor %}
+            </tbody>
+         </table>
+     </div>
+
+     <div class="col-6">
+         <table id="table" class="table table-bordered table-hover table-sm width:auto;" style="font-size: 14px; line-height: 100%; width: auto; padding: .1rem .1rem .1rem .1rem">
+            <thead>
+                 <tr class="">
+                       <th>id</th>
+                       <th>T прих</th>
+                       <th>T на чеке</th>
+                       <th>Получатель</th>
+                       <th>Pay</th>
+                       <th>Тр-я</th>
+                       <th>Бирпай</th>
+                   </tr>
+            </thead>
+            <tbody>
+           {% for incoming in incomings %}
+         <tr title="{{incoming.comment|default_if_none:'' }}" id="pay{{ incoming.id }}"
+                 {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-'%}
+                 class="table-success"
+                 {% endif %}>
+
+            <td><a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a>
+                {% if incoming.comment %}
+                  *
+                {% endif %}
+            </td>
+            <td>{{ incoming.register_date|date:"H:i:s" }}</td>
+            <td>{{ incoming.response_date|date:"H:i" }}</td>
+            <td>{{ incoming.recipient }}</td>
+
+            <td>{{ incoming.pay }}</td>
+
+            <td title="{{ incoming.transaction }}">{{ incoming.transaction|default_if_none:""|make_list|slice:'-4:'|join:'' }}</td>
+
+         {% load l10n %}
+         {% localize off %}
+            <td class="text-nowrap">
+                <form action="{% url 'deposit:birpay_panel' %}" method="post">
+                                    {% csrf_token %}
+                      <button style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-warning btn-sm">Ok</button>
+                </form>
+            </td>
+         {% endlocalize %}
+
+         </tr>
+         {% endfor %}
+            </tbody>
+         </table>
+     </div>
+    </div>
+   {% include 'includes/paginator.html' %}
+
+</div>
+{% endlocalize %}
+{% endblock %}

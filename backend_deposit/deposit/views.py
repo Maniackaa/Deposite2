@@ -19,8 +19,11 @@ from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count, 
 from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.utils import timezone
+from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from rest_framework.views import APIView
+from rest_framework.viewsets import ViewSet
 
 from core.asu_pay_func import create_payment, send_card_data, create_asu_withdraw
 from core.birpay_func import get_birpay_withdraw, get_new_token, approve_birpay_withdraw, decline_birpay_withdraw, \
@@ -1018,7 +1021,7 @@ class BirpayOrderRawView(StaffOnlyPerm, DetailView):
 class BirpayOrderView(StaffOnlyPerm, ListView):
     model = BirpayOrder
     template_name = 'deposit/birpay_orders.html'  # тот же шаблон
-    paginate_by = 512
+    paginate_by = 100
     filterset_class = BirpayOrderFilter
 
     def get_queryset(self):
@@ -1064,6 +1067,27 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
         context['birpay_stats'] = stats
         return context
 
+
+class BirpayPanelView(StaffOnlyPerm, ListView):
+    template_name = 'deposit/birpay_panel.html'
+    paginate_by = 50
+    model = BirpayOrder
+    filterset_class = BirpayOrderFilter
+
+    def get_queryset(self):
+        now = timezone.now()
+        threshold = now - datetime.timedelta(minutes=20)
+        qs = BirpayOrder.objects.filter(sended_at__gt=threshold)
+        logger.info(f'qs: {qs}')
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        now = timezone.now()
+        threshold = now - datetime.timedelta(minutes=20)
+        incomings = Incoming.objects.filter(birpay_id__isnull=True, register_date__gte=threshold).order_by('-register_date')[:50]
+        context["incomings"] = incomings
+        return context
 
 def test(request):
     result = {}

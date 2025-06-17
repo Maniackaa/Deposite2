@@ -98,4 +98,4 @@ if __name__ == '__main__':
     print(mask_compare('1234****5678', '****5678'))  # True
     print(mask_compare('531599****9459', '*9459'))
 
-    print(mask_compare('4169 73 ** ** ** 5422', '41697*5422'))
+    print(mask_compare('5315992157686244', '5315*244'))
