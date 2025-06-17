@@ -1070,21 +1070,20 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
 
 class BirpayPanelView(StaffOnlyPerm, ListView):
     template_name = 'deposit/birpay_panel.html'
-    paginate_by = 50
+    paginate_by = 100
     model = BirpayOrder
     filterset_class = BirpayOrderFilter
 
     def get_queryset(self):
         now = timezone.now()
-        threshold = now - datetime.timedelta(minutes=20)
-        qs = BirpayOrder.objects.filter(sended_at__gt=threshold)
-        logger.info(f'qs: {qs}')
+        threshold = now - datetime.timedelta(minutes=30000)
+        qs = BirpayOrder.objects.filter(sended_at__gt=threshold, status=0)
         return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         now = timezone.now()
-        threshold = now - datetime.timedelta(minutes=20)
+        threshold = now - datetime.timedelta(minutes=30000)
         incomings = Incoming.objects.filter(birpay_id__isnull=True, register_date__gte=threshold).order_by('-register_date')[:50]
         context["incomings"] = incomings
         return context
