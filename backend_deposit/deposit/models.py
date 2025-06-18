@@ -418,25 +418,25 @@ class BirpayOrder(models.Model):
             pass
 
 
-@receiver(post_save, sender=BirpayOrder)
-def after_save_birpay_order(sender, instance: BirpayOrder, **kwargs):
-    options = Options.load()
-    # Получение данных с чека через GPT
-    fresh_instance = sender.objects.get(pk=instance.pk)
-    if (
-        options.gpt_chek_is_active
-        and fresh_instance.check_file
-        and not fresh_instance.gpt_data
-        and not fresh_instance.gpt_processing
-        and not fresh_instance.check_is_double
-    ):
-        try:
-            logger.info(f'Старт задачи GPT для {fresh_instance.birpay_id}')
-            fresh_instance.gpt_processing = True
-            fresh_instance.save(update_fields=["gpt_processing"])
-            send_image_to_gpt_task.delay(fresh_instance.birpay_id)
-        except Exception as e:
-            logger.error(e)
+# @receiver(post_save, sender=BirpayOrder)
+# def after_save_birpay_order(sender, instance: BirpayOrder, **kwargs):
+#     options = Options.load()
+#     # Получение данных с чека через GPT
+#     fresh_instance = sender.objects.get(pk=instance.pk)
+#     if (
+#         options.gpt_chek_is_active
+#         and fresh_instance.check_file
+#         and not fresh_instance.gpt_data
+#         and not fresh_instance.gpt_processing
+#         and not fresh_instance.check_is_double
+#     ):
+#         try:
+#             logger.info(f'Старт задачи GPT для {fresh_instance.birpay_id}')
+#             fresh_instance.gpt_processing = True
+#             fresh_instance.save(update_fields=["gpt_processing"])
+#             send_image_to_gpt_task.delay(fresh_instance.birpay_id)
+#         except Exception as e:
+#             logger.error(e)
 
 
 class Message(models.Model):
