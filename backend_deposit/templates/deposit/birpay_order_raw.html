@@ -4,4 +4,39 @@
   <h1>Birpay Order #{{ object.id }}</h1>
 <h2>Raw JSON</h2>
 <pre style="background: #f6f8fa; padding: 1em; border-radius: 5px;">{{ raw_json_pretty|safe }}</pre>
+
+<div style="display: flex; align-items: flex-start; gap: 30px;">
+
+  <!-- Основное изображение -->
+  <div>
+    <h3>Чек заказа:</h3>
+    {% if object.check_file %}
+      <img src="{{ object.check_file.url }}" style="height: 400px; width: auto;"><br>
+    {% else %}
+      <span>Нет изображения чека</span>
+    {% endif %}
+  </div>
+
+  <!-- Дубликаты в ряд -->
+  <div>
+    <h4>Дубликаты ({{ duplicates|length }})</h4>
+    <div style="display: flex; gap: 15px;">
+      {% for order in duplicates %}
+        <div style="text-align: center;">
+          <b>Заказ №{{ order.id }}</b><br>
+          {% if order.check_file %}
+            <img src="{{ order.check_file.url }}" style="height: 400px; width: auto;"><br>
+          {% else %}
+            <span>Нет изображения</span>
+          {% endif %}
+        </div>
+      {% empty %}
+        <span>Дубликаты не найдены.</span>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+    
 {% endblock %}

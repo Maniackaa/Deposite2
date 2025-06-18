@@ -400,7 +400,7 @@ class BirpayOrder(models.Model):
     check_hash = models.CharField(max_length=32, null=True, blank=True, db_index=True)
     check_is_double = models.BooleanField(default=False)
     status = models.SmallIntegerField(db_index=True)
-    amount = models.FloatField()
+    amount = models.FloatField(db_index=True)
     operator = models.CharField(max_length=128, null=True, blank=True, db_index=True)
     raw_data = models.JSONField()
     gpt_data = models.JSONField(default=dict, blank=True)

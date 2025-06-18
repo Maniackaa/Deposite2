@@ -111,11 +111,17 @@ class BirpayOrderFilter(django_filters.FilterSet):
         label='до (не включая)', field_name='updated_at', lookup_expr='lt',
         widget=MyTimeInput({'class': 'form-control'})
     )
-    incoming_pay_gte = django_filters.NumberFilter(
-        field_name='incoming_pay', lookup_expr='gte', label='Наш amount >='
+    # incoming_pay_gte = django_filters.NumberFilter(
+    #     field_name='incoming_pay', lookup_expr='gte', label='Наш amount >='
+    # )
+    # incoming_pay_lte = django_filters.NumberFilter(
+    #     field_name='incoming_pay', lookup_expr='lte', label='Наш amount <='
+    # )
+    amount_gte = django_filters.NumberFilter(
+        field_name='amount', lookup_expr='gte', label='amount >='
     )
-    incoming_pay_lte = django_filters.NumberFilter(
-        field_name='incoming_pay', lookup_expr='lte', label='Наш amount Pay <='
+    amount_lte = django_filters.NumberFilter(
+        field_name='amount', lookup_expr='lte', label='amount <='
     )
     delta_gte = django_filters.NumberFilter(
         field_name='delta', lookup_expr='gte', label='Delta >='

@@ -1016,6 +1016,15 @@ class BirpayOrderRawView(StaffOnlyPerm, DetailView):
             context['raw_json_pretty'] = json.dumps(raw, ensure_ascii=False, indent=2)
         except Exception:
             context['raw_json_pretty'] = raw  # если вдруг невалидный JSON
+
+        check_hash = self.object.check_hash
+        if check_hash:
+            duplicates = BirpayOrder.objects.filter(
+                check_hash=check_hash
+            ).exclude(id=self.object.id)
+        else:
+            duplicates = BirpayOrder.objects.none()
+            context['duplicates'] = duplicates
         return context
 
 
