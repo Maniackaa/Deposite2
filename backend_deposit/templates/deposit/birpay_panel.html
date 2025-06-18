@@ -35,7 +35,16 @@
 <div class="row mb-3">
   <div class="col-12">
 
-
+    <form method="GET" class="form-inline flex-wrap gap-2 align-items-end" style="display: flex; flex-wrap: wrap; gap: 10px;">
+      {% if search_form %}
+        {% for field in search_form %}
+          <div class="form-group mb-2" style="min-width: 180px; margin-right: 10px;">
+            {{ field.label_tag }}{{ field }}
+          </div>
+        {% endfor %}
+      {% endif %}
+      <button class="btn btn-success mb-2" type="submit">Найти</button>
+    </form>
 
   </div>
 </div>
@@ -82,8 +91,8 @@
             </thead>
             <tbody>
             {% for order in page_obj %}
-                <tr >
-                    <td>{{ order.merchant_transaction_id }}</td>
+                <tr>
+                    <td {% if order.check_is_double %} style="background: red" {% endif %}>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"H:i:s" }}</td>
                    <td>{{ order.status }}</td>
                     <td>{{ order.amount }}</td>
@@ -95,15 +104,20 @@
                             -
                         {% endif %}
                     </td>
-                    <td><input class="my-input button"></td>
-                    <td class="text-nowrap">
-                        <form action="{% url 'deposit:birpay_panel' %}" method="post">
-                            {% csrf_token %}
 
-                              <button  class="my-button btn btn-warning btn-sm">Ok</button>
+                    <form action="{% url 'deposit:birpay_panel' %}" method="post">
+                        {% csrf_token %}
+                        {% for number in selected_card_numbers %}
+                            <input type="hidden" name="card_number" value="{{ number }}">
+                        {% endfor %}
+                        <td>
+                            <input name="orderconfirm_{{ order.id }}" value="{{ order.incoming_id }}" class="my-input button">
+                        </td>
+                        <td class="text-nowrap">
+                            <button  class="my-button btn btn-warning btn-sm">Ok</button>
+                        </td>
+                    </form>
 
-                        </form>
-                    </td>
                 </tr>
             {% empty %}
                 <tr>
@@ -149,11 +163,12 @@
 
             <td title="{{ incoming.transaction }}">{{ incoming.transaction|default_if_none:""|make_list|slice:'-4:'|join:'' }}</td>
 
-
-             <td><input class="my-input button"></td>
+             <form action="{% url 'deposit:birpay_panel' %}" method="post">
+                                        {% csrf_token %}
+            <td><input class="my-input button"></td>
             <td class="text-nowrap">
-                <form action="{% url 'deposit:birpay_panel' %}" method="post">
-                                    {% csrf_token %}
+
+
                       <button class="my-button btn btn-warning btn-sm">Ok</button>
                 </form>
             </td>

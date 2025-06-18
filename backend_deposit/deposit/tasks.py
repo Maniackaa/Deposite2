@@ -1,3 +1,4 @@
+import hashlib
 import time
 import requests
 import structlog
@@ -379,10 +380,16 @@ def download_birpay_check_file(order_id, check_file_url):
     try:
         response = requests.get(check_file_url)
         if response.ok:
+            file_content = response.content
+            md5_hash = hashlib.md5(file_content).hexdigest()
             filename = check_file_url.split('/')[-1]
-            order.check_file.save(filename, ContentFile(response.content), save=True)
+            order.check_file.save(filename, ContentFile(file_content), save=True)
             order.check_file_failed = False
-            order.save(update_fields=['check_file', 'check_file_failed'])
+            order.check_hash = md5_hash
+            # Проверка на дубль
+            is_double = BirpayOrder.objects.filter(check_hash=md5_hash).exists()
+            order.check_is_double = is_double
+            order.save(update_fields=['check_file', 'check_file_failed', 'check_hash', 'check_is_double'])
             return f"OK: {filename}"
         else:
             order.check_file_failed = True

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import django_filters
 import structlog
 from django import forms
@@ -5,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import F, Value, Q
 from django.db.models.functions import Extract
 from django.forms import DateTimeInput, CheckboxInput
+from django.utils import timezone
 
 from deposit.models import IncomingCheck, Incoming, BirpayOrder
 
@@ -79,6 +82,15 @@ class IncomingStatSearch(django_filters.FilterSet):
 
 class MyTimeInput(DateTimeInput):
     input_type = 'datetime-local'
+
+
+class BirpayPanelFilter(django_filters.FilterSet):
+    card_number = django_filters.MultipleChoiceFilter(widget=forms.SelectMultiple(attrs={'class': 'form-control'}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        cards = BirpayOrder.objects.order_by().filter(sended_at__gte=timezone.now() - timedelta(days=5)).values_list('card_number', flat=True).distinct()
+        self.filters['card_number'].field.choices = [(card, card) for card in cards if card]
 
 
 class BirpayOrderFilter(django_filters.FilterSet):

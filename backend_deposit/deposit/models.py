@@ -397,6 +397,8 @@ class BirpayOrder(models.Model):
     check_file = models.ImageField(upload_to='birpay_check', null=True, blank=True)
     check_file_url = models.URLField(null=True, blank=True)
     check_file_failed = models.BooleanField(default=False)
+    check_hash = models.CharField(max_length=32, null=True, blank=True, db_index=True)
+    check_is_double = models.BooleanField(default=False)
     status = models.SmallIntegerField(db_index=True)
     amount = models.FloatField()
     operator = models.CharField(max_length=128, null=True, blank=True, db_index=True)

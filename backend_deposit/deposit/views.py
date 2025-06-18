@@ -16,12 +16,13 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count, Subquery, ExpressionWrapper, FloatField
-from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse
+from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from fontTools.subset import load_font
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSet
 
@@ -32,7 +33,7 @@ from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
 from deposit import tasks
-from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrderFilter
+from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrderFilter, BirpayPanelFilter
 from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            DepositImageForm, DepositTransactionForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
@@ -1072,22 +1073,43 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
     template_name = 'deposit/birpay_panel.html'
     paginate_by = 100
     model = BirpayOrder
-    filterset_class = BirpayOrderFilter
+    filterset_class = BirpayPanelFilter
 
     def get_queryset(self):
         now = timezone.now()
-        threshold = now - datetime.timedelta(minutes=30)
+        if settings.DEBUG:
+            threshold = now - datetime.timedelta(minutes=30000)
+        else:
+            threshold = now - datetime.timedelta(minutes=30)
         qs = BirpayOrder.objects.filter(sended_at__gt=threshold, status=0)
-        return qs
+        self.filterset = BirpayPanelFilter(self.request.GET, queryset=qs)
+        return self.filterset.qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['search_form'] = self.filterset.form
         now = timezone.now()
         threshold = now - datetime.timedelta(minutes=30)
         incomings = Incoming.objects.filter(birpay_id__isnull=True, register_date__gte=threshold).order_by('-register_date')[:50]
         context["incomings"] = incomings
+        context['selected_card_numbers'] = self.request.GET.getlist('card_number')
         return context
 
+    def post(self, request, *args, **kwargs):
+        logger.info(f'POST: {request.POST.dict()}')
+        post_data = request.POST.dict()
+        for name, value in post_data.items():
+            if name.startswith('orderconfirm'):
+                order_id = name.split('orderconfirm_')[1]
+                order = BirpayOrder.objects.get(pk=order_id)
+                logger.info(f'Для {order} сохраняем {value}')
+
+        # Возврат на исходный URL
+        query = []
+        for number in request.POST.getlist('card_number'):
+            query.append(f"card_number={number}")
+        query_string = '&'.join(query)
+        return HttpResponseRedirect(f"{request.path}?{query_string}")
 def test(request):
     result = {}
     result = refresh_birpay_data()

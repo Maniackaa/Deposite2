@@ -87,7 +87,7 @@
                     </td>
                     <td>{{ order.delta|default_if_none:"" }}</td>
                     <td>{{ order.incoming_register_date|date:"H:i:s" }}</td>
-                    <td>{{ order.merchant_transaction_id }}</td>
+                    <td {% if order.check_is_double %} style="background: red" {% endif %}>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.delay|floatformat:0}}</td>
                     <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>
