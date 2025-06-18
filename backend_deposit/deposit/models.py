@@ -429,9 +429,10 @@ def after_save_birpay_order(sender, instance: BirpayOrder, **kwargs):
     ):
         try:
             logger.info(f'Старт задачи GPT для {instance.birpay_id}')
-            instance.gpt_processing = True
-            instance.save(update_fields=["gpt_processing"])
-            send_image_to_gpt_task.delay(instance.birpay_id)
+            if not instance.check_is_double:
+                instance.gpt_processing = True
+                instance.save(update_fields=["gpt_processing"])
+                send_image_to_gpt_task.delay(instance.birpay_id)
         except Exception as e:
             logger.error(e)
 

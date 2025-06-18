@@ -9,6 +9,7 @@ from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from urllib3 import Retry, PoolManager
 
@@ -390,7 +391,8 @@ def download_birpay_check_file(order_id, check_file_url):
             md5_hash = hashlib.md5(file_content).hexdigest()
             is_double = False
             if md5_hash:
-                is_double = BirpayOrder.objects.filter(check_hash=md5_hash).exists()
+                threshold = timezone.now() - datetime.timedelta(days=1)
+                is_double = BirpayOrder.objects.filter(created_at__gte=threshold, check_hash=md5_hash).exists()
             order.check_is_double = is_double
             order.check_hash = md5_hash
             order.save(update_fields=['check_file', 'check_file_failed', 'check_hash', 'check_is_double'])
@@ -544,7 +546,7 @@ def send_image_to_gpt_task(self, birpay_id):
         return 'OK'
 
 
-@shared_task(priority=1, time_limit=15)
+@shared_task(priority=1, time_limit=5)
 def refresh_birpay_data():
     birpay_data = get_birpays()
     if birpay_data:

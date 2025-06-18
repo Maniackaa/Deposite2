@@ -10,6 +10,7 @@
   <!-- Основное изображение -->
   <div>
     <h3>Чек заказа:</h3>
+    <b>Заказ №{{ object.merchant_transaction_id }}</b><br>
     {% if object.check_file %}
       <img src="{{ object.check_file.url }}" style="height: 400px; width: auto;"><br>
     {% else %}
@@ -23,7 +24,7 @@
     <div style="display: flex; gap: 15px;">
       {% for order in duplicates %}
         <div style="text-align: center;">
-          <b>Заказ №{{ order.id }}</b><br>
+          <b>Заказ №{{ order.merchant_transaction_id }} от {{ order.created_at|date:"H:i:s" }}</b><br>
           {% if order.check_file %}
             <img src="{{ order.check_file.url }}" style="height: 400px; width: auto;"><br>
           {% else %}
