@@ -1024,7 +1024,7 @@ class BirpayOrderRawView(StaffOnlyPerm, DetailView):
             ).exclude(id=self.object.id)
         else:
             duplicates = BirpayOrder.objects.none()
-            context['duplicates'] = duplicates
+        context['duplicates'] = duplicates
         return context
 
 
