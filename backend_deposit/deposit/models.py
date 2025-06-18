@@ -421,18 +421,19 @@ class BirpayOrder(models.Model):
 @receiver(post_save, sender=BirpayOrder)
 def after_save_birpay_order(sender, instance: BirpayOrder, **kwargs):
     options = Options.load()
+    # Получение данных с чека через GPT
     if (
         options.gpt_chek_is_active
         and instance.check_file
         and not instance.gpt_data
         and not instance.gpt_processing
+        and not instance.check_is_double
     ):
         try:
             logger.info(f'Старт задачи GPT для {instance.birpay_id}')
-            if not instance.check_is_double:
-                instance.gpt_processing = True
-                instance.save(update_fields=["gpt_processing"])
-                send_image_to_gpt_task.delay(instance.birpay_id)
+            instance.gpt_processing = True
+            instance.save(update_fields=["gpt_processing"])
+            send_image_to_gpt_task.delay(instance.birpay_id)
         except Exception as e:
             logger.error(e)
 
