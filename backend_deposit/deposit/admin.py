@@ -82,7 +82,9 @@ class RePatternAdmin(admin.ModelAdmin):
 
 
 class BirpayOrderAdmin(admin.ModelAdmin):
-    pass
+    list_display = (
+        'id', 'sended_at', 'amount', 'merchant_transaction_id', 'check_is_double', 'status', 'gpt_status'
+    )
 
 
 admin.site.register(BirpayOrder, BirpayOrderAdmin)

@@ -393,15 +393,20 @@ def download_birpay_check_file(order_id, check_file_url):
             if md5_hash:
                 threshold = timezone.now() - datetime.timedelta(days=1)
                 is_double = BirpayOrder.objects.filter(created_at__gte=threshold, check_hash=md5_hash).exists()
-            order.check_is_double = is_double
-            order.check_hash = md5_hash
-            order.save(update_fields=['check_file', 'check_file_failed', 'check_hash', 'check_is_double'])
 
-            # Запускаем GPT только если НЕ дубль!
-            if not is_double:
+            order.check_hash = md5_hash
+            update_fields = ['check_file', 'check_file_failed', 'check_hash']
+            if is_double:
+                order.check_is_double = is_double
+                order.gpt_status = -1
+                update_fields.append('gpt_status')
+                update_fields.append('check_is_double')
+            else:
+                # Запускаем GPT только если НЕ дубль!
                 order.gpt_processing = True
-                order.save(update_fields=['gpt_processing'])
+                update_fields.append('gpt_processing')
                 send_image_to_gpt_task.delay(order.birpay_id)
+            order.save(update_fields=update_fields)
             return f"OK: {filename}"
         else:
             order.check_file_failed = True

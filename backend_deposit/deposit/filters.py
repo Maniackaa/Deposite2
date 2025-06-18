@@ -169,7 +169,7 @@ class BirpayOrderFilter(django_filters.FilterSet):
     )
 
     gpt_status = django_filters.MultipleChoiceFilter(
-        choices=[(0, '0'), (1, 'Подтвердил')],
+        choices=[(-1, '-1'), (0, '0'), (1, 'Подтвердил')],
         widget=forms.CheckboxSelectMultiple,
         label='Gpt ИМХО'
     )
