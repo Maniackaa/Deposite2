@@ -39,7 +39,7 @@ from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data, \
-    send_image_to_gpt_task
+    send_image_to_gpt_task, download_birpay_check_file
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
@@ -1075,7 +1075,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
             else:
                 order.raw_data_json = '{}'
         context['birpay_stats'] = stats
-        
+
         return context
 
 
@@ -1126,10 +1126,11 @@ def test(request):
     # result = send_image_to_gpt_task(74859142)
     # order = BirpayOrder.objects.get(birpay_id=75481582)
     # result = order.gpt_data
-    # print(result, type(result), bool(result))
-    # logger.info(f'{order} {order.check_file} {type(order.check_file)} {bool(order.check_file)} {order.check_file is None}')
-    orders = BirpayOrder.objects.exclude(gpt_data={})
-    logger.info(len(orders))
-    for order in orders:
-        logger.info(f'{order.created_at} {type(order.gpt_data)}')
-    return HttpResponse(f'{orders}')
+    order = BirpayOrder.objects.first()
+
+    order = BirpayOrder.objects.get(id=2936)
+    logger.info(f'{order.birpay_id}')
+    # download_birpay_check_file(order.id, order.check_file_url)
+    send_image_to_gpt_task(order.birpay_id)
+
+    return HttpResponse(f'{result}')

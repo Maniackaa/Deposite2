@@ -7,6 +7,7 @@ import requests
 import structlog
 import json
 import datetime
+import pytz
 from asgiref.sync import async_to_sync
 from celery import shared_task
 from django.conf import settings
@@ -381,8 +382,10 @@ def send_new_transactions_from_birpay_to_asu():
 def download_birpay_check_file(order_id, check_file_url):
     from deposit.models import BirpayOrder
     order = BirpayOrder.objects.get(id=order_id)
+    logger.info(f'Скачивание чека {order}')
     try:
         response = requests.get(check_file_url)
+        logger.info(f'response: {response.status_code}')
         if response.ok:
             file_content = response.content
 
@@ -516,12 +519,12 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_recipient = gpt_data.get('recepient', '')
             gpt_time_str = gpt_data.get('create_at', '2000-01-01T00:00:00')
             gpt_time_naive = datetime.datetime.fromisoformat(gpt_time_str)
-            # Явно указываем, что это GMT+2
-            gmt2 = pytz.timezone('Etc/GMT-2')  # внимание: в pytz зоны наоборот, GMT-2 это UTC+2!
-            gpt_time_aware = gmt2.localize(gpt_time_naive)
-            # Теперь приводим к UTC (или оставляем aware для сравнения с timezone.now())
-            gpt_time_utc = gpt_time_aware.astimezone(pytz.UTC)
 
+            gmt2 = pytz.timezone('Etc/GMT-3')  # внимание: в pytz зоны наоборот, GMT-2 это UTC+2!
+            gpt_time_aware = gmt2.localize(gpt_time_naive)
+            gpt_time_utc = gpt_time_aware.astimezone(pytz.UTC)
+            now = timezone.now()
+            logger.info(f'now: {now}\ngpt_str: {gpt_time_str}\ngpt_time_utc: {gpt_time_utc}\n')
 
             gpt_imho_result = BirpayOrder.GPTIMHO(0)
             # Мнение GPT
@@ -538,7 +541,7 @@ def send_image_to_gpt_task(self, birpay_id):
                 gpt_imho_result |= BirpayOrder.GPTIMHO.recipient
 
             # Проверка времени
-            now = timezone.now()
+
             if now - datetime.timedelta(hours=1) < gpt_time_utc  <= now + datetime.timedelta(hours=1):
                 gpt_imho_result |= BirpayOrder.GPTIMHO.time
 
@@ -591,6 +594,9 @@ def send_image_to_gpt_task(self, birpay_id):
 def refresh_birpay_data():
     birpay_data = get_birpays()
     if birpay_data:
+        if settings.DEBUG:
+            birpay_data = birpay_data[:10]
+            logger.info(f'birpay_data: {birpay_data}')
         with Timer(f'Обработка birpay_data'):
             for row in birpay_data:
                 b_id = row.get('id')
