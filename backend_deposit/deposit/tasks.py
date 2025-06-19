@@ -1,6 +1,7 @@
 import hashlib
 import time
 from enum import Enum, Flag, auto
+from sys import exc_info
 
 import requests
 import structlog
@@ -509,14 +510,15 @@ def send_image_to_gpt_task(self, birpay_id):
                 gpt_data = json.loads(gpt_data)
             order_amount = order.amount
             gpt_amount = float(gpt_data.get('amount', 0))
-            gpt_status = gpt_data['status']
-            gpt_recipient = gpt_data['recepient']
+            gpt_status = gpt_data.get('status', 0)
+            gpt_recipient = gpt_data.get('recepient', '')
             gpt_time_str = gpt_data['create_at']
             if gpt_time_str:
                 gpt_time = datetime.datetime.fromisoformat(gpt_time_str)
                 gpt_time = gpt_time + datetime.timedelta(hours=1)
             else:
-                raise ValueError('Время не распознано')
+                gpt_time = datetime.datetime(2000, 1, 1)
+
 
             gpt_imho_result = BirpayOrder.GPTIMHO(0)
             # Мнение GPT
@@ -577,7 +579,7 @@ def send_image_to_gpt_task(self, birpay_id):
         except ValueError as e:
             logger.warning(e)
         except Exception as e:
-            logger.error(f'Не смог обработать авто подтверждение BirpayOrder {birpay_id}: {e}')
+            logger.error(f'Не смог обработать авто подтверждение BirpayOrder {birpay_id}: {e}', exc_info=True)
 
         return result_str
 
