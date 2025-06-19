@@ -1128,9 +1128,9 @@ def test(request):
     # result = order.gpt_data
     order = BirpayOrder.objects.first()
 
-    order = BirpayOrder.objects.get(id=2936)
+    order = BirpayOrder.objects.get(id=2945)
     logger.info(f'{order.birpay_id}')
-    # download_birpay_check_file(order.id, order.check_file_url)
+    download_birpay_check_file(order.id, order.check_file_url)
     send_image_to_gpt_task(order.birpay_id)
 
     return HttpResponse(f'{result}')

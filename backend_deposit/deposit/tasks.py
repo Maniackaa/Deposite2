@@ -516,15 +516,21 @@ def send_image_to_gpt_task(self, birpay_id):
             order_amount = order.amount
             gpt_amount = float(gpt_data.get('amount', 0))
             gpt_status = gpt_data.get('status', 0)
-            gpt_recipient = gpt_data.get('recepient', '')
+            gpt_recipient = gpt_data.get('recipient', '')
             gpt_time_str = gpt_data.get('create_at', '2000-01-01T00:00:00')
             gpt_time_naive = datetime.datetime.fromisoformat(gpt_time_str)
-
-            gmt2 = pytz.timezone('Etc/GMT-3')  # внимание: в pytz зоны наоборот, GMT-2 это UTC+2!
-            gpt_time_aware = gmt2.localize(gpt_time_naive)
-            gpt_time_utc = gpt_time_aware.astimezone(pytz.UTC)
+            gpt_time_naive_msk = gpt_time_naive - datetime.timedelta(hours=1)
+            gpt_time_aware = TZ.localize(gpt_time_naive_msk)
             now = timezone.now()
-            logger.info(f'now: {now}\ngpt_str: {gpt_time_str}\ngpt_time_utc: {gpt_time_utc}\n')
+            logger.info(
+                f'\ngpt_str: {gpt_time_str}\n'
+                f'now: {now}\n'
+                f'gpt_time_naive: {gpt_time_naive}\n'
+
+                f'now msk: {now.astimezone(TZ)}\n'
+                f'gpt_time_naive_msk: {gpt_time_naive_msk}\n'
+                f'gpt_time_aware: {gpt_time_aware}\n'
+                        )
 
             gpt_imho_result = BirpayOrder.GPTIMHO(0)
             # Мнение GPT
@@ -542,10 +548,10 @@ def send_image_to_gpt_task(self, birpay_id):
 
             # Проверка времени
 
-            if now - datetime.timedelta(hours=1) < gpt_time_utc  <= now + datetime.timedelta(hours=1):
+            if now - datetime.timedelta(hours=1) < gpt_time_aware  <= now + datetime.timedelta(hours=1):
                 gpt_imho_result |= BirpayOrder.GPTIMHO.time
 
-            target_time = gpt_time_utc
+            target_time = gpt_time_aware
             min_time = target_time - datetime.timedelta(minutes=2)
             max_time = target_time + datetime.timedelta(minutes=2)
             logger.info(f'Ищем смс пришедшие {min_time} - {max_time}')
