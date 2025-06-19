@@ -1,4 +1,5 @@
 import re
+from enum import Flag, auto
 
 import structlog
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -385,6 +386,14 @@ class WithdrawTransaction(models.Model):
 
 
 class BirpayOrder(models.Model):
+    class GPTIMHO(Flag):
+        time = auto()
+        recipient = auto()
+        amount = auto()
+        sms_amount = auto()
+        sms_recipient = auto()
+        gpt_status = auto()
+
     birpay_id = models.IntegerField(unique=True, db_index=True)
     sended_at = models.DateTimeField(verbose_name='Создалась у нас', auto_now_add=True, null=True, blank=True)
     created_at = models.DateTimeField(db_index=True)
@@ -405,7 +414,8 @@ class BirpayOrder(models.Model):
     raw_data = models.JSONField()
     gpt_data = models.JSONField(default=dict, blank=True)
     gpt_processing = models.BooleanField(default=False)
-    gpt_status = models.SmallIntegerField(default=0)
+    # gpt_status = models.SmallIntegerField(default=0)
+    gpt_flags = models.SmallIntegerField(default=0)
 
     class Meta:
         ordering = ('-created_at',)

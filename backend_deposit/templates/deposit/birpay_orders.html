@@ -4,6 +4,7 @@
 {% block content %}
 {% load l10n %}
 {% localize off %}
+{% load filters %}
 <script>
     function showRawData(orderId) {
         var data = JSON.parse(document.getElementById('rawdata-' + orderId).textContent);
@@ -76,7 +77,7 @@
                     <th>Чек</th>
                     <th>Raw Data</th>
                     <th>GPT Data</th>
-                    <th>GPT ИМХО</th>
+                    <th><span title="Время | карта | сумма | сумма смс | смс карта | подтвердил бы">GPT res</span></th>
                 </tr>
             </thead>
             <tbody>
@@ -109,7 +110,7 @@
                         <a href="{% url 'deposit:birpay_order_raw' order.birpay_id %}">RAW</a>
                     </td>
                     <td>{{ order.gpt_data }}</td>
-                                <td>{{ order.gpt_status }}</td>
+                    <td>{{ order.gpt_flags|as_bin }}</td>
                 </tr>
             {% empty %}
                 <tr>

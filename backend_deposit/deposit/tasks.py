@@ -1,5 +1,7 @@
 import hashlib
 import time
+from enum import Enum, Flag, auto
+
 import requests
 import structlog
 import json
@@ -398,8 +400,6 @@ def download_birpay_check_file(order_id, check_file_url):
             update_fields = ['check_file', 'check_file_failed', 'check_hash']
             if is_double:
                 order.check_is_double = is_double
-                order.gpt_status = -1
-                update_fields.append('gpt_status')
                 update_fields.append('check_is_double')
             else:
                 # Запускаем GPT только если НЕ дубль!
@@ -467,8 +467,6 @@ def process_birpay_order(data):
     return order, created, updated
 
 
-# response = requests.post("http://45.14.247.139:9000/recognize/", files=files, timeout=15)
-
 @shared_task(bind=True, max_retries=2)
 def send_image_to_gpt_task(self, birpay_id):
     logger = structlog.get_logger('deposit')
@@ -502,22 +500,46 @@ def send_image_to_gpt_task(self, birpay_id):
         logger.exception(f"BirpayOrder {birpay_id}: исключение: {e}")
         return f"BirpayOrder {birpay_id}: исключение: {e}"
     finally:
-        order.gpt_processing = False
-        order.save(update_fields=["gpt_processing", "gpt_data"])
-
+        result_str = ''
         # Автоматическое подтверждение.
         try:
             order.refresh_from_db()
-            gpt_data = json.loads(order.gpt_data)
+            gpt_data = order.gpt_data
+            if isinstance(gpt_data, str):
+                gpt_data = json.loads(gpt_data)
             order_amount = order.amount
-            gpt_amount = float(gpt_data['amount'])
+            gpt_amount = float(gpt_data.get('amount', 0))
             gpt_status = gpt_data['status']
             gpt_recipient = gpt_data['recepient']
-            if gpt_status != 1:
-                raise ValueError(f'Статус GPT не 1')
-            target_time = order.created_at
-            min_time = target_time - datetime.timedelta(minutes=1)
-            max_time = target_time + datetime.timedelta(minutes=1)
+            gpt_time_str = gpt_data['create_at']
+            if gpt_time_str:
+                gpt_time = datetime.datetime.fromisoformat(gpt_time_str)
+                gpt_time = gpt_time + datetime.timedelta(hours=1)
+            else:
+                raise ValueError('Время не распознано')
+
+            gpt_imho_result = BirpayOrder.GPTIMHO(0)
+            # Мнение GPT
+            if gpt_status:
+                gpt_imho_result |= BirpayOrder.GPTIMHO.gpt_status
+
+            # Проверка суммы в чеке
+            if float(gpt_amount) == order_amount:
+                gpt_imho_result |= BirpayOrder.GPTIMHO.amount
+
+            # Проверка на получателя
+            recipient_is_correct = mask_compare(order.card_number, gpt_recipient)
+            if recipient_is_correct:
+                gpt_imho_result |= BirpayOrder.GPTIMHO.recipient
+
+            # Проверка времени
+            now = timezone.now()
+            if now - datetime.timedelta(hours=1) < gpt_time <= now + datetime.timedelta(hours=1):
+                gpt_imho_result |= BirpayOrder.GPTIMHO.time
+
+            target_time = gpt_time
+            min_time = target_time - datetime.timedelta(minutes=2)
+            max_time = target_time + datetime.timedelta(minutes=2)
             logger.info(f'Ищем смс пришедшие {min_time} - {max_time}')
             # Найдем подходящие смс:
             Incoming = apps.get_model('deposit', 'Incoming')
@@ -532,29 +554,32 @@ def send_image_to_gpt_task(self, birpay_id):
                 logger.info(f'Суммы равны: gpt - {gpt_amount} order - {order_amount} смс - {incoming.pay} {gpt_amount == order_amount and order_amount == incoming.pay}')
                 if gpt_amount == order_amount and order_amount == incoming.pay:
                     logger.info(f'Суммы совпадают')
+                    gpt_imho_result |= BirpayOrder.GPTIMHO.sms_amount
                     # Проверим получателя
                     sms_recipient = incoming.recipient
                     recepient_is_correct = mask_compare(sms_recipient, gpt_recipient)
                     logger.info(f'маски равны? {sms_recipient} = {gpt_recipient}: {recepient_is_correct}')
                     if recepient_is_correct:
-                        logger.info(f'Подтверждаем {birpay_id}')
-                        order.gpt_status = 1
-                        order.save(update_fields=["gpt_status"])
-                        # Отметим что смс занята
-                        # incoming.birpay_id = birpay_id
-                    else:
-                        logger.info(f'Автоматически не подтверждаем - маски получателя не равны')
-                else:
-                    logger.info(f'Автоматически не подтверждаем - суммы не равны')
+                        gpt_imho_result |= BirpayOrder.GPTIMHO.sms_recipient
             else:
                 logger.warning(f'Однозначная смс не найдена', exc_info=True)
+
+            result_str = ", ".join(
+                f"{flag.name}: {'✅' if flag in gpt_imho_result else '❌'}"
+                for flag in BirpayOrder.GPTIMHO)
+            logger.info(f'gpt_imho_result: {result_str}')
+
+            # Сохранение данных
+            order.gpt_processing = False
+            order.gpt_flags = gpt_imho_result.value
+            order.save(update_fields=["gpt_processing", "gpt_data", "gpt_flags"])
 
         except ValueError as e:
             logger.warning(e)
         except Exception as e:
             logger.error(f'Не смог обработать авто подтверждение BirpayOrder {birpay_id}: {e}')
 
-        return 'OK'
+        return result_str
 
 
 @shared_task(priority=1, time_limit=5)

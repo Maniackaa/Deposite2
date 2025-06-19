@@ -1075,6 +1075,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
             else:
                 order.raw_data_json = '{}'
         context['birpay_stats'] = stats
+        
         return context
 
 
@@ -1121,10 +1122,14 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         return HttpResponseRedirect(f"{request.path}?{query_string}")
 def test(request):
     result = {}
-    result = refresh_birpay_data()
+    # result = refresh_birpay_data()
     # result = send_image_to_gpt_task(74859142)
     # order = BirpayOrder.objects.get(birpay_id=75481582)
     # result = order.gpt_data
     # print(result, type(result), bool(result))
     # logger.info(f'{order} {order.check_file} {type(order.check_file)} {bool(order.check_file)} {order.check_file is None}')
-    return JsonResponse(result, safe=False)
+    orders = BirpayOrder.objects.exclude(gpt_data={})
+    logger.info(len(orders))
+    for order in orders:
+        logger.info(f'{order.created_at} {type(order.gpt_data)}')
+    return HttpResponse(f'{orders}')
