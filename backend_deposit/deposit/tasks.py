@@ -522,15 +522,15 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_time_naive_msk = gpt_time_naive - datetime.timedelta(hours=1)
             gpt_time_aware = TZ.localize(gpt_time_naive_msk)
             now = timezone.now()
-            logger.info(
-                f'\ngpt_str: {gpt_time_str}\n'
-                f'now: {now}\n'
-                f'gpt_time_naive: {gpt_time_naive}\n'
-
-                f'now msk: {now.astimezone(TZ)}\n'
-                f'gpt_time_naive_msk: {gpt_time_naive_msk}\n'
-                f'gpt_time_aware: {gpt_time_aware}\n'
-                        )
+            # logger.info(
+            #     f'\ngpt_str: {gpt_time_str}\n'
+            #     f'now: {now}\n'
+            #     f'gpt_time_naive: {gpt_time_naive}\n'
+            #
+            #     f'now msk: {now.astimezone(TZ)}\n'
+            #     f'gpt_time_naive_msk: {gpt_time_naive_msk}\n'
+            #     f'gpt_time_aware: {gpt_time_aware}\n'
+            #             )
 
             gpt_imho_result = BirpayOrder.GPTIMHO(0)
             # Мнение GPT
@@ -538,11 +538,13 @@ def send_image_to_gpt_task(self, birpay_id):
                 gpt_imho_result |= BirpayOrder.GPTIMHO.gpt_status
 
             # Проверка суммы в чеке
+            logger.info(f'gpt_amount == order_amount: {gpt_amount} == {order_amount}: {float(gpt_amount) == order_amount}')
             if float(gpt_amount) == order_amount:
                 gpt_imho_result |= BirpayOrder.GPTIMHO.amount
 
             # Проверка на получателя
             recipient_is_correct = mask_compare(order.card_number, gpt_recipient)
+            logger.info(f'Сравниваем маски {order.card_number} {gpt_recipient}: {recipient_is_correct}')
             if recipient_is_correct:
                 gpt_imho_result |= BirpayOrder.GPTIMHO.recipient
 
@@ -571,15 +573,15 @@ def send_image_to_gpt_task(self, birpay_id):
                     gpt_imho_result |= BirpayOrder.GPTIMHO.sms_amount
                     # Проверим получателя
                     sms_recipient = incoming.recipient
-                    recepient_is_correct = mask_compare(sms_recipient, gpt_recipient)
-                    logger.info(f'маски равны? {sms_recipient} = {gpt_recipient}: {recepient_is_correct}')
-                    if recepient_is_correct:
+                    recipient_is_correct = mask_compare(sms_recipient, gpt_recipient)
+                    logger.info(f'маски равны? {sms_recipient} = {gpt_recipient}: {recipient_is_correct}')
+                    if recipient_is_correct:
                         gpt_imho_result |= BirpayOrder.GPTIMHO.sms_recipient
             else:
                 logger.warning(f'Однозначная смс не найдена', exc_info=True)
 
             result_str = ", ".join(
-                f"{flag.name}: {'✅' if flag in gpt_imho_result else '❌'}"
+                f"{flag.name}: {'✅ ' if flag in gpt_imho_result else '❌ '}"
                 for flag in BirpayOrder.GPTIMHO)
             logger.info(f'gpt_imho_result: {result_str}')
 

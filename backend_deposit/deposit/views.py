@@ -1122,13 +1122,12 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         return HttpResponseRedirect(f"{request.path}?{query_string}")
 def test(request):
     result = {}
-    # result = refresh_birpay_data()
+    result = refresh_birpay_data()
     # result = send_image_to_gpt_task(74859142)
-    # order = BirpayOrder.objects.get(birpay_id=75481582)
+    order = BirpayOrder.objects.get(merchant_transaction_id=885946180)
     # result = order.gpt_data
-    order = BirpayOrder.objects.first()
+    # order = BirpayOrder.objects.first()
 
-    order = BirpayOrder.objects.get(id=2945)
     logger.info(f'{order.birpay_id}')
     download_birpay_check_file(order.id, order.check_file_url)
     send_image_to_gpt_task(order.birpay_id)
