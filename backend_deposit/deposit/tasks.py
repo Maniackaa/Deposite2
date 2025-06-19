@@ -514,9 +514,13 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_amount = float(gpt_data.get('amount', 0))
             gpt_status = gpt_data.get('status', 0)
             gpt_recipient = gpt_data.get('recepient', '')
-            gpt_time_str = gpt_data.get('create_at', datetime.datetime(2000, 1, 1))
-            gpt_time = datetime.datetime.fromisoformat(gpt_time_str)
-            gpt_time = gpt_time + datetime.timedelta(hours=1)
+            gpt_time_str = gpt_data.get('create_at', '2000-01-01T00:00:00')
+            gpt_time_naive = datetime.datetime.fromisoformat(gpt_time_str)
+            # Явно указываем, что это GMT+2
+            gmt2 = pytz.timezone('Etc/GMT-2')  # внимание: в pytz зоны наоборот, GMT-2 это UTC+2!
+            gpt_time_aware = gmt2.localize(gpt_time_naive)
+            # Теперь приводим к UTC (или оставляем aware для сравнения с timezone.now())
+            gpt_time_utc = gpt_time_aware.astimezone(pytz.UTC)
 
 
             gpt_imho_result = BirpayOrder.GPTIMHO(0)
@@ -535,10 +539,10 @@ def send_image_to_gpt_task(self, birpay_id):
 
             # Проверка времени
             now = timezone.now()
-            if now - datetime.timedelta(hours=1) < gpt_time <= now + datetime.timedelta(hours=1):
+            if now - datetime.timedelta(hours=1) < gpt_time_utc  <= now + datetime.timedelta(hours=1):
                 gpt_imho_result |= BirpayOrder.GPTIMHO.time
 
-            target_time = gpt_time
+            target_time = gpt_time_utc
             min_time = target_time - datetime.timedelta(minutes=2)
             max_time = target_time + datetime.timedelta(minutes=2)
             logger.info(f'Ищем смс пришедшие {min_time} - {max_time}')
