@@ -514,12 +514,9 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_amount = float(gpt_data.get('amount', 0))
             gpt_status = gpt_data.get('status', 0)
             gpt_recipient = gpt_data.get('recepient', '')
-            gpt_time_str = gpt_data['create_at']
-            if gpt_time_str:
-                gpt_time = datetime.datetime.fromisoformat(gpt_time_str)
-                gpt_time = gpt_time + datetime.timedelta(hours=1)
-            else:
-                gpt_time = datetime.datetime(2000, 1, 1)
+            gpt_time_str = gpt_data.get('create_at', datetime.datetime(2000, 1, 1))
+            gpt_time = datetime.datetime.fromisoformat(gpt_time_str)
+            gpt_time = gpt_time + datetime.timedelta(hours=1)
 
 
             gpt_imho_result = BirpayOrder.GPTIMHO(0)
