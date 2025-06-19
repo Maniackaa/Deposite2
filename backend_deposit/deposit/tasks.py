@@ -492,6 +492,7 @@ def send_image_to_gpt_task(self, birpay_id):
             if response.ok:
                 result = response.json().get("result")
                 order.gpt_data = result
+                order.save(update_fields=['gpt_data'])
                 logger.info(f"BirpayOrder {birpay_id}: gpt_data успешно записано: {result}")
             else:
                 order.gpt_data = {"error": f"HTTP {response.status_code}", "text": response.text}
@@ -508,6 +509,7 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_data = order.gpt_data
             if isinstance(gpt_data, str):
                 gpt_data = json.loads(gpt_data)
+
             order_amount = order.amount
             gpt_amount = float(gpt_data.get('amount', 0))
             gpt_status = gpt_data.get('status', 0)
