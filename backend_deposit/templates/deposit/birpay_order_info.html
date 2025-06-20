@@ -1,3 +1,5 @@
+{% load l10n %}
+{% localize off %}
 <div class="container" style="align-items: flex-start; gap: 30px;">
 
   <div class="row">
@@ -24,20 +26,15 @@
           <!-- Дубликаты в ряд -->
           <div class="col-md-auto">
             <h4>Дубликаты ({{ duplicates|length }})</h4>
-/
+
             <div style="display: flex; gap: 15px;">
               {% for double_order in duplicates %}
-                <div style="text-align: center;">
+                <div style="text-align: left;">
                   <b>Заказ №{{ double_order.merchant_transaction_id }} от {{ double_order.created_at|date:"H:i:s" }}</b><br>
                     Статус: {{ double_order.status }}<br>
                       Сумма {{ double_order.amount }}<br>
-                      Смс {{ double_order.incoming_id }} от {{ double_order.incoming_register_date|date:"H:i:s" }}<br>
-                      Cумма смс {{ double_order.incoming_pay }}
-{#                  {% if order.check_file %}#}
-{#                    <img src="{{ order.check_file.url }}" style="height: 400px; width: auto;"><br>#}
-{#                  {% else %}#}
-{#                    <span>Нет изображения</span>#}
-{#                  {% endif %}#}
+                      Смс {{ double_order.incoming.id }} от {{ double_order.incoming.register_date|date:"H:i:s" }} на {{ double_order.incoming.pay }}
+
                 </div>
               {% empty %}
                 <span>Дубликаты не найдены.</span>
@@ -49,3 +46,4 @@
   </div>
 </div>
 
+{% endlocalize %}

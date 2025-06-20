@@ -1028,29 +1028,7 @@ class BirpayOrderRawView(StaffOnlyPerm, DetailView):
         return context
 
 
-class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
-    model = BirpayOrder
-    template_name = 'deposit/birpay_order_info.html'
-    slug_field = 'birpay_id'
-    slug_url_kwarg = 'birpay_id'
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        raw = self.object.raw_data
-        try:
-            context['raw_json_pretty'] = json.dumps(raw, ensure_ascii=False, indent=2)
-        except Exception:
-            context['raw_json_pretty'] = raw  # если вдруг невалидный JSON
-
-        check_hash = self.object.check_hash
-        if check_hash:
-            duplicates = BirpayOrder.objects.filter(
-                check_hash=check_hash
-            ).exclude(id=self.object.id)
-        else:
-            duplicates = BirpayOrder.objects.none()
-        context['duplicates'] = duplicates
-        return context
 
 
 class BirpayOrderView(StaffOnlyPerm, ListView):
@@ -1103,6 +1081,33 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
 
         return context
 
+class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
+    model = BirpayOrder
+    template_name = 'deposit/birpay_order_info.html'
+    slug_field = 'birpay_id'
+    slug_url_kwarg = 'birpay_id'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        raw = self.object.raw_data
+        try:
+            context['raw_json_pretty'] = json.dumps(raw, ensure_ascii=False, indent=2)
+        except Exception:
+            context['raw_json_pretty'] = raw  # если вдруг невалидный JSON
+
+        check_hash = self.object.check_hash
+        if check_hash:
+            duplicates = BirpayOrder.objects.filter(
+                check_hash=check_hash
+            ).exclude(id=self.object.id)
+            for dublicate in duplicates:
+                dublikate_incoming = Incoming.objects.filter(birpay_id=dublicate.merchant_transaction_id).first()
+                dublicate.incoming = dublikate_incoming
+
+        else:
+            duplicates = BirpayOrder.objects.none()
+        context['duplicates'] = duplicates
+        return context
 
 class BirpayPanelView(StaffOnlyPerm, ListView):
     template_name = 'deposit/birpay_panel.html'
@@ -1113,13 +1118,14 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
     def get_queryset(self):
         now = timezone.now()
         if settings.DEBUG:
-            threshold = now - datetime.timedelta(minutes=30000)
+            threshold = now - datetime.timedelta(minutes=30)
         else:
             threshold = now - datetime.timedelta(minutes=30)
+        qs = super().get_queryset().filter(sended_at__gt=threshold).order_by('-created_at')
         incoming_qs = Incoming.objects.filter(
             birpay_id=OuterRef('merchant_transaction_id')
         ).order_by('-register_date')
-        qs = BirpayOrder.objects.filter(sended_at__gt=threshold).annotate(
+        qs = qs.annotate(
             incoming_pay=Subquery(incoming_qs.values('pay')[:1]),
             delta=ExpressionWrapper(
                 Subquery(incoming_qs.values('pay')[:1]) - F('amount'),
@@ -1129,6 +1135,8 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
         )
         self.filterset = BirpayPanelFilter(self.request.GET, queryset=qs)
+        for order in self.filterset.qs:
+            logger.info(f'{order.merchant_transaction_id, order.incoming_id}')
         return self.filterset.qs
 
     def get_context_data(self, **kwargs):
