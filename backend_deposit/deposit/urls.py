@@ -64,6 +64,7 @@ urlpatterns = [
     path('test/', views.test, name='test'),
     path('birpay_orders/', views.BirpayOrderView.as_view(), name='birpay_orders'),
     path('birpay_orders/raw/<int:birpay_id>/', views.BirpayOrderRawView.as_view(), name='birpay_order_raw'),
+    path('birpay_orders/info/<int:birpay_id>/', views.BirpayOrderInfoView.as_view(), name='birpay_order_info'),
     path('birpay_panel/', views.BirpayPanelView.as_view(), name='birpay_panel'),
     ]
 

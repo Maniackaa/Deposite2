@@ -55,6 +55,8 @@
     </tbody>
 </table>
 {% endif %}
+
+
     {% include 'includes/paginator.html' %}
      <div class="container">
          <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
@@ -78,6 +80,7 @@
                     <th>Raw Data</th>
                     <th>GPT Data</th>
                     <th><span title="Время | карта | сумма | сумма смс | смс карта | подтвердил бы">GPT res</span></th>
+                    <th>RRR</th>
                 </tr>
             </thead>
             <tbody>
@@ -111,6 +114,10 @@
                     </td>
                     <td>{{ order.gpt_data }}</td>
                     <td>{{ order.gpt_flags|as_bin }}</td>
+                    <td>
+                        <a href="#" onclick="toggleRawData({{ order.birpay_id }}, this); return false;">RAW</a>
+                    </td>
+
                 </tr>
             {% empty %}
                 <tr>
@@ -125,4 +132,53 @@
 
 </div>
 {% endlocalize %}
+    
+                
+    
+
+                {% if duplicates %}
+                    <div>
+                        <b>Дубликаты:</b>
+                        <ul>
+                        {% for order in duplicates %}
+                            <li>ID: {{ order.id }}, Created: {{ order.created_at }}</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+        <pre>{{ raw_json_pretty }}</pre>
+    <script>
+function toggleRawData(birpayId, el) {
+    // Находим строку таблицы, где кликнули
+    var tr = el.closest('tr');
+    // Проверяем, уже есть строка с raw-данными после этой?
+    var next = tr.nextElementSibling;
+    if (next && next.classList.contains('rawdata-row')) {
+        // Если есть — просто скрываем/удаляем
+        next.remove();
+        return;
+    }
+
+    // Удаляем другие раскрытые rawdata-строки (по желанию)
+    document.querySelectorAll('.rawdata-row').forEach(function(row){
+        row.remove();
+    });
+
+    // Показываем лоадер
+    var loaderRow = document.createElement('tr');
+    loaderRow.className = 'rawdata-row';
+    loaderRow.innerHTML = '<td colspan="18">Загрузка...</td>';
+    tr.parentNode.insertBefore(loaderRow, tr.nextSibling);
+
+    // Делаем AJAX-запрос
+    fetch('/birpay_orders/info/' + birpayId + '/')
+        .then(response => response.text())
+        .then(html => {
+            loaderRow.innerHTML = '<td colspan="18">' + html + '</td>';
+        })
+        .catch(error => {
+            loaderRow.innerHTML = '<td colspan="18">Ошибка загрузки</td>';
+        });
+}
+</script>
 {% endblock %}

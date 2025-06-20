@@ -73,12 +73,10 @@
     </tbody>
 </table>
 {% endif %}
-
     {% include 'includes/paginator.html' %}
-
     <div class="row">
-    <div class="col-md-12" >
-         <table id="table" class="table table-bordered table-hover table-sm ">
+    <div class="col-md-6" >
+         <table id="table" class="my-table table table-bordered table-hover table-sm width:auto;">
             <thead>
                 <tr>
                     <th>Подробно</th>
@@ -138,6 +136,56 @@
          </table>
      </div>
 
+     <div class="col-6">
+         <table id="table" class="my-table table table-bordered table-hover table-sm width:auto;" >
+            <thead>
+                 <tr class="">
+                       <th>id</th>
+                       <th>T прих</th>
+                       <th>T на чеке</th>
+                       <th>Получатель</th>
+                       <th>Pay</th>
+                       <th>Тр-я</th>
+                       <th>Бирпай</th>
+                     <th>OK</th>
+                   </tr>
+            </thead>
+            <tbody>
+           {% for incoming in incomings %}
+         <tr title="{{incoming.comment|default_if_none:'' }}" id="pay{{ incoming.id }}"
+                 {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-'%}
+                 class="table-success"
+                 {% endif %}>
+
+            <td><a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a>
+                {% if incoming.comment %}
+                  *
+                {% endif %}
+            </td>
+            <td>{{ incoming.register_date|date:"H:i:s" }}</td>
+            <td>{{ incoming.response_date|date:"H:i" }}</td>
+            <td>{{ incoming.recipient }}</td>
+
+            <td>{{ incoming.pay }}</td>
+
+            <td title="{{ incoming.transaction }}">{{ incoming.transaction|default_if_none:""|make_list|slice:'-4:'|join:'' }}</td>
+
+             <form action="{% url 'deposit:birpay_panel' %}" method="post">
+                                        {% csrf_token %}
+            <td><input class="my-input button"></td>
+            <td class="text-nowrap">
+
+
+                      <button class="my-button btn btn-warning btn-sm">Ok</button>
+                </form>
+            </td>
+
+
+         </tr>
+         {% endfor %}
+            </tbody>
+         </table>
+     </div>
     </div>
    {% include 'includes/paginator.html' %}
 

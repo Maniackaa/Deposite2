@@ -521,17 +521,8 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_time_naive = datetime.datetime.fromisoformat(gpt_time_str)
             gpt_time_naive_msk = gpt_time_naive - datetime.timedelta(hours=1)
             gpt_time_aware = TZ.localize(gpt_time_naive_msk)
-            now = timezone.now()
-            # logger.info(
-            #     f'\ngpt_str: {gpt_time_str}\n'
-            #     f'now: {now}\n'
-            #     f'gpt_time_naive: {gpt_time_naive}\n'
-            #
-            #     f'now msk: {now.astimezone(TZ)}\n'
-            #     f'gpt_time_naive_msk: {gpt_time_naive_msk}\n'
-            #     f'gpt_time_aware: {gpt_time_aware}\n'
-            #             )
 
+            now = timezone.now()
             gpt_imho_result = BirpayOrder.GPTIMHO(0)
             # Мнение GPT
             if gpt_status:

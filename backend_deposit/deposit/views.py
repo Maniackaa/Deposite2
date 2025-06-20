@@ -1028,6 +1028,31 @@ class BirpayOrderRawView(StaffOnlyPerm, DetailView):
         return context
 
 
+class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
+    model = BirpayOrder
+    template_name = 'deposit/birpay_order_info.html'
+    slug_field = 'birpay_id'
+    slug_url_kwarg = 'birpay_id'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        raw = self.object.raw_data
+        try:
+            context['raw_json_pretty'] = json.dumps(raw, ensure_ascii=False, indent=2)
+        except Exception:
+            context['raw_json_pretty'] = raw  # если вдруг невалидный JSON
+
+        check_hash = self.object.check_hash
+        if check_hash:
+            duplicates = BirpayOrder.objects.filter(
+                check_hash=check_hash
+            ).exclude(id=self.object.id)
+        else:
+            duplicates = BirpayOrder.objects.none()
+        context['duplicates'] = duplicates
+        return context
+
+
 class BirpayOrderView(StaffOnlyPerm, ListView):
     model = BirpayOrder
     template_name = 'deposit/birpay_orders.html'  # тот же шаблон
@@ -1091,7 +1116,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             threshold = now - datetime.timedelta(minutes=30000)
         else:
             threshold = now - datetime.timedelta(minutes=30)
-        qs = BirpayOrder.objects.filter(sended_at__gt=threshold, status=0)
+        qs = BirpayOrder.objects.filter(sended_at__gt=threshold)
         self.filterset = BirpayPanelFilter(self.request.GET, queryset=qs)
         return self.filterset.qs
 

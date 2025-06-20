@@ -1,0 +1,46 @@
+<div class="container" style="align-items: flex-start; gap: 30px;">
+
+  <div class="row">
+    <div class="col-3">
+
+        <div class="card row" style=""><b>Обновлено:</b><br>{{ object.updated_at|date:"Y-m-d H:i:s" }}</div>
+        <div class="card row" style=""><b>UserId:</b><br>{{ object.merchant_user_id }}</div>
+
+    </div>
+    <div class="col-9">
+      <div class="row">
+
+            <!-- Основное изображение -->
+          <div class="col-md-auto">
+            <h3>Чек заказа:</h3>
+            <b>Заказ №{{ object.merchant_transaction_id }}</b><br>
+            {% if object.check_file %}
+              <img src="{{ object.check_file.url }}" style="height: 400px; width: auto;"><br>
+            {% else %}
+              <span>Нет изображения чека</span>
+            {% endif %}
+          </div>
+
+          <!-- Дубликаты в ряд -->
+          <div class="col-md-auto">
+            <h4>Дубликаты ({{ duplicates|length }})</h4>
+            <div style="display: flex; gap: 15px;">
+              {% for order in duplicates %}
+                <div style="text-align: center;">
+                  <b>Заказ №{{ order.merchant_transaction_id }} от {{ order.created_at|date:"H:i:s" }}</b><br>
+                  {% if order.check_file %}
+                    <img src="{{ order.check_file.url }}" style="height: 400px; width: auto;"><br>
+                  {% else %}
+                    <span>Нет изображения</span>
+                  {% endif %}
+                </div>
+              {% empty %}
+                <span>Дубликаты не найдены.</span>
+              {% endfor %}
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+</div>
+
