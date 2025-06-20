@@ -34,16 +34,16 @@ from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, d
     day_reports_orm
 from deposit import tasks
 from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrderFilter, BirpayPanelFilter
-from deposit.forms import (ColorBankForm, DepositEditForm, DepositForm,
-                           DepositImageForm, DepositTransactionForm,
-                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm)
+from deposit.forms import (ColorBankForm,
+                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm, DepositForm,
+                           DepositTransactionForm, DepositImageForm, DepositEditForm)
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data, \
     send_image_to_gpt_task, download_birpay_check_file
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
-from deposit.models import Deposit, Incoming, TrashIncoming, IncomingChange, Message, \
-    MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder
+from deposit.models import Incoming, TrashIncoming, IncomingChange, Message, \
+    MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder, Deposit
 
 logger = structlog.get_logger('deposit')
 err_log = structlog.get_logger('deposit')
@@ -1116,7 +1116,18 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             threshold = now - datetime.timedelta(minutes=30000)
         else:
             threshold = now - datetime.timedelta(minutes=30)
-        qs = BirpayOrder.objects.filter(sended_at__gt=threshold)
+        incoming_qs = Incoming.objects.filter(
+            birpay_id=OuterRef('merchant_transaction_id')
+        ).order_by('-register_date')
+        qs = BirpayOrder.objects.filter(sended_at__gt=threshold).annotate(
+            incoming_pay=Subquery(incoming_qs.values('pay')[:1]),
+            delta=ExpressionWrapper(
+                Subquery(incoming_qs.values('pay')[:1]) - F('amount'),
+                output_field=FloatField()
+            ),
+            incoming_id=Subquery(incoming_qs.values('id')[:1]),
+            incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
+        )
         self.filterset = BirpayPanelFilter(self.request.GET, queryset=qs)
         return self.filterset.qs
 
