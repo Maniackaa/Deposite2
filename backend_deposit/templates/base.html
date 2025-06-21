@@ -24,6 +24,45 @@
 
     <main>
       <div  class="container-fluid">
+      
+            {% if messages %}
+        <div class="messages">
+          {% for message in messages %}
+            {% if message.tags == "error" %}
+              {% with alert_class="danger" %}
+                <div class="alert alert-{{ alert_class }} alert-dismissible fade show" role="alert">
+                  <i class="fa fa-times-circle"></i>
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              {% endwith %}
+            {% elif message.tags == "debug" %}
+              {% with alert_class="secondary" %}
+                <div class="alert alert-{{ alert_class }} alert-dismissible fade show" role="alert">
+                  <i class="fa fa-bug"></i>
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              {% endwith %}
+            {% else %}
+              {% with alert_class=message.tags %}
+                <div class="alert alert-{{ alert_class }} alert-dismissible fade show" role="alert">
+                  {% if alert_class == "info" %}
+                    <i class="fa fa-info-circle"></i>
+                  {% elif alert_class == "success" %}
+                    <i class="fa fa-check-circle"></i>
+                  {% elif alert_class == "warning" %}
+                    <i class="fa fa-exclamation-triangle"></i>
+                  {% endif %}
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              {% endwith %}
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+      
       {% block content %}
         Контент не подвезли :(
       {% endblock %}

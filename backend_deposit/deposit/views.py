@@ -8,27 +8,27 @@ from types import NoneType
 import pytz
 import structlog
 from asgiref.sync import async_to_sync
+from django.contrib import messages
 from django.core.serializers.json import DjangoJSONEncoder
+from django.db import transaction
 from django.db.models.functions import Lag
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count, Subquery, ExpressionWrapper, FloatField
 from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
-from fontTools.subset import load_font
 from rest_framework.views import APIView
-from rest_framework.viewsets import ViewSet
+from structlog.contextvars import bind_contextvars
 
 from core.asu_pay_func import create_payment, send_card_data, create_asu_withdraw
 from core.birpay_func import get_birpay_withdraw, get_new_token, approve_birpay_withdraw, decline_birpay_withdraw, \
-    get_birpays
+    get_birpays, change_amount_birpay, approve_birpay_refill
 from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
@@ -1171,22 +1171,83 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         return context
 
     def post(self, request, *args, **kwargs):
-        logger.info(f'POST: {request.POST.dict()}')
-        post_data = request.POST.dict()
-        for name, value in post_data.items():
-            if name.startswith('orderconfirm'):
-                order_id = name.split('orderconfirm_')[1]
-                order = BirpayOrder.objects.get(pk=order_id)
-                logger.info(f'Для {order} сохраняем {value}')
-
-        # Возврат на исходный URL
+        # исходный URL
         query = []
         for number in request.POST.getlist('card_number'):
             query.append(f"card_number={number}")
         for status in request.POST.getlist('status'):
             query.append(f"status={status}")
         query_string = '&'.join(query)
-        return HttpResponseRedirect(f"{request.path}?{query_string}")
+
+        try:
+            logger.info(f'POST: {request.POST.dict()}')
+            post_data = request.POST.dict()
+            new_amount = 0
+            order = None
+            incoming_id = ''
+            for name, value in post_data.items():
+                if name.startswith('orderconfirm'):
+                    order_id = name.split('orderconfirm_')[1]
+                    icoming_id = value.strip()
+                    order = BirpayOrder.objects.get(pk=order_id)
+                    logger.info(f'Для {order} сохраняем {icoming_id}')
+                    bind_contextvars(birpay_id=order.birpay_id)
+                elif name.startswith('orderamount'):
+                    new_amount = float(value)
+                    logger.info(f'new_amount: {new_amount}')
+
+            # смена суммы
+            if order.amount != new_amount:
+                if order.status != 0:
+                    text = f'Не удалось сменить сумму {order} mtx_id {order.merchant_transaction_id}: Статус не 0'
+                    messages.add_message(request, messages.WARNING, text)
+                    # raise ValidationError(text)
+                else:
+                    logger.info(f'Меняем amount с {order.amount} на {new_amount}')
+                    response = change_amount_birpay(pk=order.birpay_id, amount=new_amount)
+                    if response.status_code == 200:
+                        text = f"Сумма {order} mtx_id {order.merchant_transaction_id} изменена с {order.amount} на {new_amount}"
+                        messages.add_message(request, messages.INFO, text)
+                        order.amount = new_amount
+                    else:
+                        messages.add_message(request, messages.ERROR, "Сумма не изменена")
+
+
+            if incoming_id == '':
+                incoming_to_approve = Incoming.objects.filter(pk=incoming_id, birpay_id__isnull=True).first()
+                if incoming_to_approve:
+                    pass
+                else:
+                    text = f'Не найдена свободная смс {incoming_id}'
+                    logger.warning(text)
+                    messages.add_message(request, messages.ERROR, text)
+                    return HttpResponseRedirect(f"{request.path}?{query_string}")
+
+            # Апрувнем заявку
+            response = approve_birpay_refill(pk=order.birpay_id)
+            if response.status_code != 200:
+                text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
+                messages.add_message(request, messages.ERROR, text)
+                logger.warning(text)
+            else:
+                # Апрувнем заявку
+                text = f"Заявка {order} mtx_id {order.merchant_transaction_id} подтверждена в birpay с суммой {order.amount}"
+                logger.info(text)
+                messages.add_message(request, messages.INFO, text)
+                order.status = 1
+
+                with transaction.atomic():
+                    order.incoming_id = incoming_id
+                    order.save()
+                    incoming_to_approve = Incoming.objects.filter(pk=incoming_id, birpay_id__isnull=True).first()
+                    incoming_to_approve.birpay_id = order.birpay_id
+                    incoming_to_approve.save()
+                    logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')
+
+            return HttpResponseRedirect(f"{request.path}?{query_string}")
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            return HttpResponseBadRequest(content=f'Ошибка при обработке заявки: {e}')
 def test(request):
     result = {}
     result = refresh_birpay_data()

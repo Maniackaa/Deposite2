@@ -199,12 +199,12 @@ if __name__ == '__main__':
     # print(point - start)
     date_offset = datetime.datetime.now() - datetime.timedelta(days=1)
     date_offset = date_offset.strftime('%Y-%m-%d')
-    transactions = get_um_transactions(search_filter={'status': ['new']})
-    print(transactions)
+    tr = get_um_transactions(search_filter={'status': ['new']})
+    print(tr)
     # print(time.perf_counter() - point)
     #
     # print(transactions)
-    for transaction in transactions:
+    for transaction in tr:
         print(transaction)
         create_at = datetime.datetime.fromisoformat(transaction['createdAt'])
         create_delta = datetime.datetime.now(tz=TZ) - create_at

@@ -250,7 +250,43 @@ def find_birpay_from_merch_transaction_id(merch_transaction_id, results=1):
         raise err
 
 
+def send_request_birpay(url, method='POST', json_data=None) -> requests.Response:
+    token = read_token()
+    headers['Authorization'] = f'Bearer {token}'
+    if method == "POST":
+        response = requests.post(url, headers=headers, json=json_data)
+    else:
+        response = requests.put(url, headers=headers,json=json_data)
 
+    if response.status_code == 401:
+        token = get_new_token()
+        headers['Authorization'] = f'Bearer {token}'
+        return send_request_birpay(url, method=method, json_data=json_data)
+    logger.info(f'response.status_code: {response.status_code}')
+    return response
+
+def change_amount_birpay(pk:int, amount:float) -> requests.Response:
+    logger.info(f'Меняем birpay_refill {pk} amount: {amount}')
+    url = 'https://birpay-gate.com/api/operator/refill_order/change/amount'
+    method='PUT'
+    json_data = {
+        'id': pk,
+        'amount': amount,
+    }
+    response = send_request_birpay(url=url, method=method, json_data=json_data)
+    logger.info(f'birpay_refill {pk}  amount: {amount} response.status_code: {response.status_code}. response.text: {response.text}')
+    return response
+
+def approve_birpay_refill(pk:int) -> requests.Response:
+    logger.info(f'Подтверждаем birpay_refill: {pk}')
+    url = 'https://birpay-gate.com/api/operator/refill_order/approve'
+    method='PUT'
+    json_data = {
+        'id': pk,
+    }
+    response = send_request_birpay(url=url, method=method, json_data=json_data)
+    logger.info(f'birpay_refill: {pk} response.status_code: {response.status_code}. response.text: {response.text}')
+    return response
 
 # ------------------- ВТОРАЯ ТАБЛИЦА ------------------
 async def get_birpay_withdraw(limit=512):
@@ -335,8 +371,11 @@ async def main():
     # pprint(t)
     # t = find_birpay_from_merch_transaction_id(45829236)
     # pprint(t)
-    withdraw_list = await get_birpay_withdraw(limit=10)
-    pprint(withdraw_list)
+    # withdraw_list = await get_birpay_withdraw(limit=10)
+    # pprint(withdraw_list)
+    r = change_amount_birpay(pk=76417158, amount=15)
+    print(r.status_code)
+    print(r.text)
     # print(len(withdraw_list))
     # ids = "VALUES "
     # wlist = []

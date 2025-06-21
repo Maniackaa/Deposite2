@@ -395,9 +395,9 @@ class BirpayOrder(models.Model):
         gpt_status = auto()
 
     birpay_id = models.IntegerField(unique=True, db_index=True)
-    sended_at = models.DateTimeField(verbose_name='Создалась у нас', auto_now_add=True, null=True, blank=True)
+    sended_at = models.DateTimeField(verbose_name='Создалась у нас', auto_now_add=True, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(db_index=True)
-    updated_at = models.DateTimeField(db_index=True)
+    updated_at = models.DateTimeField()
     merchant_transaction_id = models.CharField(max_length=16, db_index=True)
     merchant_user_id = models.CharField(max_length=16, db_index=True)
     merchant_name = models.CharField(max_length=64, null=True, blank=True)
@@ -416,6 +416,7 @@ class BirpayOrder(models.Model):
     gpt_processing = models.BooleanField(default=False)
     # gpt_status = models.SmallIntegerField(default=0)
     gpt_flags = models.SmallIntegerField(default=0)
+    incomingsms_id = models.CharField(max_length=10, null=True, blank=True, unique=True, db_index=True)
 
     class Meta:
         ordering = ('-created_at',)
