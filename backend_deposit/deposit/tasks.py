@@ -21,6 +21,7 @@ from core.asu_pay_func import create_payment, send_card_data, send_sms_code, cre
 from core.birpay_func import get_birpay_withdraw, find_birpay_from_id, get_birpays
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ, Timer, mask_compare
+from deposit.func import find_possible_incomings
 from deposit.models import *
 from django.apps import apps
 
@@ -327,6 +328,7 @@ def send_new_transactions_from_birpay_to_asu():
                 amount = int(amount)
                 total_amount += amount
                 wallet_id = withdraw.get('customerWalletId', '')
+                merchant_transaction_id = withdraw.get('merchantTransactionId', '')
                 if wallet_id.startswith('994'):
                     target_phone = f'+{wallet_id}'
                 elif len(wallet_id) == 9:
@@ -350,6 +352,7 @@ def send_new_transactions_from_birpay_to_asu():
                     'amount': amount,
                     'card_data': card_data,
                     'target_phone': target_phone,
+                    'merchant_transaction_id': merchant_transaction_id,
                 }
                 logger.info(f'Передача на асупэй: {withdraw_data}')
                 result = create_asu_withdraw(**withdraw_data)
@@ -380,6 +383,7 @@ def send_new_transactions_from_birpay_to_asu():
 
 @shared_task(prority=2, timeout=15)
 def download_birpay_check_file(order_id, check_file_url):
+    bind_contextvars(birpay_order_id=order_id)
     from deposit.models import BirpayOrder
     order = BirpayOrder.objects.get(id=order_id)
     logger.info(f'Скачивание чека {order}')
@@ -424,6 +428,7 @@ def download_birpay_check_file(order_id, check_file_url):
 
 def process_birpay_order(data):
     birpay_id = data['id']
+    bind_contextvars(birpay_id=birpay_id)
     check_file_url = data.get('payload', {}).get('check_file')
 
     order_data = {
@@ -461,7 +466,7 @@ def process_birpay_order(data):
         if updated:
             order.save()
     else:
-        logger.info(f"Создан новый заказ birpay_id={birpay_id}")
+        logger.info(f"Создан новый {order} birpay_id={birpay_id}")
 
     if check_file_url and not order.check_file and not order.check_file_failed:
         order.check_file_failed = True   # Резервируем скачивание — повторно не поставим
@@ -479,6 +484,7 @@ def send_image_to_gpt_task(self, birpay_id):
     try:
         order = BirpayOrder.objects.get(birpay_id=birpay_id)
         logger.debug(f'Найден BirpayOrder: {order}')
+        bind_contextvars(birpay_order_id=order.id)
     except BirpayOrder.DoesNotExist:
         logger.error(f"BirpayOrder {birpay_id} не найден")
         return f"BirpayOrder {birpay_id} не найден"
@@ -540,34 +546,25 @@ def send_image_to_gpt_task(self, birpay_id):
                 gpt_imho_result |= BirpayOrder.GPTIMHO.recipient
 
             # Проверка времени
-
+            logger.info(
+                f'GPTIMHO.time: {now - datetime.timedelta(hours=1)} < {gpt_time_aware} < {gpt_time_aware <= now + datetime.timedelta(hours=1)}: {now - datetime.timedelta(hours=1) < gpt_time_aware  <= now + datetime.timedelta(hours=1)}')
             if now - datetime.timedelta(hours=1) < gpt_time_aware  <= now + datetime.timedelta(hours=1):
                 gpt_imho_result |= BirpayOrder.GPTIMHO.time
 
-            target_time = gpt_time_aware
-            min_time = target_time - datetime.timedelta(minutes=2)
-            max_time = target_time + datetime.timedelta(minutes=2)
-            logger.info(f'Ищем смс пришедшие {min_time} - {max_time}')
             # Найдем подходящие смс:
-            Incoming = apps.get_model('deposit', 'Incoming')
-            incomings = Incoming.objects.filter(
-                pay=order_amount,
-                register_date__gte=min_time, register_date__lte=max_time,
-                birpay_id__isnull=True,
-            )
-            logger.info(f'Найдены смс: {incomings}')
+            incomings = find_possible_incomings(order_amount, gpt_time_aware)
             if incomings.count() == 1:
                 incoming = incomings.first()
-                logger.info(f'Суммы равны: gpt - {gpt_amount} order - {order_amount} смс - {incoming.pay} {gpt_amount == order_amount and order_amount == incoming.pay}')
-                if gpt_amount == order_amount and order_amount == incoming.pay:
-                    logger.info(f'Суммы совпадают')
+                logger.info(f'Cумма смс совпадает: Заказ - {order_amount}, смс - {incoming.pay}: {order_amount == incoming.pay}')
+                if order_amount == incoming.pay:
                     gpt_imho_result |= BirpayOrder.GPTIMHO.sms_amount
-                    # Проверим получателя
-                    sms_recipient = incoming.recipient
-                    recipient_is_correct = mask_compare(sms_recipient, gpt_recipient)
-                    logger.info(f'маски равны? {sms_recipient} = {gpt_recipient}: {recipient_is_correct}')
-                    if recipient_is_correct:
-                        gpt_imho_result |= BirpayOrder.GPTIMHO.sms_recipient
+
+                # Проверим получателя
+                sms_recipient = incoming.recipient
+                recipient_is_correct = mask_compare(sms_recipient, gpt_recipient)
+                logger.info(f'маски равны? {sms_recipient} = {gpt_recipient}: {recipient_is_correct}')
+                if recipient_is_correct:
+                    gpt_imho_result |= BirpayOrder.GPTIMHO.sms_recipient
             else:
                 logger.warning(f'Однозначная смс не найдена', exc_info=True)
 
@@ -591,6 +588,7 @@ def send_image_to_gpt_task(self, birpay_id):
 
 @shared_task(priority=1, time_limit=5)
 def refresh_birpay_data():
+
     birpay_data = get_birpays()
     if birpay_data:
         if settings.DEBUG:

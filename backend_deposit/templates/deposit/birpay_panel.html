@@ -104,23 +104,29 @@
                     <td {% if order.check_is_double %} style="background: red" {% endif %}>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"H:i:s" }}</td>
                    <td>{{ order.status }}</td>
-                    <td>{{ order.amount }}</td>
-                    <td>{{ order.card_number }}</td>
-                    <td>
-                        {% if order.check_file_url %}
-                            <a href="{{ order.check_file_url }}" target="_blank">Чек</a>
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
 
                     <form action="{% url 'deposit:birpay_panel' %}" method="post">
-                        {% csrf_token %}
                         {% for number in selected_card_numbers %}
                             <input type="hidden" name="card_number" value="{{ number }}">
                         {% endfor %}
+                        {% for status in statuses %}
+                            <input type="hidden" name="status" value="{{ status }}">
+                        {% endfor %}
+                        {% csrf_token %}
                         <td>
-                            <input name="orderconfirm_{{ order.id }}" value="{{ order.incoming_id }}" class="my-input button">
+                            <input size="5" name="orderamount_{{ order.id }}" value="{{ order.amount }}">
+                        </td>
+                        <td>{{ order.card_number }}</td>
+                        <td>
+                            {% if order.check_file_url %}
+                                <a href="{{ order.check_file_url }}" target="_blank">Чек</a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <input name="orderconfirm_{{ order.id }}" value="{{ order.incoming_id|default_if_none:"" }}" class="my-input button">
                         </td>
                         <td class="text-nowrap">
                             <button  class="my-button btn btn-warning btn-sm">Ok</button>

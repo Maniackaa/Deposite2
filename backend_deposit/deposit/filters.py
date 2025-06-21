@@ -86,6 +86,13 @@ class MyTimeInput(DateTimeInput):
 
 class BirpayPanelFilter(django_filters.FilterSet):
     card_number = django_filters.MultipleChoiceFilter(widget=forms.SelectMultiple(attrs={'class': 'form-control'}))
+    status = django_filters.MultipleChoiceFilter(choices=[(0, 'pending'), (1, 'approve')],
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    class Meta:
+        model = BirpayOrder
+        fields = ['card_number', 'status']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

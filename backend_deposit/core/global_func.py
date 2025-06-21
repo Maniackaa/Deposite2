@@ -64,7 +64,8 @@ def mask_compare(mask1, mask2):
             elif c in '*•.':
                 break
         return start_digits, end_digits
-
+    mask1 = mask1.strip()
+    mask2 = mask2.strip()
     start1, end1 = get_visible_parts(mask1)
     start2, end2 = get_visible_parts(mask2)
     # Сравниваем первые N символов, где N - минимальная длина начальных видимых цифр

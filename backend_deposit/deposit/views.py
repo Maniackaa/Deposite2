@@ -37,6 +37,7 @@ from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrder
 from deposit.forms import (ColorBankForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm, DepositForm,
                            DepositTransactionForm, DepositImageForm, DepositEditForm)
+from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data, \
     send_image_to_gpt_task, download_birpay_check_file
@@ -1087,6 +1088,22 @@ class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
     slug_field = 'birpay_id'
     slug_url_kwarg = 'birpay_id'
 
+    def get_object(self, queryset=None):
+        #Найдем возможные смс
+        order = super().get_object(queryset)
+        possible_incomings = find_possible_incomings(order.amount, order.created_at)
+        logger.info(f'order: {order} possible_incomings: {possible_incomings}')
+        order.incomings = possible_incomings
+        # Данные по юзеру
+        user_orders = BirpayOrder.objects.filter(merchant_user_id=order.merchant_user_id)
+        order.total_orders = user_orders.count()
+        user_orders_1 = user_orders.filter(status=1).count()
+        user_orders_0 = user_orders.filter(status=0).count()
+        order.user_orders_1 = user_orders_1
+        order.user_orders_0 = user_orders_0
+        order.user_order_percent = round(user_orders_1 / order.total_orders * 100, 0 )
+        return order
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         raw = self.object.raw_data
@@ -1094,6 +1111,8 @@ class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
             context['raw_json_pretty'] = json.dumps(raw, ensure_ascii=False, indent=2)
         except Exception:
             context['raw_json_pretty'] = raw  # если вдруг невалидный JSON
+
+
 
         check_hash = self.object.check_hash
         if check_hash:
@@ -1118,7 +1137,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
     def get_queryset(self):
         now = timezone.now()
         if settings.DEBUG:
-            threshold = now - datetime.timedelta(minutes=30)
+            threshold = now - datetime.timedelta(days=2)
         else:
             threshold = now - datetime.timedelta(minutes=30)
         qs = super().get_queryset().filter(sended_at__gt=threshold).order_by('-created_at')
@@ -1135,8 +1154,6 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
         )
         self.filterset = BirpayPanelFilter(self.request.GET, queryset=qs)
-        for order in self.filterset.qs:
-            logger.info(f'{order.merchant_transaction_id, order.incoming_id}')
         return self.filterset.qs
 
     def get_context_data(self, **kwargs):
@@ -1147,6 +1164,10 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         incomings = Incoming.objects.filter(birpay_id__isnull=True, register_date__gte=threshold).order_by('-register_date')[:50]
         context["incomings"] = incomings
         context['selected_card_numbers'] = self.request.GET.getlist('card_number')
+        context['statuses'] = self.request.GET.getlist('status')
+        logger.info(self.request.GET.getlist('card_number'))
+        logger.info(self.request.GET.getlist('status'))
+
         return context
 
     def post(self, request, *args, **kwargs):
@@ -1162,6 +1183,8 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         query = []
         for number in request.POST.getlist('card_number'):
             query.append(f"card_number={number}")
+        for status in request.POST.getlist('status'):
+            query.append(f"status={status}")
         query_string = '&'.join(query)
         return HttpResponseRedirect(f"{request.path}?{query_string}")
 def test(request):

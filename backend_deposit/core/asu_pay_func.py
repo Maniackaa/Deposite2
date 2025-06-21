@@ -232,7 +232,7 @@ def send_sms_code_birpay(payment_id, sms_code, transaction_id=None) -> dict:
         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
 
 
-def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
+def create_asu_withdraw(withdraw_id, amount, card_data, target_phone, merchant_transaction_id):
     """{'amount': '198.0000',
     'createdAt': '2025-02-15T15:56:11+03:00',
     'currency': 'AZN',
@@ -250,7 +250,7 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
               'uid': 'b3429f24-432b-4796-a8e2-986c39fbbdf7',
               'updatedAt': '2025-02-15T15:56:11+03:00'}"""
     result = {}
-    logg = structlog.get_logger('deposit')
+    log = structlog.get_logger('deposit')
     logger = log.bind(birpay_withdraw_id=withdraw_id)
     try:
 
@@ -262,7 +262,7 @@ def create_asu_withdraw(withdraw_id, amount, card_data, target_phone):
         withdraw_data = {
             "merchant": f'{merchant_id}',
             "withdraw_id": withdraw_id,
-
+            "payload": {"merchant_transaction_id": merchant_transaction_id},
             "amount": f'{amount}',
             "currency_code": "AZN",
             "signature": signature,

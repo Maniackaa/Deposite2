@@ -26,18 +26,6 @@ headers = {
 
 
 def get_new_token(username=os.getenv('BIRPAY_LOGIN'), password=os.getenv('BIRPAY_PASSWORD')):
-    # headers = {
-    #     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0',
-    #     'Accept': 'application/json, text/plain, */*',
-    #     'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-    #     'Content-Type': 'application/json;charset=utf-8',
-    #     'Origin': 'https://birpay-gate.com',
-    #     'Connection': 'keep-alive',
-    #     'Referer': 'https://birpay-gate.com/login',
-    #     'Sec-Fetch-Dest': 'empty',
-    #     'Sec-Fetch-Mode': 'cors',
-    #     'Sec-Fetch-Site': 'same-origin',
-    # }
 
     json_data = {
         'username': username,
@@ -262,6 +250,9 @@ def find_birpay_from_merch_transaction_id(merch_transaction_id, results=1):
         raise err
 
 
+
+
+# ------------------- ВТОРАЯ ТАБЛИЦА ------------------
 async def get_birpay_withdraw(limit=512):
     logger = structlog.get_logger('deposit')
     token = read_token()
