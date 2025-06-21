@@ -1237,7 +1237,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                 order.status = 1
 
                 with transaction.atomic():
-                    order.incoming_id = incoming_id
+                    order.incomingsms_id = incoming_id
                     order.save()
                     incoming_to_approve = Incoming.objects.filter(pk=incoming_id, birpay_id__isnull=True).first()
                     incoming_to_approve.birpay_id = order.birpay_id
