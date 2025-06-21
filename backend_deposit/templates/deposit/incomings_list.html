@@ -3,6 +3,9 @@
 
 
 {% block content %}
+{% load static %}
+{% load l10n %}
+{% localize off %}
 {% include 'includes/operator_menu.html' %}
 <div style="padding-left:0; padding-right:0;">
 {% include 'includes/switcher2.html' %}
@@ -49,7 +52,7 @@
            <th>Pay</th>
            <th>Б</th>
            <th>Тр-я</th>
-           <th>Бирпай</th>
+           <th>MerchTxID</th>
        </tr>
      </thead>
      <tbody style="text-align: end" >
@@ -63,6 +66,8 @@
                 {% if incoming.comment %}
                   *
                 {% endif %}
+            <img onclick="copyTextToClipboard({{ incoming.id }})" style="opacity: 0.5;"class="img-thumbnail" width="25" height="25" src="{% static '/img/copy.png' %}">
+
             </td>
             <td>{{ incoming.register_date|date:"d.m H:i:s" }}</td>
             <td>{{ incoming.response_date|date:"d.m H:i" }}</td>
@@ -109,6 +114,25 @@
    {% include 'includes/paginator.html' %}
   {% endwith %}
 </div>
+{% endlocalize %}
+   
+<div id="copy-toast" style="
+    display: none;
+    position: fixed;
+    left: 10%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: #27ae60;
+    color: #fff;
+    padding: 14px 30px;
+    border-radius: 14px;
+    font-size: 18px;
+    z-index: 9999;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    pointer-events: none;
+    transition: opacity 0.3s;
+    opacity: 0;
+">Скопировано!</div>
 
 {% endblock %}
 
@@ -155,4 +179,48 @@
     </script>
     {% endif %}
     {% endwith %}
+
+    
+<script>
+    function showCopyToast() {
+        var toast = document.getElementById('copy-toast');
+        toast.style.display = 'block';
+        setTimeout(function() {
+            toast.style.opacity = 1;
+        }, 10);
+        setTimeout(function() {
+            toast.style.opacity = 0;
+            setTimeout(function() {
+                toast.style.display = 'none';
+            }, 300);
+        }, 1200);
+    }
+    
+    function copyTextToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(
+                function() { showCopyToast(); },
+                function(err) { alert('Ошибка копирования: ' + err); }
+            );
+        } else {
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.top = "-1000px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+    
+            try {
+                document.execCommand('copy');
+                showCopyToast();
+            } catch (err) {
+                alert('Ошибка копирования: ' + err);
+            }
+    
+            document.body.removeChild(textArea);
+        }
+    }
+</script>
+    
 {% endblock %}

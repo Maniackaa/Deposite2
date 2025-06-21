@@ -1240,7 +1240,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                     order.incomingsms_id = incoming_id
                     order.save()
                     incoming_to_approve = Incoming.objects.filter(pk=incoming_id, birpay_id__isnull=True).first()
-                    incoming_to_approve.birpay_id = order.birpay_id
+                    incoming_to_approve.birpay_id = order.merchant_transaction_id
                     incoming_to_approve.save()
                     logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')
 

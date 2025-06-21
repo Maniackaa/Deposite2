@@ -25,7 +25,9 @@
             <h3>Чек заказа:</h3>
             <b>Заказ №{{ object.merchant_transaction_id }}</b><br>
             {% if object.check_file %}
-              <img src="{{ object.check_file.url }}" style="height: 400px; width: auto;"><br>
+              <a href="{{ object.check_file.url }}" target="_blank">
+                 <img src="{{ object.check_file.url }}" style="height: 600px; width: auto; cursor: pointer;">
+              </a>
             {% else %}
               <span>Нет изображения чека</span>
             {% endif %}
