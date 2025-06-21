@@ -21,7 +21,6 @@
       <div class="row">
 
             <!-- Основное изображение -->
-          <div class="col-md-auto">
             <h3>Чек заказа:</h3>
             <b>Заказ №{{ object.merchant_transaction_id }}</b><br>
             {% if object.check_file %}
@@ -33,8 +32,6 @@
             {% else %}
               <span>Нет изображения чека</span>
             {% endif %}
-          </div>
-
           
       </div>
     </div>
