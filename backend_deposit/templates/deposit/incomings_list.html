@@ -48,10 +48,8 @@
            <th>T на чеке</th>
            <th>Получатель</th>
            <th>Отправитель</th>
-           <th>Worker</th>
            <th>Pay</th>
            <th>Б</th>
-           <th>Тр-я</th>
            <th>MerchTxID</th>
        </tr>
      </thead>
@@ -77,7 +75,7 @@
             {% if incoming.worker == 'base2' %}
              <td style="background-color: crimson">{{ incoming.worker }}</td>
             {% else %}
-                <td>{{ incoming.worker|default_if_none:'' }}</td>
+                
             {% endif %}
             <td>{{ incoming.pay }}</td>
             <td>
@@ -88,8 +86,7 @@
                 {% endif %}
             </td>
 
-            <td title="{{ incoming.transaction }}">{{ incoming.transaction|default_if_none:""|make_list|slice:'-4:'|join:'' }}</td>
-
+            
          {% load l10n %}
          {% localize off %}
             <td class="text-nowrap">

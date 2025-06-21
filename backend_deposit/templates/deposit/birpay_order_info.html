@@ -1,9 +1,9 @@
 {% load l10n %}
 {% localize off %}
-<div class="container" style="align-items: flex-start; gap: 30px;">
+<div class="" style="align-items: flex-start; gap: 30px;">
 
   <div class="row">
-    <div class="col-3">
+    <div class="col-4">
 
         <div class="card row" style=""><b>Обновлено:</b><br>{{ object.updated_at|date:"Y-m-d H:i:s" }}</div>
         <div class="card row" style="">
@@ -17,7 +17,7 @@
             {% endfor %}
         </div>
     </div>
-    <div class="col-9">
+    <div class="col-4">
       <div class="row">
 
             <!-- Основное изображение -->
@@ -26,20 +26,25 @@
             <b>Заказ №{{ object.merchant_transaction_id }}</b><br>
             {% if object.check_file %}
               <a href="{{ object.check_file.url }}" target="_blank">
-                 <img src="{{ object.check_file.url }}" style="height: 600px; width: auto; cursor: pointer;">
+                 <img src="{{ object.check_file.url }}"
+                     style="width: 400px; height: 600px; object-fit: contain; background: #eee; cursor: pointer;"
+                     onerror="this.src=''; this.alt='нет изображения';">
               </a>
             {% else %}
               <span>Нет изображения чека</span>
             {% endif %}
           </div>
 
+          
+      </div>
+    </div>
+  
+      <div class="col-4">
           <!-- Дубликаты в ряд -->
-          <div class="col-md-auto">
-            <h4>Дубликаты ({{ duplicates|length }})</h4>
+            <h5>Дубликаты ({{ duplicates|length }})</h5>
 
-            <div style="display: flex; gap: 15px;">
               {% for double_order in duplicates %}
-                <div style="text-align: left;">
+                <div class="row" style="text-align: left;">
                   <b>Заказ №{{ double_order.merchant_transaction_id }} от {{ double_order.created_at|date:"H:i:s" }}</b><br>
                     Статус: {{ double_order.status }}<br>
                       Сумма {{ double_order.amount }}<br>
@@ -49,10 +54,9 @@
               {% empty %}
                 <span>Дубликаты не найдены.</span>
               {% endfor %}
-            </div>
-          </div>
+
+
       </div>
-    </div>
   </div>
 </div>
 
