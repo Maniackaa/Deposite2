@@ -39,10 +39,10 @@
             {% else %}
               <span>Нет изображения чека</span>
             {% endif %}
-          
+
       </div>
     </div>
-  
+
       <div class="col-4">
           <!-- Дубликаты в ряд -->
             <h5>Дубликаты ({{ duplicates|length }})</h5>
@@ -52,7 +52,7 @@
                   <b>Заказ №{{ double_order.merchant_transaction_id }} от {{ double_order.created_at|date:"H:i:s" }}</b><br>
                     Статус: {{ double_order.status }}<br>
                       Сумма {{ double_order.amount }}<br>
-                      Смс {{ double_order.incoming.id }} от {{ double_order.incoming.register_date|date:"H:i:s" }} на {{ double_order.incoming.pay }}
+                      {% if double_order.incoming.id  %}Смс {{ double_order.incoming.id }} от {{ double_order.incoming.register_date|date:"H:i:s" }} на {{ double_order.incoming.pay }}{% endif %}
 
                 </div>
               {% empty %}

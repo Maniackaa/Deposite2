@@ -14,6 +14,8 @@ logger = structlog.get_logger('deposit')
 
 
 def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):
+    if not message:
+        return
     """Отправка сообщений через чат-бот телеграмма"""
     try:
         for chat_id in chat_ids:
