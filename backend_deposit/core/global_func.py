@@ -17,7 +17,7 @@ def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):
     """Отправка сообщений через чат-бот телеграмма"""
     try:
         for chat_id in chat_ids:
-            logger.debug(f'Отправляем сообщение для {chat_id}')
+            logger.debug(f'Отправляем сообщение для {chat_id}. Текст:\n{message}')
             url = (f'https://api.telegram.org/'
                    f'bot{settings.BOT_TOKEN}/'
                    f'sendMessage?'
@@ -27,7 +27,7 @@ def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):
             if response.status_code == 200:
                 logger.debug(f'Сообщение для {chat_id} отправлено')
             else:
-                logger.error(f'Ошибка при отправке сообщения для {chat_id}. Код {response.status_code}')
+                logger.error(f'Ошибка при отправке сообщения для {chat_id}. Код {response.status_code} {response.text}')
     except Exception as err:
         logger.error(f'Ошибка при отправки сообщений: {err}')
 

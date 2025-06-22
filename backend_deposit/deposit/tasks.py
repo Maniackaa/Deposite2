@@ -523,7 +523,9 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_amount = float(gpt_data.get('amount', 0))
             gpt_status = gpt_data.get('status', 0)
             gpt_recipient = gpt_data.get('recipient', '')
-            gpt_time_str = gpt_data.get('create_at', '2000-01-01T00:00:00')
+            gpt_time_str = gpt_data.get('create_at')
+            if not gpt_time_str:
+                gpt_time_str = '2000-01-01T00:00:00'
             gpt_time_naive = datetime.datetime.fromisoformat(gpt_time_str)
             gpt_time_naive_msk = gpt_time_naive - datetime.timedelta(hours=1)
             gpt_time_aware = TZ.localize(gpt_time_naive_msk)

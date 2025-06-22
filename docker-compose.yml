@@ -65,7 +65,7 @@ services:
     volumes:
       - static:/app/collected_static/
       - media:/app/media/
-      - ./logs/backend_deposit:/app/logs
+      - ./logs:/app/logs
       - ./backend_deposit:/app
     entrypoint: bash /app/entrypoint.sh
 
@@ -76,7 +76,7 @@ services:
     env_file: .env
     volumes:
       - media:/app/media/
-      - ./logs/celery:/app/logs
+      - ./logs:/app/logs
     depends_on:
       - redis
     entrypoint: bash /app/celery_entrypoint.sh
