@@ -1107,6 +1107,11 @@ class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         raw = self.object.raw_data
+        gpt_data = self.object.gpt_data
+        if isinstance(gpt_data, str):
+            gpt_data = json.loads(gpt_data)
+        context['gpt_data'] = gpt_data
+        logger.info(f'gpt_data: {gpt_data} {type(gpt_data)}')
         try:
             context['raw_json_pretty'] = json.dumps(raw, ensure_ascii=False, indent=2)
         except Exception:

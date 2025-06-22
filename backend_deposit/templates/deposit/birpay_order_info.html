@@ -1,5 +1,6 @@
 {% load l10n %}
 {% localize off %}
+{% load filters %}
 <div class="" style="align-items: flex-start; gap: 30px;">
 
   <div class="row">
@@ -15,6 +16,12 @@
             {% for  incoming in object.incomings.all %}
                 {{ incoming.id }} {{ incoming.pay }} azn {{ incoming.response_date|date:"H:i" }} {{ incoming.recipient }}<br>
             {% endfor %}
+        </div>
+        <div class="card row" style=""><b>Gpt данные: {{ object.gpt_flags|as_bin }}</b><br>
+            amount: {{ gpt_data|get_item:"amount" }}<br>
+            Дата: : {{ gpt_data|get_item:"create_at" }}<br>
+            Получатель: : {{ gpt_data|get_item:"recipient" }}<br>
+            Коммент: : {{ gpt_data|get_item:"comment" }}<br>
         </div>
     </div>
     <div class="col-4">

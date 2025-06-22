@@ -147,7 +147,8 @@ def check_incoming(self, pk, count=0):
                 f'({incoming_check.birpay_id})\n'
                 f'Платеж {incoming_check.incoming.id} на сумму {incoming_check.incoming.pay} azn'
             )
-        send_message_tg(msg, settings.ALARM_IDS)
+        if msg:
+            send_message_tg(msg, settings.ALARM_IDS)
         return check
     except Exception as err:
         logger.error(f'Ошибка при проверке birpay {pk}: {err}')
@@ -500,7 +501,7 @@ def send_image_to_gpt_task(self, birpay_id):
             logger.info(f"BirpayOrder {birpay_id}: ответ FastAPI code={response.status_code}")
             if response.ok:
                 result = response.json().get("result")
-                order.gpt_data = result
+                order.gpt_data = json.loads(result)
                 order.save(update_fields=['gpt_data'])
                 logger.info(f"BirpayOrder {birpay_id}: gpt_data успешно записано: {result}")
             else:

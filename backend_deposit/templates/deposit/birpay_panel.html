@@ -87,7 +87,6 @@
                     <th>Status</th>
                     <th>Amount</th>
                     <th>Card</th>
-                    <th>Чек</th>
                     <th>Подтвердить</th>
                     <th>OK</th>
                 </tr>
@@ -117,14 +116,6 @@
                             <input size="5" name="orderamount_{{ order.id }}" value="{{ order.amount }}">
                         </td>
                         <td>{{ order.card_number }}</td>
-                        <td>
-                            {% if order.check_file_url %}
-                                <a href="{{ order.check_file_url }}" target="_blank">Чек</a>
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-
                         <td>
                             <input name="orderconfirm_{{ order.id }}" value="{{ order.incoming_id|default_if_none:"" }}" class="my-input button">
                         </td>
