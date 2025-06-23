@@ -1,3 +1,4 @@
+from cProfile import label
 from datetime import timedelta
 
 import django_filters
@@ -101,6 +102,7 @@ class BirpayPanelFilter(django_filters.FilterSet):
 
 
 class BirpayOrderFilter(django_filters.FilterSet):
+
     incoming_id = django_filters.BooleanFilter(
         method='filter_incoming_id',
         label='Есть incoming'
@@ -175,6 +177,13 @@ class BirpayOrderFilter(django_filters.FilterSet):
         label='Чек рапознан'
     )
 
+    show_stat = django_filters.BooleanFilter(
+        label='Стата', method='show_stat_check',
+        widget=CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+    def show_stat_check(self, queryset, name, value):
+        return queryset
+
     def gpt_data_present(self, queryset, name, value):
         if value:
             return queryset.exclude(gpt_data={})
@@ -201,3 +210,4 @@ class BirpayOrderFilter(django_filters.FilterSet):
             'merchant_user_id', 'operator',
             # аннотированные поля НЕ указывать здесь
         ]
+

@@ -1058,18 +1058,21 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_form'] = self.filterset.form
-        qs = self.filterset.qs  # qs — это весь отфильтрованный QuerySet
 
-        stats = {
-            'total': qs.count(),
-            'with_incoming': qs.exclude(incoming_id__isnull=True).count(),
-            'sum_incoming_pay': qs.aggregate(sum=Sum('incoming_pay'))['sum'] or 0,
-            'sum_amount': qs.aggregate(sum=Sum('amount'))['sum'] or 0,
-            'sum_delta': qs.aggregate(sum=Sum('delta'))['sum'] or 0,
-            'status_0': qs.filter(status=0).count(),
-            'status_1': qs.filter(status=1).count(),
-            'status_2': qs.filter(status=2).count(),
-        }
+        show_stat = self.filterset.form.cleaned_data.get('show_stat')
+        if show_stat:
+            qs = self.filterset.qs
+            stats = {
+                'total': qs.count(),
+                'with_incoming': qs.exclude(incoming_id__isnull=True).count(),
+                'sum_incoming_pay': qs.aggregate(sum=Sum('incoming_pay'))['sum'] or 0,
+                'sum_amount': qs.aggregate(sum=Sum('amount'))['sum'] or 0,
+                'sum_delta': qs.aggregate(sum=Sum('delta'))['sum'] or 0,
+                'status_0': qs.filter(status=0).count(),
+                'status_1': qs.filter(status=1).count(),
+                'status_2': qs.filter(status=2).count(),
+            }
+            context['birpay_stats'] = stats
         for order in context['page_obj']:
             if hasattr(order, 'raw_data'):
                 try:
@@ -1078,7 +1081,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
                     order.raw_data_json = '{}'
             else:
                 order.raw_data_json = '{}'
-        context['birpay_stats'] = stats
+
 
         return context
 

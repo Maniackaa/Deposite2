@@ -494,11 +494,11 @@ def send_image_to_gpt_task(self, birpay_id):
         if not order.check_file:
             logger.error(f"BirpayOrder {birpay_id}: Нет файла чека")
             return f"BirpayOrder {birpay_id}: Нет файла чека"
-        logger.info(f"BirpayOrder {birpay_id}: отправка файла {order.check_file.name}")
+        logger.info(f"BirpayOrder {birpay_id}: отправка файла {order.check_file.name} в GPT")
         with order.check_file.open("rb") as f:
             files = {'file': (order.check_file.name, f, 'image/jpeg')}
             response = requests.post("http://45.14.247.139:9000/recognize/", files=files, timeout=15)
-            logger.info(f"BirpayOrder {birpay_id}: ответ FastAPI code={response.status_code}")
+            logger.info(f"BirpayOrder {birpay_id}: ответ GPT code={response.status_code}")
             if response.ok:
                 result = response.json().get("result")
                 order.gpt_data = json.loads(result)
