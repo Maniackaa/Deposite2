@@ -1145,10 +1145,10 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
     def get_queryset(self):
         now = timezone.now()
         if settings.DEBUG:
-            threshold = now - datetime.timedelta(days=2)
+            threshold = now - datetime.timedelta(days=5)
         else:
             threshold = now - datetime.timedelta(minutes=30)
-        qs = super().get_queryset().filter(sended_at__gt=threshold).order_by('-created_at')
+        qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal=0).order_by('-created_at')
         incoming_qs = Incoming.objects.filter(
             birpay_id=OuterRef('merchant_transaction_id')
         ).order_by('-register_date')
@@ -1193,6 +1193,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             new_amount = 0
             order = None
             incoming_id = ''
+            action = None
             for name, value in post_data.items():
                 if name.startswith('orderconfirm'):
                     order_id = name.split('orderconfirm_')[1]
@@ -1203,11 +1204,16 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                 elif name.startswith('orderamount'):
                     new_amount = float(value)
                     logger.info(f'new_amount: {new_amount}')
+                elif name.startswith('order_action_'):
+                    action = value
+                    logger.info(f'action: {action}')
+
+            update_fields = []
 
             # смена суммы
             if order.amount != new_amount:
                 if order.status != 0:
-                    text = f'Не удалось сменить сумму {order} mtx_id {order.merchant_transaction_id}: Статус не 0'
+                    text = f'Не удалось сменить сумму {order} mtx_id {order.merchant_transaction_id}: Статус не pending'
                     messages.add_message(request, messages.WARNING, text)
                     # raise ValidationError(text)
                 else:
@@ -1217,40 +1223,54 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                         text = f"Сумма {order} mtx_id {order.merchant_transaction_id} изменена с {order.amount} на {new_amount}"
                         messages.add_message(request, messages.INFO, text)
                         order.amount = new_amount
+                        update_fields.append('amount')
                     else:
                         messages.add_message(request, messages.ERROR, "Сумма не изменена")
 
-
-            if incoming_id == '':
-                incoming_to_approve = Incoming.objects.filter(pk=incoming_id, birpay_id__isnull=True).first()
-                if incoming_to_approve:
-                    pass
-                else:
-                    text = f'Не найдена свободная смс {incoming_id}'
+            # Обработка действий
+            operator = self.request.user
+            if action == 'hide':
+                order.status_internal = -2
+                update_fields.extend(['status_internal'])
+                order.save(update_fields=update_fields)
+            elif action == 'pending':
+                order.save(update_fields=update_fields)
+            elif action == 'approve':
+                if incoming_id == '':
+                    text = f'Не указана свободная смс {incoming_id}'
                     logger.warning(text)
                     messages.add_message(request, messages.ERROR, text)
                     return HttpResponseRedirect(f"{request.path}?{query_string}")
-
-            # Апрувнем заявку
-            response = approve_birpay_refill(pk=order.birpay_id)
-            if response.status_code != 200:
-                text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
-                messages.add_message(request, messages.ERROR, text)
-                logger.warning(text)
-            else:
-                # Апрувнем заявку
-                text = f"Заявка {order} mtx_id {order.merchant_transaction_id} подтверждена в birpay с суммой {order.amount}"
-                logger.info(text)
-                messages.add_message(request, messages.INFO, text)
-                order.status = 1
-
-                with transaction.atomic():
-                    order.incomingsms_id = incoming_id
-                    order.save()
+                else:
                     incoming_to_approve = Incoming.objects.filter(pk=incoming_id, birpay_id__isnull=True).first()
-                    incoming_to_approve.birpay_id = order.merchant_transaction_id
-                    incoming_to_approve.save()
-                    logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')
+                    if not incoming_to_approve:
+                        text = f'Не найдена свободная смс {incoming_id}'
+                        logger.warning(text)
+                        messages.add_message(request, messages.ERROR, text)
+                        return HttpResponseRedirect(f"{request.path}?{query_string}")
+                    else:
+                        #Апрувнем заявку
+                        response = approve_birpay_refill(pk=order.birpay_id)
+                        if response.status_code != 200:
+                            text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
+                            messages.add_message(request, messages.ERROR, text)
+                            logger.warning(text)
+                        else:
+                            # Апрувнем заявку
+                            text = f"Заявка {order} mtx_id {order.merchant_transaction_id} подтверждена в birpay с суммой {order.amount}"
+                            logger.info(text)
+                            messages.add_message(request, messages.INFO, text)
+                            order.status = 1
+                            order.status_internal = 1
+
+                            with transaction.atomic():
+                                order.incomingsms_id = incoming_id
+                                order.confirmed_operator = operator
+                                order.save()
+                                incoming_to_approve = Incoming.objects.filter(pk=incoming_id, birpay_id__isnull=True).first()
+                                incoming_to_approve.birpay_id = order.merchant_transaction_id
+                                incoming_to_approve.save()
+                                logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')
 
             return HttpResponseRedirect(f"{request.path}?{query_string}")
         except Exception as e:

@@ -13,18 +13,27 @@
             {{ object.customer_name }}<br>
             Апрув {{ object.user_order_percent }}%: {{ object.user_orders_1 }}/{{ object.total_orders }}
         </div>
-        <div class="card row" style=""><b>Возможные смс:</b><br>
-            {% for  incoming in object.incomings.all %}
-                <div class="row">
-                    {{ incoming.id }}<img onclick="copyTextToClipboard({{ incoming.id }})" style="opacity: 0.5; width: 25px; height: 25px; object-fit: contain;" src="{% static '/img/copy.png' %}">{{ incoming.pay }} azn {{ incoming.response_date|date:"H:i" }} {{ incoming.recipient }}
-                </div>
-            {% endfor %}
+
+    <div class="card" style="">
+    <b>Возможные смс:</b><br>
+    {% for incoming in object.incomings.all %}
+        <div style="margin-bottom: 5px;">
+            {{ incoming.id }}
+            <img onclick="copyTextToClipboard({{ incoming.id }})"
+                 style="opacity: 0.5; width: 20px; height: 20px; object-fit: contain;"
+                 src="{% static '/img/copy.png' %}">
+            {{ incoming.pay }} azn {{ incoming.response_date|date:"H:i" }} {{ incoming.recipient }}
         </div>
-        <div class="card row" style=""><b>Gpt данные: {{ object.gpt_flags|as_bin }}</b><br>
-            amount: {{ gpt_data|get_item:"amount" }}<br>
-            Дата: : {{ gpt_data|get_item:"create_at" }}<br>
-            Получатель: : {{ gpt_data|get_item:"recipient" }}<br>
-            Коммент: : {{ gpt_data|get_item:"comment" }}<br>
+    {% endfor %}
+</div>    
+        
+    
+
+        <div class="card row" ><b>Gpt данные: {{ object.gpt_flags|as_bin }}</b><br>
+            <div class="row" style="white-space: nowrap"><span> <b>Сумма</b>: {{ gpt_data|get_item:"amount" }}</span></div>
+            <div class="row" style="white-space: nowrap"><span> <b>Дата</b>: {{ gpt_data|get_item:"create_at" }}</span></div>
+            <div class="row" style="white-space: nowrap"><span> <b>Получатель</b>: {{ gpt_data|get_item:"recipient" }}</span></div>
+            <div class="row" style=""><span> <b>Коммент</b>: {{ gpt_data|get_item:"comment" }}</span></div>
         </div>
     </div>
     <div class="col-4">
@@ -32,7 +41,7 @@
 
             <!-- Основное изображение -->
             <h3>Чек заказа (ID {{ object.id }}):</h3>
-            <span>M Tx ID {{ object.merchant_transaction_id }}:  b_id {{ object.birpay_id }}<span><br>
+            <span>M Tx ID {{ object.merchant_transaction_id }}:  b_id {{ object.birpay_id }}</span><br>
             {% if object.check_file %}
               <a href="{{ object.check_file.url }}" target="_blank">
                  <img src="{{ object.check_file.url }}"
@@ -66,47 +75,4 @@
       </div>
   </div>
 </div>
-
 {% endlocalize %}
-
-<script>
-    function showCopyToast() {
-        var toast = document.getElementById('copy-toast');
-        toast.style.display = 'block';
-        setTimeout(function() {
-            toast.style.opacity = 1;
-        }, 10);
-        setTimeout(function() {
-            toast.style.opacity = 0;
-            setTimeout(function() {
-                toast.style.display = 'none';
-            }, 300);
-        }, 1200);
-    }
-    
-    function copyTextToClipboard(text) {
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(text).then(
-                function() { showCopyToast(); },
-                function(err) { alert('Ошибка копирования: ' + err); }
-            );
-        } else {
-            var textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed";
-            textArea.style.top = "-1000px";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-    
-            try {
-                document.execCommand('copy');
-                showCopyToast();
-            } catch (err) {
-                alert('Ошибка копирования: ' + err);
-            }
-    
-            document.body.removeChild(textArea);
-        }
-    }
-</script>

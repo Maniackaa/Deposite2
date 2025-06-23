@@ -4,6 +4,7 @@ from enum import Flag, auto
 import structlog
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.db.models import SET_NULL
 
 from django.dispatch import receiver
 
@@ -408,9 +409,11 @@ class BirpayOrder(models.Model):
     check_file_failed = models.BooleanField(default=False)
     check_hash = models.CharField(max_length=32, null=True, blank=True, db_index=True)
     check_is_double = models.BooleanField(default=False)
-    status = models.SmallIntegerField(db_index=True)
+    status = models.SmallIntegerField("Статус на сервере birpay", db_index=True)
+    status_internal = models.SmallIntegerField("Наш статус", default=0, db_index=True)
+    confirmed_operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=SET_NULL, null=True, blank=True)
     amount = models.FloatField(db_index=True)
-    operator = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    operator = models.CharField("Логин оператора бирпай", max_length=128, null=True, blank=True, db_index=True)
     raw_data = models.JSONField()
     gpt_data = models.JSONField(default=dict, blank=True)
     gpt_processing = models.BooleanField(default=False)

@@ -13,18 +13,19 @@
         font-size:13px;"
     }
     .my-table {
-        font-size: 14px;
-        line-height: 75%;
+        {#font-size: 14px;#}
+        {#line-height: 75%;#}
         width: auto;
     }
     .my-button {
         margin-bottom: -5px;
         margin-top: -5px;
-        height: 20px;
+        height: 25px;
         font-size: x-small
     }
 </style>
     {% load l10n %}
+        {% load static %}
 {% localize off %}
 
 
@@ -50,7 +51,7 @@
 </div>
 
 {% if birpay_stats %}
-<table class="table table-bordered table-sm mb-2" style="width:auto; font-size:13px; margin-bottom:8px;">
+<table class="my-table table table-bordered table-sm mb-2" style="width:auto; font-size:13px; margin-bottom:8px;">
     <tbody>
         <tr>
             <td><b>Всего</b></td>
@@ -78,31 +79,39 @@
 
     <div class="row">
     <div class="col-md-12" >
-         <table id="table" class="table table-bordered table-hover table-sm ">
+         <table id="table" class=" table table-bordered table-hover table-sm ">
             <thead>
                 <tr>
-                    <th>Подробно</th>
+                    <th></th>
                     <th>Tx ID</th>
                     <th>Created</th>
                     <th>Status</th>
-                    <th>Amount</th>
+                    <th>₼</th>
                     <th>Card</th>
-                    <th>Подтвердить</th>
-                    <th>OK</th>
+                    <th>СМС id</th>
+                    <th>Действие</th>
                 </tr>
             </thead>
             <tbody>
             {% for order in page_obj %}
                 <tr>
 
-                    <td>
-                        <a href="#" onclick="toggleRawData({{ order.birpay_id }}, this); return false;">
-                            <button class=" my-button btn btn-success">ПОДРОБНО</button>
-                        </a>
-                    </td>
+<td class="text-center align-middle" style="width:40px;">
+    <button class="btn btn-link p-0"
+            onclick="toggleRawData({{ order.birpay_id }}, this); return false;"
+            style="border:none; background:transparent;"
+            title="Подробнее">
+        <img src="{% static 'img/drop-down.png' %}" alt="Подробнее"
+             style="width: 28px; height: 28px; opacity: 0.7; transition: transform 0.2s;">
+    </button>
+</td>
                     <td {% if order.check_is_double %} style="background: red" {% endif %}>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"H:i:s" }}</td>
-                   <td>{{ order.status }}</td>
+                    <td>{% if order.status == 0 %}<span style="color: gray">pending</span>
+                        {% elif order.status == 1 %}<span style="color: green">approve</span>
+                        {% elif order.status == 2 %}<span style="red: gray">decline</span>
+                        {% endif %}
+                   </td>
 
                     <form action="{% url 'deposit:birpay_panel' %}" method="post">
                         {% for number in selected_card_numbers %}
@@ -120,7 +129,12 @@
                             <input name="orderconfirm_{{ order.id }}" value="{{ order.incoming_id|default_if_none:"" }}" class="my-input button">
                         </td>
                         <td class="text-nowrap">
-                            <button  class="my-button btn btn-warning btn-sm">Ok</button>
+                          <select name="order_action_{{ order.id }}" {% if order.status != 0 %}disabled{% endif %}>
+                            <option value="pending" {% if order.status == 0 %}selected{% endif %}>pending</option>
+                            <option value="approve" {% if order.status == 1 %}selected{% endif %}>approve</option>
+                            <option value="hide" {% if order.status == 2 %}selected{% endif %}>hide</option>
+                          </select>
+                        <button  class="my-button btn btn-warning btn-sm">Ok</button>
                         </td>
                     </form>
 
@@ -142,7 +156,23 @@
 {% endlocalize %}
 
 
-
+<div id="copy-toast" style="
+    display: none;
+    position: fixed;
+    left: 10%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: #27ae60;
+    color: #fff;
+    padding: 14px 30px;
+    border-radius: 14px;
+    font-size: 18px;
+    z-index: 9999;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    pointer-events: none;
+    transition: opacity 0.3s;
+    opacity: 0;
+">Скопировано!</div>
     <script>
 function toggleRawData(birpayId, el) {
     // Находим строку таблицы, где кликнули
@@ -177,5 +207,45 @@ function toggleRawData(birpayId, el) {
         });
 }
 </script>
+<script>
+    function showCopyToast() {
+        var toast = document.getElementById('copy-toast');
+        toast.style.display = 'block';
+        setTimeout(function() {
+            toast.style.opacity = 1;
+        }, 10);
+        setTimeout(function() {
+            toast.style.opacity = 0;
+            setTimeout(function() {
+                toast.style.display = 'none';
+            }, 300);
+        }, 1200);
+    }
 
+    function copyTextToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(
+                function() { showCopyToast(); },
+                function(err) { alert('Ошибка копирования: ' + err); }
+            );
+        } else {
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.top = "-1000px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                document.execCommand('copy');
+                showCopyToast();
+            } catch (err) {
+                alert('Ошибка копирования: ' + err);
+            }
+
+            document.body.removeChild(textArea);
+        }
+    }
+</script>
 {% endblock %}
