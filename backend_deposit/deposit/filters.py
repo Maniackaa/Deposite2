@@ -97,7 +97,9 @@ class BirpayPanelFilter(django_filters.FilterSet):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        cards = BirpayOrder.objects.order_by().filter(sended_at__gte=timezone.now() - timedelta(days=5)).values_list('card_number', flat=True).distinct()
+        # cards = BirpayOrder.objects.order_by().filter(sended_at__gte=timezone.now() - timedelta(days=5)).values_list('card_number', flat=True).distinct()
+        cards = self.queryset.order_by().values_list(
+            'card_number', flat=True).distinct()
         self.filters['card_number'].field.choices = [(card, card) for card in cards if card]
 
 

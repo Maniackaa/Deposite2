@@ -134,7 +134,7 @@
                             <option value="approve" {% if order.status == 1 %}selected{% endif %}>approve</option>
                             <option value="hide" {% if order.status == 2 %}selected{% endif %}>hide</option>
                           </select>
-                        <button  class="my-button btn btn-warning btn-sm">Ok</button>
+                        <button  class="my-button btn btn-warning btn-sm {% if order.status != 0 %}disabled{% endif %}">Ok</button>
                         </td>
                     </form>
 
