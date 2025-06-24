@@ -391,8 +391,7 @@ class BirpayOrder(models.Model):
         time = auto()
         recipient = auto()
         amount = auto()
-        sms_amount = auto()
-        sms_recipient = auto()
+        sms = auto()
         gpt_status = auto()
 
     birpay_id = models.IntegerField(unique=True, db_index=True)

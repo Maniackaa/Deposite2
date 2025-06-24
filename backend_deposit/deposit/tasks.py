@@ -556,18 +556,21 @@ def send_image_to_gpt_task(self, birpay_id):
 
             # Найдем подходящие смс:
             incomings = find_possible_incomings(order_amount, gpt_time_aware)
-            if incomings.count() == 1:
-                incoming = incomings.first()
-                logger.info(f'Cумма смс совпадает: Заказ - {order_amount}, смс - {incoming.pay}: {order_amount == incoming.pay}')
-                if order_amount == incoming.pay:
-                    gpt_imho_result |= BirpayOrder.GPTIMHO.sms_amount
-
+            incomings_with_correct_card_and_order_amount = []
+            for incoming in incomings:
                 # Проверим получателя
                 sms_recipient = incoming.recipient
                 recipient_is_correct = mask_compare(sms_recipient, gpt_recipient)
                 logger.info(f'маски равны? {sms_recipient} = {gpt_recipient}: {recipient_is_correct}')
-                if recipient_is_correct:
-                    gpt_imho_result |= BirpayOrder.GPTIMHO.sms_recipient
+                logger.info(f'Cумма подходит: order_amount {order_amount} == incoming.pay {incoming.pay}: {order_amount == incoming.pay}')
+                if recipient_is_correct and order_amount == incoming.pay:
+                    logger.info(f'Маска совпадает. Cумма смс совпадает: Заказ - {order_amount}, смс - {incoming.pay}: {order_amount == incoming.pay}')
+                    incomings_with_correct_card_and_order_amount.append(incoming)
+                else:
+                    logger.info(f'{incoming} не подходит')
+            if len(incomings_with_correct_card_and_order_amount) == 1:
+                # Найдена однозначная СМС
+                gpt_imho_result |= BirpayOrder.GPTIMHO.sms
             else:
                 logger.warning(f'Однозначная смс не найдена', exc_info=True)
 
