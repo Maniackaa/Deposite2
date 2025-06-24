@@ -106,7 +106,7 @@ def time_diff(ms, create_at):
 
 
 @register.filter
-def as_bin(value, bits=6):
+def as_bin(value, bits=5):
     try:
         value = format(int(value), f'0{bits}b')
         return value[::-1]
