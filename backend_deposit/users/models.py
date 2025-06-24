@@ -1,6 +1,7 @@
 from django.apps import apps
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.postgres.fields import ArrayField
 from django.core.mail import send_mail
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin, Group
@@ -116,6 +117,7 @@ class Profile(models.Model):
     my_filter2 = models.JSONField('Фильтр по получателю2', default=list, blank=True)
     my_filter3 = models.JSONField('Фильтр по получателю3', default=list, blank=True)
     view_bad_warning = models.BooleanField(default=False)
+    assigned_card_numbers = ArrayField(models.CharField(max_length=32), blank=True, default=list)
 
     @staticmethod
     def all_message_count():

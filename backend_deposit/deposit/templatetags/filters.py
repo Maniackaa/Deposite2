@@ -112,3 +112,9 @@ def as_bin(value, bits=6):
         return value[::-1]
     except Exception:
         return ''
+
+
+@register.filter
+def join_newline(cards):
+    """ Превращает список в многострочную строку с реальными переводами строки """
+    return '\n'.join(cards)

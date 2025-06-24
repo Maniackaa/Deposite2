@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+    {% load filters %}
+    {% include 'includes/operator_menu.html' %}
+<div class="container mt-5" style="max-width: 480px;">
+  <h3>Назначение карт оператору</h3>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn btn-primary" type="submit">Сохранить</button>
+  </form>
+
+  {% if selected_user and assigned_cards %}
+    <hr>
+
+    <script>
+      function copyAssignedCards() {
+        var textarea = document.getElementById("assigned-cards-list");
+        textarea.select();
+        document.execCommand("copy");
+        textarea.blur();
+      }
+    </script>
+  {% endif %}
+
+  <hr>
+  <h5 class="mt-4">Все операторы и их назначенные карты:</h5>
+  <table class="table table-bordered table-sm align-middle">
+    <thead>
+      <tr>
+        <th>Оператор</th>
+        <th>Карты</th>
+        <th>Скопировать</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user, cards in users_cards %}
+        <tr>
+          <td>{{ user.get_full_name|default:user.username }}</td>
+          <td>
+            {% if cards %}
+<textarea class="form-control" rows="2" readonly id="user-cards-{{ user.id }}" style="font-family:monospace">{{ cards|join_newline }}</textarea>
+            {% else %}
+              <span class="text-muted">Нет назначенных</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if cards %}
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyUserCards({{ user.id }})">Скопировать</button>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <script>
+    function copyUserCards(userId) {
+      var textarea = document.getElementById("user-cards-" + userId);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.blur();
+    }
+  </script>
+</div>
+{% endblock %}

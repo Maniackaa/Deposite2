@@ -8,6 +8,7 @@ import structlog
 from colorfield.fields import ColorField
 from django import forms
 from django.contrib.admin import widgets
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import connection
 from django.db.models import Subquery, Q
@@ -18,7 +19,8 @@ from .models import Deposit, Incoming, ColorBank, BadScreen
 from .widgets import MinimalSplitDateTimeMultiWidget
 
 logger = structlog.get_logger('deposit')
-err_log = structlog.get_logger('deposit')
+
+User = get_user_model()
 
 
 class DepositForm(forms.ModelForm):
@@ -136,8 +138,7 @@ def get_choice(recepient_type='phone'):
                     result.append((incoming['recipient'], incoming['recipient']))
         return result
     except Exception as err:
-        logger.error(err)
-        err_log.error(err, exc_info=True)
+        logger.error(err, exc_info=True)
         return []
 
 
@@ -222,3 +223,21 @@ class CheckScreenForm(forms.Form):
 
     class Meta:
         fields = ('screen', )
+
+
+class AssignCardsToUserForm(forms.Form):
+    user = forms.ModelChoiceField(
+        queryset=User.objects.filter(is_staff=True),
+        label="Оператор"
+    )
+    assigned_card_numbers = forms.CharField(
+        label="Назначенные карты",
+        widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        help_text="Введите номера карт через запятую или с новой строки."
+    )
+
+    def clean_assigned_card_numbers(self):
+        data = self.cleaned_data['assigned_card_numbers']
+        # Всегда возвращаем список
+        cards = [c.strip() for c in data.replace('\n', ',').split(',') if c.strip()]
+        return cards

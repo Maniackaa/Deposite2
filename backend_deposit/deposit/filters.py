@@ -96,11 +96,26 @@ class BirpayPanelFilter(django_filters.FilterSet):
         fields = ['card_number', 'status']
 
     def __init__(self, *args, **kwargs):
+        self.user_card_numbers = kwargs.pop('user_card_numbers', [])
         super().__init__(*args, **kwargs)
-        # cards = BirpayOrder.objects.order_by().filter(sended_at__gte=timezone.now() - timedelta(days=5)).values_list('card_number', flat=True).distinct()
-        cards = self.queryset.order_by().values_list(
-            'card_number', flat=True).distinct()
-        self.filters['card_number'].field.choices = [(card, card) for card in cards if card]
+        self.filters['card_number'].field.choices = [(card, card) for card in self.user_card_numbers]
+
+
+class StaffCardBirpayPanelFilter(django_filters.FilterSet):
+    card_number = django_filters.MultipleChoiceFilter(widget=forms.SelectMultiple(attrs={'class': 'form-control'}))
+    status = django_filters.MultipleChoiceFilter(
+        choices=[(0, 'pending'), (1, 'approve')],
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    class Meta:
+        model = BirpayOrder
+        fields = ['card_number', 'status']
+
+    def __init__(self, *args, **kwargs):
+        self.user_card_numbers = kwargs.pop('user_card_numbers', [])
+        super().__init__(*args, **kwargs)
+        self.filters['card_number'].field.choices = [(card, card) for card in self.user_card_numbers]
 
 
 class BirpayOrderFilter(django_filters.FilterSet):

@@ -9,6 +9,8 @@ import pytz
 import structlog
 from asgiref.sync import async_to_sync
 from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import user_passes_test, login_required
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models.functions import Lag
@@ -36,7 +38,7 @@ from deposit import tasks
 from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrderFilter, BirpayPanelFilter
 from deposit.forms import (ColorBankForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm, DepositForm,
-                           DepositTransactionForm, DepositImageForm, DepositEditForm)
+                           DepositTransactionForm, DepositImageForm, DepositEditForm,                            AssignCardsToUserForm)
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data, \
@@ -47,7 +49,9 @@ from deposit.models import Incoming, TrashIncoming, IncomingChange, Message, \
     MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder, Deposit
 
 logger = structlog.get_logger('deposit')
-err_log = structlog.get_logger('deposit')
+
+
+User = get_user_model()
 
 
 @staff_member_required(login_url='users:login')
@@ -1136,6 +1140,77 @@ class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
         context['duplicates'] = duplicates
         return context
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)  # Или любая ваша проверка прав
+def assign_cards_to_user(request):
+    assigned_cards = []
+    selected_user = None
+
+    User = get_user_model()
+
+    if request.method == 'POST':
+        form = AssignCardsToUserForm(request.POST)
+        if form.is_valid():
+            selected_user = form.cleaned_data['user']
+            cards_list = form.cleaned_data['assigned_card_numbers']
+            profile = selected_user.profile
+            profile.assigned_card_numbers = cards_list  # Для ArrayField — это список!
+            profile.save()
+            assigned_cards = cards_list
+            messages.success(request, f"Карты назначены для {selected_user.username}")
+        else:
+            selected_user = form.cleaned_data.get('user', None)
+            if selected_user:
+                profile = selected_user.profile
+                cards = profile.assigned_card_numbers or []
+                # На случай, если поле — строка
+                if isinstance(cards, str):
+                    cards = [x.strip() for x in cards.split(',') if x.strip()]
+                assigned_cards = cards
+    else:
+        form = AssignCardsToUserForm()
+        user_id = request.GET.get('user_id')
+        if user_id:
+            try:
+                selected_user = User.objects.get(pk=user_id, is_staff=True)
+                profile = selected_user.profile
+                cards = profile.assigned_card_numbers or []
+                if isinstance(cards, str):
+                    cards = [x.strip() for x in cards.split(',') if x.strip()]
+                assigned_cards = cards
+                form = AssignCardsToUserForm(initial={
+                    'user': selected_user,
+                    'assigned_card_numbers': '\n'.join(assigned_cards),
+                })
+            except User.DoesNotExist:
+                pass
+
+    # Формируем таблицу всех staff-юзеров и их назначенных карт
+    staff_users = User.objects.filter(is_staff=True).select_related('profile')
+    users_cards = []
+    for user in staff_users:
+        profile = getattr(user, 'profile', None)
+        cards = []
+        if profile:
+            cards = profile.assigned_card_numbers or []
+            if isinstance(cards, str):
+                cards = [x.strip() for x in cards.split(',') if x.strip()]
+        users_cards.append((user, cards))
+
+    return render(request, 'deposit/assign_cards_to_user.html', {
+        'form': form,
+        'assigned_cards': assigned_cards,
+        'selected_user': selected_user,
+        'users_cards': users_cards,
+    })
+
+def get_user_card_numbers(user):
+    profile = getattr(user, 'profile', None)
+    if not profile or not profile.assigned_card_numbers:
+        return []
+    return profile.assigned_card_numbers
+
+
 class BirpayPanelView(StaffOnlyPerm, ListView):
     template_name = 'deposit/birpay_panel.html'
     paginate_by = 100
@@ -1143,12 +1218,13 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
     filterset_class = BirpayPanelFilter
 
     def get_queryset(self):
+        user_card_numbers = get_user_card_numbers(self.request.user)
         now = timezone.now()
         if settings.DEBUG:
             threshold = now - datetime.timedelta(days=5)
         else:
             threshold = now - datetime.timedelta(minutes=30)
-        qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal=0).order_by('-created_at')
+        qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal=0, card_number__in=user_card_numbers).order_by('-created_at')
         incoming_qs = Incoming.objects.filter(
             birpay_id=OuterRef('merchant_transaction_id')
         ).order_by('-register_date')
@@ -1161,7 +1237,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             incoming_id=Subquery(incoming_qs.values('id')[:1]),
             incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
         )
-        self.filterset = BirpayPanelFilter(self.request.GET, queryset=qs)
+        self.filterset = BirpayPanelFilter(self.request.GET, queryset=qs, user_card_numbers=user_card_numbers)
         return self.filterset.qs
 
     def get_context_data(self, **kwargs):
