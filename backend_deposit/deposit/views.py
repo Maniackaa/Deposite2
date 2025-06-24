@@ -1404,7 +1404,7 @@ def show_birpay_order_log(request, query_string):
                 f'#!/bin/sh\n'
                 f'cat logs/deposit.log | grep {str(query_string)}'
             )
-        command = ["bash", "bashtest.sh"]
+        command = ["bash", "bash_request.sh"]
         process = Popen(command, stdout=PIPE, stderr=STDOUT)
         output = process.stdout.read()
         exitstatus = process.poll()

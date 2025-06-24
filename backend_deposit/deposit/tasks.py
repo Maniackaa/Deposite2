@@ -562,13 +562,13 @@ def send_image_to_gpt_task(self, birpay_id):
                 # Проверим получателя
                 sms_recipient = incoming.recipient
                 recipient_is_correct = mask_compare(sms_recipient, gpt_recipient)
-                logger.info(f'маски равны? {sms_recipient} = {gpt_recipient}: {recipient_is_correct}')
-                logger.info(f'Cумма подходит: order_amount {order_amount} == incoming.pay {incoming.pay}: {order_amount == incoming.pay}')
+                logger.info(f'маски равны? {recipient_is_correct}. {sms_recipient} и {gpt_recipient} ')
+                logger.info(f'Cумма подходит {incoming.pay}: {order_amount == incoming.pay}:{order_amount} и {incoming.pay}')
                 if recipient_is_correct and order_amount == incoming.pay:
-                    logger.info(f'Маска совпадает. Cумма смс совпадает: Заказ - {order_amount}, смс - {incoming.pay}: {order_amount == incoming.pay}')
+                    logger.info(f'Маска и сумма совпадает: {order_amount} и {incoming.pay}')
                     incomings_with_correct_card_and_order_amount.append(incoming)
                 else:
-                    logger.info(f'{incoming} не подходит')
+                    logger.info(f'Смс не подходит: {incoming}')
             if len(incomings_with_correct_card_and_order_amount) == 0:
                 logger.info(f'Ни одна смс не подходит')
             if len(incomings_with_correct_card_and_order_amount) == 1:
