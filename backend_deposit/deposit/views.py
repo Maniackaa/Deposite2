@@ -1186,7 +1186,7 @@ def assign_cards_to_user(request):
                 pass
 
     # Формируем таблицу всех staff-юзеров и их назначенных карт
-    staff_users = User.objects.filter(is_staff=True).select_related('profile')
+    staff_users = User.objects.filter(is_staff=True, role='staff', is_active=True).select_related('profile')
     users_cards = []
     for user in staff_users:
         profile = getattr(user, 'profile', None)
