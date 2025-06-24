@@ -1141,7 +1141,7 @@ class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
         return context
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)  # Или любая ваша проверка прав
+@user_passes_test(lambda u: u.is_staff)  # Или любая ваша проверка прав
 def assign_cards_to_user(request):
     assigned_cards = []
     selected_user = None
