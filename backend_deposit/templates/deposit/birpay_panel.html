@@ -74,7 +74,8 @@
     </tbody>
 </table>
 {% endif %}
-
+<label><b>Выбранные карты:</b></label>
+<span style="font-family:monospace">{{ selected_card_numbers|join:", " }}</span>
     {% include 'includes/paginator.html' %}
 
     <div class="row">
@@ -118,6 +119,7 @@
                         {% for status in statuses %}
                             <input type="hidden" name="status" value="{{ status }}">
                         {% endfor %}
+                        <input type="hidden" name="only_my" value="{{ only_my }}">
                         {% csrf_token %}
                         <td>
                             <input size="5" name="orderamount_{{ order.id }}" value="{{ order.amount }}">

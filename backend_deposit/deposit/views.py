@@ -1145,7 +1145,7 @@ class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
 def assign_cards_to_user(request):
     assigned_cards = []
     selected_user = None
-
+    only_my = bool(request.GET.get('only_my'))
     User = get_user_model()
 
     if request.method == 'POST':
@@ -1195,14 +1195,24 @@ def assign_cards_to_user(request):
             cards = profile.assigned_card_numbers or []
             if isinstance(cards, str):
                 cards = [x.strip() for x in cards.split(',') if x.strip()]
-        users_cards.append((user, cards))
+
+        if only_my:
+            # Показывать только назначенные карты для ТЕКУЩЕГО пользователя
+            if user == request.user:
+                users_cards.append((user, cards))
+        else:
+            # Показывать все карты, как раньше
+            users_cards.append((user, cards))
 
     return render(request, 'deposit/assign_cards_to_user.html', {
         'form': form,
         'assigned_cards': assigned_cards,
         'selected_user': selected_user,
         'users_cards': users_cards,
+        'only_my': only_my,
     })
+
+
 
 def get_user_card_numbers(user):
     profile = getattr(user, 'profile', None)
@@ -1218,13 +1228,13 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
     filterset_class = BirpayPanelFilter
 
     def get_queryset(self):
-        user_card_numbers = get_user_card_numbers(self.request.user)
         now = timezone.now()
         if settings.DEBUG:
             threshold = now - datetime.timedelta(days=5)
         else:
             threshold = now - datetime.timedelta(minutes=30)
-        qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal=0, card_number__in=user_card_numbers).order_by('-created_at')
+        qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal=0).order_by('-created_at')
+
         incoming_qs = Incoming.objects.filter(
             birpay_id=OuterRef('merchant_transaction_id')
         ).order_by('-register_date')
@@ -1237,7 +1247,13 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             incoming_id=Subquery(incoming_qs.values('id')[:1]),
             incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
         )
-        self.filterset = BirpayPanelFilter(self.request.GET, queryset=qs, user_card_numbers=user_card_numbers)
+        user_card_numbers = get_user_card_numbers(self.request.user)
+        self.filterset = BirpayPanelFilter(
+            self.request.GET,
+            queryset=qs,
+            request=self.request,
+            user_card_numbers=user_card_numbers
+        )
         return self.filterset.qs
 
     def get_context_data(self, **kwargs):
@@ -1249,6 +1265,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         context["incomings"] = incomings
         context['selected_card_numbers'] = self.request.GET.getlist('card_number')
         context['statuses'] = self.request.GET.getlist('status')
+        context['only_my'] = self.request.GET.getlist('only_my')
         logger.info(self.request.GET.getlist('card_number'))
         logger.info(self.request.GET.getlist('status'))
 
@@ -1257,10 +1274,17 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
     def post(self, request, *args, **kwargs):
         # исходный URL
         query = []
-        for number in request.POST.getlist('card_number'):
-            query.append(f"card_number={number}")
-        for status in request.POST.getlist('status'):
-            query.append(f"status={status}")
+        filter_keys = ['card_number', 'status', 'only_my']
+        logger.info(f'{request.POST.dict()}')
+        for key in filter_keys:
+            for value in request.POST.getlist(key):
+                query.append(f"{key}={value}")
+
+
+        # for number in request.POST.getlist('card_number'):
+        #     query.append(f"card_number={number}")
+        # for status in request.POST.getlist('status'):
+        #     query.append(f"status={status}")
         query_string = '&'.join(query)
 
         try:

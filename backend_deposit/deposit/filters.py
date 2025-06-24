@@ -85,20 +85,56 @@ class MyTimeInput(DateTimeInput):
     input_type = 'datetime-local'
 
 
+
+def get_user_card_numbers(user):
+    profile = getattr(user, 'profile', None)
+    if not profile or not profile.assigned_card_numbers:
+        return []
+    return profile.assigned_card_numbers
+
 class BirpayPanelFilter(django_filters.FilterSet):
-    card_number = django_filters.MultipleChoiceFilter(widget=forms.SelectMultiple(attrs={'class': 'form-control'}))
-    status = django_filters.MultipleChoiceFilter(choices=[(0, 'pending'), (1, 'approve')],
+    card_number = django_filters.MultipleChoiceFilter(
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'})
+    )
+    only_my = django_filters.BooleanFilter(
+        label='Показывать только мои',
+        method='filter_only_my',
+        widget=forms.CheckboxInput(),
+    )
+    status = django_filters.MultipleChoiceFilter(
+        choices=[(0, 'pending'), (1, 'approve')],
         widget=forms.CheckboxSelectMultiple,
+        label='Статус на сервере birpay'
     )
 
     class Meta:
         model = BirpayOrder
-        fields = ['card_number', 'status']
+        fields = ['card_number', 'only_my', 'status', ]
 
     def __init__(self, *args, **kwargs):
-        self.user_card_numbers = kwargs.pop('user_card_numbers', [])
+        request = kwargs.pop('request', None)
+        user_card_numbers = kwargs.pop('user_card_numbers', None)
         super().__init__(*args, **kwargs)
-        self.filters['card_number'].field.choices = [(card, card) for card in self.user_card_numbers]
+        self.request = request
+        self.user_card_numbers = user_card_numbers
+        only_my_val = ''
+        if self.request:
+            only_my_val = self.request.GET.get('only_my')
+        if only_my_val and self.user_card_numbers:
+            cards = self.user_card_numbers
+        else:
+            cards = self.queryset.order_by().values_list('card_number', flat=True).distinct()
+        self.filters['card_number'].field.choices = [(card, card) for card in cards if card]
+
+    def filter_only_my(self, queryset, name, value):
+        if value and self.request:
+            user_card_numbers = get_user_card_numbers(self.request.user)
+            if user_card_numbers:
+                return queryset.filter(card_number__in=user_card_numbers)
+            else:
+                return queryset.none()
+        return queryset
+
 
 
 class StaffCardBirpayPanelFilter(django_filters.FilterSet):
