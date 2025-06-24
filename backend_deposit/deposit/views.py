@@ -1389,3 +1389,33 @@ def test(request):
     send_image_to_gpt_task(order.birpay_id)
 
     return HttpResponse(f'{result}')
+
+
+@staff_member_required()
+def show_birpay_order_log(request, query_string):
+    from subprocess import PIPE, STDOUT, Popen
+    if not request.user.is_superuser:
+        return HttpResponseBadRequest()
+
+    if request.method == 'GET':
+        output_text = ''
+        with open('bash_request.sh', 'w', encoding='UTF-8') as file:
+            file.write(
+                f'#!/bin/sh\n'
+                f'cat logs/deposit.log | grep {str(query_string)}'
+            )
+        command = ["bash", "bashtest.sh"]
+        process = Popen(command, stdout=PIPE, stderr=STDOUT)
+        output = process.stdout.read()
+        exitstatus = process.poll()
+        txt = output.decode()
+        txt = txt.replace('\n', '<br>')
+        output_text += txt
+        output_text += '<br><br>'
+
+        import ansiconv
+        plain = ansiconv.to_plain(output_text)
+        html = ansiconv.to_html(output_text)
+        css = ansiconv.base_css()
+        html_log = f'<html><head><style>{css}</style></head><body style="background: black"><pre class="ansi_fore ansi_back">{html}</pre></body></html>'
+        return HttpResponse(html_log)

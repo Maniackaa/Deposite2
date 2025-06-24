@@ -80,7 +80,7 @@
                     <th>Raw Data</th>
                     <th>GPT Data</th>
                     <th><span title="Время | карта | сумма | смс одна | подтвердил бы">GPT res</span></th>
-                    <th>RRR</th>
+                    <th>⏬</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,7 +115,8 @@
                     <td>{{ order.gpt_data }}</td>
                     <td>{{ order.gpt_flags|as_bin }}</td>
                     <td>
-                        <a href="#" onclick="toggleRawData({{ order.birpay_id }}, this); return false;">RAW</a>
+                        <a href="#" onclick="toggleRawData({{ order.birpay_id }}, this); return false;">⏬</a>
+                        <a href="{% url 'deposit:show_birpay_order_log' order.birpay_id %}" target="_blank">лог</a>
                     </td>
 
                 </tr>

@@ -382,7 +382,7 @@ def send_new_transactions_from_birpay_to_asu():
     return results
 
 
-@shared_task(prority=2, timeout=15)
+@shared_task(prority=2, timeout=20)
 def download_birpay_check_file(order_id, check_file_url):
     bind_contextvars(birpay_order_id=order_id)
     from deposit.models import BirpayOrder
@@ -480,6 +480,7 @@ def process_birpay_order(data):
 @shared_task(bind=True, max_retries=2)
 def send_image_to_gpt_task(self, birpay_id):
     logger = structlog.get_logger('deposit')
+    bind_contextvars(birpay_id=birpay_id)
     logger.info(f' send_image_to_gpt_task {birpay_id}')
     BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     try:
@@ -568,11 +569,14 @@ def send_image_to_gpt_task(self, birpay_id):
                     incomings_with_correct_card_and_order_amount.append(incoming)
                 else:
                     logger.info(f'{incoming} не подходит')
+            if len(incomings_with_correct_card_and_order_amount) == 0:
+                logger.info(f'Ни одна смс не подходит')
             if len(incomings_with_correct_card_and_order_amount) == 1:
                 # Найдена однозначная СМС
+                logger.info(f'Найдена однозначная СМС: {incomings_with_correct_card_and_order_amount[0]}')
                 gpt_imho_result |= BirpayOrder.GPTIMHO.sms
             else:
-                logger.warning(f'Однозначная смс не найдена', exc_info=True)
+                logger.info(f'Однозначная смс не найдена')
 
             result_str = ", ".join(
                 f"{flag.name}: {'✅ ' if flag in gpt_imho_result else '❌ '}"
