@@ -47,6 +47,7 @@ from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Incoming, TrashIncoming, IncomingChange, Message, \
     MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder, Deposit
+from users.models import Options
 
 logger = structlog.get_logger('deposit')
 
@@ -1033,12 +1034,9 @@ class BirpayOrderRawView(StaffOnlyPerm, DetailView):
         return context
 
 
-
-
-
 class BirpayOrderView(StaffOnlyPerm, ListView):
     model = BirpayOrder
-    template_name = 'deposit/birpay_orders.html'  # тот же шаблон
+    template_name = 'deposit/birpay_orders.html'
     paginate_by = 100
     filterset_class = BirpayOrderFilter
 
@@ -1062,12 +1060,16 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_form'] = self.filterset.form
+        gpt_auto_approve = Options.load().gpt_auto_approve
+        context['gpt_auto_approve'] = gpt_auto_approve
+        logger.info(f'gpt_auto_approve: {gpt_auto_approve}')
 
         show_stat = self.filterset.form.cleaned_data.get('show_stat')
         if show_stat:
             qs = self.filterset.qs
+            total_count = qs.count()
             stats = {
-                'total': qs.count(),
+                'total': total_count,
                 'with_incoming': qs.exclude(incoming_id__isnull=True).count(),
                 'sum_incoming_pay': qs.aggregate(sum=Sum('incoming_pay'))['sum'] or 0,
                 'sum_amount': qs.aggregate(sum=Sum('amount'))['sum'] or 0,
@@ -1075,8 +1077,10 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
                 'status_0': qs.filter(status=0).count(),
                 'status_1': qs.filter(status=1).count(),
                 'status_2': qs.filter(status=2).count(),
+                'gpt_approve': int(qs.filter(gpt_flags=31).count() / total_count * 100)
             }
             context['birpay_stats'] = stats
+
         for order in context['page_obj']:
             if hasattr(order, 'raw_data'):
                 try:
@@ -1279,12 +1283,6 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         for key in filter_keys:
             for value in request.POST.getlist(key):
                 query.append(f"{key}={value}")
-
-
-        # for number in request.POST.getlist('card_number'):
-        #     query.append(f"card_number={number}")
-        # for status in request.POST.getlist('status'):
-        #     query.append(f"status={status}")
         query_string = '&'.join(query)
 
         try:
@@ -1297,9 +1295,9 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             for name, value in post_data.items():
                 if name.startswith('orderconfirm'):
                     order_id = name.split('orderconfirm_')[1]
-                    icoming_id = value.strip()
+                    incoming_id = value.strip()
                     order = BirpayOrder.objects.get(pk=order_id)
-                    logger.info(f'Для {order} сохраняем {icoming_id}')
+                    logger.info(f'Для {order} сохраняем смс {incoming_id}')
                     bind_contextvars(birpay_id=order.birpay_id)
                 elif name.startswith('orderamount'):
                     new_amount = float(value)
@@ -1328,7 +1326,6 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                         messages.add_message(request, messages.ERROR, "Сумма не изменена")
 
             # Обработка действий
-            operator = self.request.user
             if action == 'hide':
                 order.status_internal = -2
                 update_fields.extend(['status_internal'])
@@ -1364,6 +1361,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                             order.status_internal = 1
 
                             with transaction.atomic():
+                                operator = self.request.user
                                 order.incomingsms_id = incoming_id
                                 order.confirmed_operator = operator
                                 order.save()
@@ -1419,3 +1417,5 @@ def show_birpay_order_log(request, query_string):
         css = ansiconv.base_css()
         html_log = f'<html><head><style>{css}</style></head><body style="background: black"><pre class="ansi_fore ansi_back">{html}</pre></body></html>'
         return HttpResponse(html_log)
+
+

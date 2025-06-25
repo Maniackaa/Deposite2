@@ -51,6 +51,8 @@
             <td>{{ birpay_stats.status_1 }}</td>
             <td><b>Статус 2</b></td>
             <td>{{ birpay_stats.status_2 }}</td>
+            <td><b>GPT%</b></td>
+            <td>{{ birpay_stats.gpt_approve }}</td>
         </tr>
     </tbody>
 </table>
@@ -79,7 +81,14 @@
                     <th>Чек</th>
                     <th>Raw Data</th>
                     <th>GPT Data</th>
-                    <th><span title="Время | карта | сумма | смс одна | подтвердил бы">GPT res</span></th>
+                    <th>
+                        <span title="Время | карта | сумма | смс одна | подтвердил бы">GPT res</span>
+                        {% if gpt_auto_approve %}
+                            <a href="{% url 'users:toggle_option' 'gpt_auto_approve' %}">🟢</a>
+                        {% else %}
+                            <a href="{% url 'users:toggle_option' 'gpt_auto_approve' %}">🔴</a>
+                        {% endif %}
+                    </th>
                     <th>⏬</th>
                 </tr>
             </thead>

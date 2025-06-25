@@ -184,6 +184,7 @@ def get_birpays(results=512) -> dict:
 
 
 def find_birpay_from_merch_transaction_id(merch_transaction_id, results=1):
+    # это выплаты payout
     merch_transaction_id = str(merch_transaction_id).strip()
     try:
         token = read_token()
@@ -365,15 +366,18 @@ async def main():
     token = get_new_token()
     print(token)
     #13691648
-    # birpay = find_birpay_from_id('45829239')
+    # birpay = find_birpay_from_id('888308930')
     # print(birpay)
     # t = find_birpay_from_merch_transaction_id(45829239)
     # pprint(t)
-    # t = find_birpay_from_merch_transaction_id(45829236)
+    # t = find_birpay_from_merch_transaction_id('889136356')
     # pprint(t)
     # withdraw_list = await get_birpay_withdraw(limit=10)
     # pprint(withdraw_list)
-    r = change_amount_birpay(pk=76417158, amount=15)
+    r = change_amount_birpay(pk=888308930, amount=1)
+    print(r.status_code)
+    print(r.text)
+    r = approve_birpay_refill(pk=888308930)
     print(r.status_code)
     print(r.text)
     # print(len(withdraw_list))

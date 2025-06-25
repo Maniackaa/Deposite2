@@ -52,6 +52,7 @@ urlpatterns = [
          PasswordResetCompleteView.as_view(
              template_name='users/password_reset_complete.html'),
          name='password_reset_complete'),
+    path('toggle_option/<str:value>/', views.toggle_option, name='toggle_option'),
 ]
 
 # path('reset_password/', auth_views.PasswordResetView.as_view(

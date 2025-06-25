@@ -68,7 +68,8 @@ urlpatterns = [
     path('birpay_panel/', views.BirpayPanelView.as_view(), name='birpay_panel'),
     path('assigned_cards/', views.assign_cards_to_user, name='assign_cards_to_user'),
     path('show_birpay_order_log/<str:query_string>/', views.show_birpay_order_log, name='show_birpay_order_log'),
-    ]
+]
+
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
