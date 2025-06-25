@@ -588,6 +588,7 @@ def send_image_to_gpt_task(self, birpay_id):
             # Сохранение данных
             order.gpt_processing = False
             order.gpt_flags = gpt_imho_result.value
+            Options = apps.get_model('users', 'Options')
             gpt_auto_approve = Options.load().gpt_auto_approve
             if gpt_auto_approve and order.gpt_flags == 31:
                 user_orders = BirpayOrder.objects.filter(merchant_user_id=order.merchant_user_id)
