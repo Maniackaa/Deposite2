@@ -590,14 +590,22 @@ def send_image_to_gpt_task(self, birpay_id):
             order.gpt_flags = gpt_imho_result.value
             gpt_auto_approve = Options.load().gpt_auto_approve
             if gpt_auto_approve and order.gpt_flags == 31:
-                # Автоматическое подтверждение
-                incoming_sms = incomings_with_correct_card_and_order_amount[0]
-                logger.info(
-                    f'Автоматическое подтверждение {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
-                order.incomingsms_id = incoming_sms.id
-                update_fields.append("incomingsms_id")
-                incoming_sms.birpay_id = order.merchant_transaction_id
-                incoming_sms.save()
+                user_orders = BirpayOrder.objects.filter(merchant_user_id=order.merchant_user_id)
+                total_user_orders = user_orders.count()
+                logger.info(f'total_orders: {total_user_orders}')
+                if total_user_orders >= 5:
+                    user_orders_1 = user_orders.filter(status=1).count()
+                    user_order_percent = round(user_orders_1 / total_user_orders * 100, 0)
+                    logger.info(f'user_order_percent: {user_order_percent}')
+                    if user_order_percent >= 20:
+                        # Автоматическое подтверждение
+                        incoming_sms = incomings_with_correct_card_and_order_amount[0]
+                        logger.info(
+                            f'Автоматическое подтверждение {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
+                        order.incomingsms_id = incoming_sms.id
+                        update_fields.append("incomingsms_id")
+                        incoming_sms.birpay_id = order.merchant_transaction_id
+                        incoming_sms.save()
             order.save(update_fields=update_fields)
 
         except ValueError as e:
