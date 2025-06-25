@@ -588,15 +588,15 @@ def send_image_to_gpt_task(self, birpay_id):
             # Сохранение данных
             order.gpt_processing = False
             order.gpt_flags = gpt_imho_result.value
-            if order.gpt_flags == 31:
-                # Автоматическое подтверждение
-                incoming_sms = incomings_with_correct_card_and_order_amount[0]
-                logger.info(
-                    f'Автоматическое подтверждение {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
-                order.incomingsms_id = incoming_sms.id
-                update_fields.append("incomingsms_id")
-                incoming_sms.birpay_id = order.merchant_transaction_id
-                incoming_sms.save()
+            # if order.gpt_flags == 31:
+            #     # Автоматическое подтверждение
+            #     incoming_sms = incomings_with_correct_card_and_order_amount[0]
+            #     logger.info(
+            #         f'Автоматическое подтверждение {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
+            #     order.incomingsms_id = incoming_sms.id
+            #     update_fields.append("incomingsms_id")
+            #     incoming_sms.birpay_id = order.merchant_transaction_id
+            #     incoming_sms.save()
             order.save(update_fields=update_fields)
 
         except ValueError as e:

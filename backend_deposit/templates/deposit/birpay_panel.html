@@ -119,7 +119,9 @@
                         {% for status in statuses %}
                             <input type="hidden" name="status" value="{{ status }}">
                         {% endfor %}
-                        <input type="hidden" name="only_my" value="{{ only_my }}">
+                    {% for my in only_my %}
+                        <input type="hidden" name="only_my" value="{{ my }}">
+                        {% endfor %}
                         {% csrf_token %}
                         <td>
                             <input size="5" name="orderamount_{{ order.id }}" value="{{ order.amount }}">

@@ -1149,7 +1149,7 @@ class BirpayOrderInfoView(StaffOnlyPerm, DetailView):
 def assign_cards_to_user(request):
     assigned_cards = []
     selected_user = None
-    only_my = bool(request.GET.get('only_my'))
+    only_my = bool(request.GET.get('only_my', ''))
     User = get_user_model()
 
     if request.method == 'POST':
@@ -1272,6 +1272,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         context['only_my'] = self.request.GET.getlist('only_my')
         logger.info(self.request.GET.getlist('card_number'))
         logger.info(self.request.GET.getlist('status'))
+        logger.info(self.request.GET.getlist('only_my'))
 
         return context
 
