@@ -590,7 +590,7 @@ def send_image_to_gpt_task(self, birpay_id):
             order.gpt_flags = gpt_imho_result.value
             Options = apps.get_model('users', 'Options')
             gpt_auto_approve = Options.load().gpt_auto_approve
-            if not order.is_moshennik and gpt_auto_approve and order.gpt_flags == 31:
+            if not order.is_moshennik() and gpt_auto_approve and order.gpt_flags == 31:
                 user_orders = BirpayOrder.objects.filter(merchant_user_id=order.merchant_user_id)
                 total_user_orders = user_orders.count()
                 logger.info(f'total_orders: {total_user_orders}')
@@ -613,13 +613,13 @@ def send_image_to_gpt_task(self, birpay_id):
                             text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
                             logger.warning(text)
                             send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
-            # if order.is_moshennik:
-            #     logger.info(f'Обработка мошенника')
-            #     if len(incomings_with_correct_card_and_order_amount) == 1:
-            #         incoming_sms = incomings_with_correct_card_and_order_amount[0]
-            #         incoming_sms.comment = f'Смс мошенника. birpay_id {order.birpay_id} Tx ID {order.merchant_transaction_id} UserID {order.merchant_user_id}'
-            #         incoming_sms.birpay_id = ''
-            #         incoming_sms.save()
+            if order.is_moshennik():
+                logger.info(f'Обработка мошенника')
+                if len(incomings_with_correct_card_and_order_amount) == 1:
+                    incoming_sms = incomings_with_correct_card_and_order_amount[0]
+                    incoming_sms.comment = f'Смс мошенника. birpay_id {order.birpay_id} Tx ID {order.merchant_transaction_id} UserID {order.merchant_user_id}'
+                    incoming_sms.birpay_id = ''
+                    incoming_sms.save()
 
             order.save(update_fields=update_fields)
 

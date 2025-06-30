@@ -1376,11 +1376,13 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         except Exception as e:
             logger.error(e, exc_info=True)
             return HttpResponseBadRequest(content=f'Ошибка при обработке заявки: {e}')
+@staff_member_required()
 def test(request):
     options = Options.load()
     birpay_moshennik_list = options.birpay_moshennik_list
     form = MoshennikListForm(request.POST)
-
+    b = BirpayOrder.objects.first()
+    logger.info(f'{b.is_moshennik()}')
     if request.method == 'POST':
         if form.is_valid():
             m_list = form.cleaned_data['moshennik_list']
