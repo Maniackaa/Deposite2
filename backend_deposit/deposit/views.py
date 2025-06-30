@@ -38,7 +38,8 @@ from deposit import tasks
 from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrderFilter, BirpayPanelFilter
 from deposit.forms import (ColorBankForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm, DepositForm,
-                           DepositTransactionForm, DepositImageForm, DepositEditForm,                            AssignCardsToUserForm)
+                           DepositTransactionForm, DepositImageForm, DepositEditForm, AssignCardsToUserForm,
+                           MoshennikListForm)
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data, \
@@ -1376,19 +1377,37 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             logger.error(e, exc_info=True)
             return HttpResponseBadRequest(content=f'Ошибка при обработке заявки: {e}')
 def test(request):
-    result = {}
-    result = refresh_birpay_data()
-    # result = send_image_to_gpt_task(74859142)
-    order = BirpayOrder.objects.get(merchant_transaction_id=885946180)
-    # result = order.gpt_data
-    # order = BirpayOrder.objects.first()
+    options = Options.load()
+    birpay_moshennik_list = options.birpay_moshennik_list
+    form = MoshennikListForm(request.POST)
 
-    logger.info(f'{order.birpay_id}')
-    download_birpay_check_file(order.id, order.check_file_url)
-    send_image_to_gpt_task(order.birpay_id)
+    if request.method == 'POST':
+        if form.is_valid():
+            m_list = form.cleaned_data['moshennik_list']
+            logger.info(f'{m_list} {type(m_list)}')
+            options.birpay_moshennik_list = m_list
+            options.save(update_fields=['birpay_moshennik_list'])
+    else:
+        form = MoshennikListForm(initial={'moshennik_list': '\n'.join(birpay_moshennik_list)})
+    context = {'form': form}
+    return render(request=request, template_name='deposit/moshennik_list.html', context=context)
 
-    return HttpResponse(f'{result}')
+@staff_member_required()
+def moshennik_list(request):
+    options = Options.load()
+    birpay_moshennik_list = options.birpay_moshennik_list
+    form = MoshennikListForm(request.POST)
 
+    if request.method == 'POST':
+        if form.is_valid():
+            m_list = form.cleaned_data['moshennik_list']
+            logger.info(f'{m_list} {type(m_list)}')
+            options.birpay_moshennik_list = m_list
+            options.save(update_fields=['birpay_moshennik_list'])
+    else:
+        form = MoshennikListForm(initial={'moshennik_list': '\n'.join(birpay_moshennik_list)})
+    context = {'form': form}
+    return render(request=request, template_name='deposit/moshennik_list.html', context=context)
 
 @staff_member_required()
 def show_birpay_order_log(request, query_string):

@@ -108,7 +108,13 @@
                     <td>{{ order.amount }}</td>
                     <td>{{ order.card_number }}</td>
                     <td>{{ order.merchant_name }}</td>
-                    <td>{{ order.merchant_user_id }}</td>
+                    <td>
+                        {% if order.is_moshennik%}
+                            <span style="background: red">{{ order.merchant_user_id }}</span>
+                        {% else %}
+                            {{ order.merchant_user_id }}
+                        {% endif %}
+                    </td>
                     <td>{{ order.customer_name }}</td>
                     <td>{{ order.operator|default_if_none:"" }}</td>
                     <td>

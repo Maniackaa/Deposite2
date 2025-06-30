@@ -241,3 +241,18 @@ class AssignCardsToUserForm(forms.Form):
         # Всегда возвращаем список
         cards = [c.strip() for c in data.replace('\n', ',').split(',') if c.strip()]
         return cards
+
+
+
+class MoshennikListForm(forms.Form):
+    moshennik_list = forms.CharField(
+        label="Список мошенников",
+        widget=forms.Textarea(attrs={'rows': 30, 'class': 'form-control'}),
+        help_text="Втавьте список мошенников через запятую или с новой строки."
+    )
+
+    def clean_moshennik_list(self):
+        data = self.cleaned_data['moshennik_list']
+        # Всегда возвращаем список
+        result = [c.strip() for c in data.replace('\n', ',').split(',') if c.strip()]
+        return result

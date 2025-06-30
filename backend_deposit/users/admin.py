@@ -109,6 +109,7 @@ class OptionsAdmin(admin.ModelAdmin):
     list_display = ('id', 'birpay_check')
 
 
+
 admin.site.register(User, UserAdmin)
 admin.site.register(Profile, ProfileAdmin)
 admin.site.register(Options, OptionsAdmin)

@@ -9,7 +9,7 @@
 
         <div class="card row" style=""><b>Обновлено:</b><br>{{ object.updated_at|date:"Y-m-d H:i:s" }}</div>
         <div class="card row" style="">
-            <b>UserId: {{ object.merchant_user_id }}</b><br>
+            <b>UserId: {{ object.merchant_user_id }}</b>{% if object.is_moshennik%}<span style="background: red">Мошенник</span>{% endif %}<br>
             {{ object.customer_name }}<br>
             Апрув {{ object.user_order_percent }}%: {{ object.user_orders_1 }}/{{ object.total_orders }}
         </div>

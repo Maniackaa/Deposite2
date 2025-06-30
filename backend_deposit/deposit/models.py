@@ -430,6 +430,11 @@ class BirpayOrder(models.Model):
         except Exception:
             pass
 
+    def is_moshennik(self):
+        options = Options.load()
+        birpay_moshennik_list = options.birpay_moshennik_list
+        return self.merchant_user_id in birpay_moshennik_list
+
 
 # @receiver(post_save, sender=BirpayOrder)
 # def after_save_birpay_order(sender, instance: BirpayOrder, **kwargs):
