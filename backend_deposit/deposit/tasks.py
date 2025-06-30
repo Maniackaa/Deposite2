@@ -18,7 +18,7 @@ from django.utils.dateparse import parse_datetime
 from urllib3 import Retry, PoolManager
 
 from core.asu_pay_func import create_payment, send_card_data, send_sms_code, create_asu_withdraw
-from core.birpay_func import get_birpay_withdraw, find_birpay_from_id, get_birpays
+from core.birpay_func import get_birpay_withdraw, find_birpay_from_id, get_birpays, approve_birpay_refill
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ, Timer, mask_compare
 from deposit.func import find_possible_incomings
@@ -607,6 +607,12 @@ def send_image_to_gpt_task(self, birpay_id):
                         update_fields.append("incomingsms_id")
                         incoming_sms.birpay_id = order.merchant_transaction_id
                         incoming_sms.save()
+                        # Апрувнем заявку
+                        response = approve_birpay_refill(pk=order.birpay_id)
+                        if response.status_code != 200:
+                            text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
+                            logger.warning(text)
+                            send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
             order.save(update_fields=update_fields)
 
         except ValueError as e:

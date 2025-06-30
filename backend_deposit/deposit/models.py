@@ -397,7 +397,7 @@ class BirpayOrder(models.Model):
     birpay_id = models.IntegerField(unique=True, db_index=True)
     sended_at = models.DateTimeField(verbose_name='Создалась у нас', auto_now_add=True, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(db_index=True)
-    updated_at = models.DateTimeField()
+    updated_at = models.DateTimeField(db_index=True)
     merchant_transaction_id = models.CharField(max_length=16, db_index=True)
     merchant_user_id = models.CharField(max_length=16, db_index=True)
     merchant_name = models.CharField(max_length=64, null=True, blank=True)
