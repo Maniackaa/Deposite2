@@ -1388,7 +1388,7 @@ def test(request):
     context = {}
     return render(request=request, template_name='deposit/moshennik_list.html', context=context)
 
-class BirpayUserStatView(TemplateView):
+class BirpayUserStatView(StaffOnlyPerm, TemplateView):
     template_name = 'deposit/birpay_user_stats.html'
 
     def get_context_data(self, **kwargs):
