@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Статистика по merchant_user_id</h2>
+<table class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>merchant_user_id</th>
+            <th>Дата последней записи</th>
+            <th>Общее количество записей</th>
+            <th>Количество status=1</th>
+            <th>Уникальных карт</th>
+            <th>Список уникальных карт (sender)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in stats %}
+        <tr>
+            <td>{{ row.merchant_user_id }}</td>
+            <td>{{ row.last_date }}</td>
+            <td>{{ row.total_count }}</td>
+            <td>{{ row.status1_count }}</td>
+            <td>{{ row.uniq_card_count }}</td>
+            <td>
+                {% for card in row.unique_cards %}
+                    <div>{{ card }}</div>
+                {% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -525,6 +525,7 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_amount = float(gpt_data.get('amount', 0))
             gpt_status = gpt_data.get('status', 0)
             gpt_recipient = gpt_data.get('recipient', '')
+            gpt_sender = gpt_data.get('gpt_sender', '')
             gpt_time_str = gpt_data.get('create_at')
             if not gpt_time_str:
                 gpt_time_str = '2000-01-01T00:00:00'
@@ -584,9 +585,10 @@ def send_image_to_gpt_task(self, birpay_id):
                 for flag in BirpayOrder.GPTIMHO)
             logger.info(f'gpt_imho_result: {result_str}')
 
-            update_fields = ["gpt_processing", "gpt_data", "gpt_flags"]
+            update_fields = ["gpt_processing", "gpt_data", "gpt_flags", "sender"]
             # Сохранение данных
             order.gpt_processing = False
+            order.sender = gpt_sender
             order.gpt_flags = gpt_imho_result.value
             Options = apps.get_model('users', 'Options')
             gpt_auto_approve = Options.load().gpt_auto_approve

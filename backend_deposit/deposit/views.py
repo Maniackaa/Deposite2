@@ -19,12 +19,13 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count, Subquery, ExpressionWrapper, FloatField
+from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count, Subquery, ExpressionWrapper, FloatField, \
+    Max
 from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView, TemplateView
 from rest_framework.views import APIView
 from structlog.contextvars import bind_contextvars
 
@@ -1238,7 +1239,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             threshold = now - datetime.timedelta(days=5)
         else:
             threshold = now - datetime.timedelta(minutes=30)
-        qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal=0).order_by('-created_at')
+        qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal__in=[0, 1]).order_by('-created_at')
 
         incoming_qs = Incoming.objects.filter(
             birpay_id=OuterRef('merchant_transaction_id')
@@ -1264,10 +1265,10 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_form'] = self.filterset.form
-        now = timezone.now()
-        threshold = now - datetime.timedelta(minutes=30)
-        incomings = Incoming.objects.filter(birpay_id__isnull=True, register_date__gte=threshold).order_by('-register_date')[:50]
-        context["incomings"] = incomings
+        # now = timezone.now()
+        # threshold = now - datetime.timedelta(minutes=30)
+        # incomings = Incoming.objects.filter(birpay_id__isnull=True, register_date__gte=threshold).order_by('-register_date')[:50]
+        # context["incomings"] = incomings
         context['selected_card_numbers'] = self.request.GET.getlist('card_number')
         context['statuses'] = self.request.GET.getlist('status')
         context['only_my'] = self.request.GET.getlist('only_my')
@@ -1379,20 +1380,57 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
 @staff_member_required()
 def test(request):
     options = Options.load()
-    birpay_moshennik_list = options.birpay_moshennik_list
-    form = MoshennikListForm(request.POST)
-    b = BirpayOrder.objects.first()
-    logger.info(f'{b.is_moshennik()}')
-    if request.method == 'POST':
-        if form.is_valid():
-            m_list = form.cleaned_data['moshennik_list']
-            logger.info(f'{m_list} {type(m_list)}')
-            options.birpay_moshennik_list = m_list
-            options.save(update_fields=['birpay_moshennik_list'])
-    else:
-        form = MoshennikListForm(initial={'moshennik_list': '\n'.join(birpay_moshennik_list)})
-    context = {'form': form}
+    o = BirpayOrder.objects.first()
+    u_orders = BirpayOrder.objects.filter(merchant_user_id=o.merchant_user_id, card_number__isnull=False)
+    logger.info(f'Всего: {u_orders.count()}')
+    for u in u_orders:
+        logger.info(f'{u.card_number}')
+    context = {}
     return render(request=request, template_name='deposit/moshennik_list.html', context=context)
+
+class BirpayUserStatView(TemplateView):
+    template_name = 'deposit/birpay_user_stats.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        stats = []
+
+        senders_dict = {}
+
+        # Только те, у кого gpt_data — dict, и есть ключ sender, и он не пустой
+        orders = BirpayOrder.objects.exclude(gpt_data={}).only('merchant_user_id', 'gpt_data')
+        for order in orders:
+            gpt = order.gpt_data
+            gpt_sender = None
+            if isinstance(gpt, dict):
+                gpt_sender = gpt.get('sender')
+            if gpt_sender:  # != None, != ''
+                senders_dict.setdefault(order.merchant_user_id, set()).add(gpt_sender)
+
+        filtered_user_ids = list(senders_dict.keys())
+
+        if filtered_user_ids:
+            qs = (
+                BirpayOrder.objects.filter(merchant_user_id__in=filtered_user_ids)
+                .values('merchant_user_id')
+                .annotate(
+                    last_date=Max('created_at'),
+                    total_count=Count('id'),
+                    status1_count=Count('id', filter=Q(status=1)),
+                )
+                .order_by('-last_date')
+            )
+
+            for stat in qs:
+                merchant_user_id = stat['merchant_user_id']
+                unique_senders = list(senders_dict.get(merchant_user_id, []))
+                stat['uniq_card_count'] = len(unique_senders)
+                stat['unique_cards'] = unique_senders
+                if stat['uniq_card_count'] > 5:  # <--- вот фильтр
+                    stats.append(stat)
+
+        context['stats'] = stats
+        return context
 
 @staff_member_required()
 def moshennik_list(request):

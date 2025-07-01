@@ -61,7 +61,7 @@ urlpatterns = [
     path('bkash-webhook/', views.BkashWebhook.as_view(), name='bkash-webhook'),
 
     path('withdraw_test/', views.withdraw_test, name='withdraw_test'),
-    path('test/', views.test, name='test'),
+
     path('moshennik_list/', views.moshennik_list, name='moshennik_list'),
     path('birpay_orders/', views.BirpayOrderView.as_view(), name='birpay_orders'),
     path('birpay_orders/raw/<int:birpay_id>/', views.BirpayOrderRawView.as_view(), name='birpay_order_raw'),
@@ -69,6 +69,8 @@ urlpatterns = [
     path('birpay_panel/', views.BirpayPanelView.as_view(), name='birpay_panel'),
     path('assigned_cards/', views.assign_cards_to_user, name='assign_cards_to_user'),
     path('show_birpay_order_log/<str:query_string>/', views.show_birpay_order_log, name='show_birpay_order_log'),
+    path('test/', views.test, name='test'),
+    path('users_stat/', views.BirpayUserStatView.as_view(), name='users_stat'),
 ]
 
 

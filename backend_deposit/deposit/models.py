@@ -403,6 +403,8 @@ class BirpayOrder(models.Model):
     merchant_name = models.CharField(max_length=64, null=True, blank=True)
     customer_name = models.CharField(max_length=128, null=True, blank=True)
     card_number = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    sender = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    # uniq_card_count = models.SmallIntegerField(null=True, blank=True)
     check_file = models.ImageField(upload_to='birpay_check', null=True, blank=True)
     check_file_url = models.URLField(null=True, blank=True)
     check_file_failed = models.BooleanField(default=False)
