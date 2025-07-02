@@ -1060,7 +1060,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
                 output_field=FloatField()
             ),
             incoming_id=Subquery(incoming_qs.values('id')[:1]),
-            incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
+            # incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
         )
         self.filterset = BirpayOrderFilter(self.request.GET, queryset=qs)
         return self.filterset.qs
@@ -1070,7 +1070,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
         context['search_form'] = self.filterset.form
         gpt_auto_approve = Options.load().gpt_auto_approve
         context['gpt_auto_approve'] = gpt_auto_approve
-        logger.info(f'gpt_auto_approve: {gpt_auto_approve}')
+        # logger.info(f'gpt_auto_approve: {gpt_auto_approve}')
 
         show_stat = self.filterset.form.cleaned_data.get('show_stat')
         if show_stat:

@@ -66,15 +66,12 @@
                 <tr>
                     <th>наш incoming</th>
                     <th>Дельта</th>
-                    <th>смс</th>
                     <th>Merchant Tx ID</th>
                     <th>Created</th>
-                    <th>З</th>
                     <th>Changed</th>
                     <th>Status</th>
                     <th>Amount</th>
                     <th>Card</th>
-                    <th>Merchant</th>
                     <th>User</th>
                     <th>Customer Name</th>
                     <th>Operator</th>
@@ -99,15 +96,12 @@
                         {{ order.incoming_id|default_if_none:"" }} {{ order.incoming_pay|default_if_none:"" }}
                     </td>
                     <td>{{ order.delta|default_if_none:"" }}</td>
-                    <td>{{ order.incoming_register_date|date:"H:i:s" }}</td>
                     <td {% if order.check_is_double %} style="background: red" {% endif %}>{{ order.merchant_transaction_id }}</td>
                     <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
-                    <td>{{ order.delay|floatformat:0}}</td>
                     <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.status }}</td>
                     <td>{{ order.amount }}</td>
                     <td>{{ order.card_number }}</td>
-                    <td>{{ order.merchant_name }}</td>
                     <td>
                         {% if order.is_moshennik%}
                             <span style="background: red">{{ order.merchant_user_id }}</span>
