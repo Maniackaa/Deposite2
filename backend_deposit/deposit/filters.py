@@ -78,7 +78,7 @@ class IncomingStatSearch(django_filters.FilterSet):
 
     class Meta:
         model = Incoming
-        fields = ['birpay_confirm_time__gte', 'birpay_confirm_time__lt', 'only_with_birpay']
+        fields = ['birpay_confirm_time__gte', 'birpay_confirm_time__lt', 'only_with_birpay', 'is_jail']
 
 
 class MyTimeInput(DateTimeInput):

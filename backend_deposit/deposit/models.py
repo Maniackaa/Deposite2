@@ -138,6 +138,7 @@ class Incoming(models.Model):
     confirmed_deposit = models.OneToOneField('Deposit', null=True, blank=True, on_delete=models.SET_NULL)
     birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True, db_index=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
+    is_jail = models.BooleanField(default=False)
 
     class Meta:
         # ordering = ('id',)

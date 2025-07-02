@@ -71,6 +71,7 @@ urlpatterns = [
     path('show_birpay_order_log/<str:query_string>/', views.show_birpay_order_log, name='show_birpay_order_log'),
     path('test/', views.test, name='test'),
     path('users_stat/', views.BirpayUserStatView.as_view(), name='users_stat'),
+    path('incomings/mark_as_jail/<int:pk>/', views.mark_as_jail, name='mark_as_jail'),
 ]
 
 

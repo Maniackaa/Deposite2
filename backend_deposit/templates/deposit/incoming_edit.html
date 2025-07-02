@@ -76,6 +76,16 @@
                 <td>Депозит</td>
                 <td>{{ incoming.confirmed_deposit|default_if_none:"---" }}</td>
             </tr>
+            {{ jail_option }} 
+            <tr>
+                <td>Менты перекл</td>
+                <td>{% if incoming.is_jail %}
+                        <a href="{% url 'deposit:mark_as_jail'  incoming.id  %}">🚔 ВКЛЮЧЕНО</a>
+                    {% else %}
+                        <a href="{% url 'deposit:mark_as_jail'  incoming.id  %}">🚔 ОТКЛЮЧЕНО</a>
+                    {% endif %}
+                </td>
+            </tr>
 
         </tbody>
         </table>

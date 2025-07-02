@@ -57,10 +57,11 @@
          {% for incoming in page_obj %}
          <tr title="{{incoming.comment|default_if_none:'' }}" id="pay{{ incoming.id }}"
                  {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-'%}
-                 class="table-success"
+                 class="table-success "
                  {% endif %}>
 
-            <td><a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a>
+             <td>{% if  incoming.is_jail %}<span style="background-color: rgba(121,0,255,0.58)">🚓🚓🚓🚓🚓</span>{% endif %}
+                <a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a>
                 {% if incoming.comment %}
                   *
                 {% endif %}
@@ -69,7 +70,7 @@
             </td>
             <td>{{ incoming.register_date|date:"d.m H:i:s" }}</td>
             <td>{{ incoming.response_date|date:"d.m H:i" }}</td>
-            <td>{{ incoming.recipient }}</td>
+             <td>{{ incoming.recipient }}</td>
 
             <td style="color: {{ incoming.color_font }}; background: {{ incoming.color_back }}">{{ incoming.sender }}</td>
             {% if incoming.worker == 'base2' %}

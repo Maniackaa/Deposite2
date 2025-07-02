@@ -23,7 +23,7 @@ from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count, 
     Max
 from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, TemplateView
 from rest_framework.views import APIView
@@ -619,6 +619,11 @@ class IncomingEdit(UpdateView, ):
         context = super(IncomingEdit, self).get_context_data(**kwargs)
         history = self.object.history.order_by('-id').all()
         context['history'] = history
+        if self.request.user.role == ['admin'] or self.request.user.is_superuser:
+            jail_option = True
+        else:
+            jail_option = False
+        context['jail_option'] = jail_option
         return context
 
     def form_valid(self, form):
@@ -991,7 +996,8 @@ def withdraw_test(request):
 class IncomingStatSearchView(ListView):
     model = Incoming
     template_name = 'deposit/incomings_list_stat.html'  # тот же шаблон
-    context_object_name = 'page_obj'
+    # context_object_name = 'page_obj'
+
     paginate_by = 50
 
     def get_queryset(self):
@@ -1387,6 +1393,15 @@ def test(request):
         logger.info(f'{u.card_number}')
     context = {}
     return render(request=request, template_name='deposit/moshennik_list.html', context=context)
+
+
+
+@staff_member_required()
+def mark_as_jail(request, pk):
+    incoming = Incoming.objects.get(pk=pk)
+    incoming.is_jail = not incoming.is_jail
+    incoming.save()
+    return redirect(reverse('deposit:incoming_edit', args=[incoming.id]))
 
 class BirpayUserStatView(StaffOnlyPerm, TemplateView):
     template_name = 'deposit/birpay_user_stats.html'

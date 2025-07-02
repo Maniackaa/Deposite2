@@ -3,6 +3,8 @@
 
 
 {% block content %}
+{% load l10n %}
+{% localize off %}
 {% include 'includes/operator_menu.html' %}
 <div class="container-fluid ">
 {% include 'includes/switcher2.html' %}
@@ -67,7 +69,8 @@
                  class="table-success"
                  {% endif %}>
 
-            <td><a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a>
+            <td>{% if  incoming.is_jail %}<span style="background-color: rgba(121,0,255,0.58)">🚓🚓🚓🚓🚓</span>{% endif %}
+                <a class="changelink" href="{% url 'deposit:incoming_edit' incoming.id %}">{{ incoming.id }}</a>
                 {% if incoming.comment %}
                   *
                 {% endif %}
@@ -117,7 +120,7 @@
    {% include 'includes/paginator.html' %}
   {% endwith %}
 </div>
-
+{% endlocalize %}
 {% endblock %}
 
 {% block javascript %}
