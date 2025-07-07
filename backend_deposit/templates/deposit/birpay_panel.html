@@ -140,7 +140,7 @@
                             {{ order.card_number|slice:"-4:" }}
                         </td>
                         <td>
-                            <input name="orderconfirm_{{ order.id }}" value="{{ order.incoming_id|default_if_none:"" }}" class="my-input button">
+                            <input name="orderconfirm_{{ order.id }}" value="{{ order.incoming.id|default_if_none:"" }}" class="my-input button">
                         </td>
                         <td class="text-nowrap">
                           <select name="order_action_{{ order.id }}" {% if order.status != 0 %}disabled{% endif %}>

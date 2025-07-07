@@ -327,6 +327,7 @@ def send_new_transactions_from_birpay_to_asu():
                 expired_month = expired_year = target_phone = card_data = None
                 amount = round(float(withdraw.get('amount')), 2)
                 amount = int(amount)
+                create_at = withdraw.get('createdAt', '')
                 total_amount += amount
                 wallet_id = withdraw.get('customerWalletId', '')
                 merchant_transaction_id = withdraw.get('merchantTransactionId', '')
@@ -353,7 +354,11 @@ def send_new_transactions_from_birpay_to_asu():
                     'amount': amount,
                     'card_data': card_data,
                     'target_phone': target_phone,
-                    'merchant_transaction_id': merchant_transaction_id,
+                    # 'merchant_transaction_id': merchant_transaction_id,
+                    'payload': {
+                        'merchant_transaction_id': merchant_transaction_id,
+                        'create_at': create_at
+                    },
                 }
                 logger.info(f'Передача на асупэй: {withdraw_data}')
                 result = create_asu_withdraw(**withdraw_data)
@@ -607,6 +612,8 @@ def send_image_to_gpt_task(self, birpay_id):
                             f'Автоматическое подтверждение {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
                         order.incomingsms_id = incoming_sms.id
                         update_fields.append("incomingsms_id")
+                        order.incoming = incoming_sms
+                        update_fields.append("incoming")
                         incoming_sms.birpay_id = order.merchant_transaction_id
                         incoming_sms.save()
                         # Апрувнем заявку

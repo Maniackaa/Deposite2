@@ -93,7 +93,7 @@
             {% for order in page_obj %}
                 <tr>
                     <td>
-                        {{ order.incoming_id|default_if_none:"" }} {{ order.incoming_pay|default_if_none:"" }}
+                        {{ order.incoming}} {{ order.incoming.id|default_if_none:"" }} {{ order.incoming.pay|default_if_none:"" }}
                     </td>
                     <td>{{ order.delta|default_if_none:"" }}</td>
                     <td {% if order.check_is_double %} style="background: red" {% endif %}>{{ order.merchant_transaction_id }}</td>

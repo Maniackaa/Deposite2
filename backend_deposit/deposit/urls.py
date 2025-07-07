@@ -8,19 +8,19 @@ app_name = 'deposit'
 
 urlpatterns = [
     # Главная страница
-    # path('', views.index, name='index'),
-    path('', views.home, name='index'),
+    path('', views.incoming_list, name='incomings'),
+    # path('', views.home, name='index'),
     # path('deposit_confirm/<str:phone>/<int:pay>/', views.deposit_confirm, name='deposit_confirm'),
     # path('deposit_confirm/', views.deposit_confirm, name='confirm'),
     # path('index', views.index, name='index'),
     # path('deposits/', DepositList.as_view(), name='deposits'),
     # path(r'^page(?P<page>\d+)/$', DepositList.as_view(), name='deposits'),
-    path('deposit_created/', views.deposit_created, name='created'),
-    path('deposit_status/<str:uid>/', views.deposit_status, name='status'),
-
-    path('deposits/', views.deposits_list, name='deposits'),
-    path('deposits_pending/', views.deposits_list_pending, name='deposits_pending'),
-    path('deposits/<int:pk>/', views.deposit_edit, name='deposit_edit'),
+    # path('deposit_created/', views.deposit_created, name='created'),
+    # path('deposit_status/<str:uid>/', views.deposit_status, name='status'),
+    #
+    # path('deposits/', views.deposits_list, name='deposits'),
+    # path('deposits_pending/', views.deposits_list_pending, name='deposits_pending'),
+    # path('deposits/<int:pk>/', views.deposit_edit, name='deposit_edit'),
 
     path('screen/', views_api.screen_new, name='screen'),
     # path('screen_new/', views_api.screen_new, name='screen_new'),
@@ -60,7 +60,7 @@ urlpatterns = [
     path('asu-withdraw-webhook/', views.WithdrawWebhookReceive.as_view(), name='asu-withdraw-webhook'),
     path('bkash-webhook/', views.BkashWebhook.as_view(), name='bkash-webhook'),
 
-    path('withdraw_test/', views.withdraw_test, name='withdraw_test'),
+    # path('withdraw_test/', views.withdraw_test, name='withdraw_test'),
 
     path('moshennik_list/', views.moshennik_list, name='moshennik_list'),
     path('birpay_orders/', views.BirpayOrderView.as_view(), name='birpay_orders'),

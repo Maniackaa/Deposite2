@@ -38,8 +38,7 @@ from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, d
 from deposit import tasks
 from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrderFilter, BirpayPanelFilter
 from deposit.forms import (ColorBankForm,
-                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm, DepositForm,
-                           DepositTransactionForm, DepositImageForm, DepositEditForm, AssignCardsToUserForm,
+                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm, AssignCardsToUserForm,
                            MoshennikListForm)
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
@@ -48,7 +47,7 @@ from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, 
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import Incoming, TrashIncoming, IncomingChange, Message, \
-    MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder, Deposit
+    MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder
 from users.models import Options
 
 logger = structlog.get_logger('deposit')
@@ -57,178 +56,10 @@ logger = structlog.get_logger('deposit')
 User = get_user_model()
 
 
-@staff_member_required(login_url='users:login')
-def home(request, *args, **kwargs):
-    template = 'deposit/home.html'
-    return render(request, template_name=template)
-
-
-def index(request, *args, **kwargs):
-    try:
-        logger.debug(f'index {request}')
-        uid = uuid.uuid4()
-        form = DepositForm(request.POST or None, files=request.FILES or None, initial={'phone': '+994', 'uid': uid})
-        if request.method == 'POST':
-            logger.debug('index POST')
-            data = request.POST
-            uid = data.get('uid')
-            deposit = Deposit.objects.filter(uid=uid).first()
-            if deposit:
-                template = 'deposit/deposit_created.html'
-                form = DepositTransactionForm(request.POST, instance=deposit)
-                context = {'form': form, 'deposit': deposit}
-                return render(request, template_name=template, context=context)
-            if form.is_valid():
-                logger.debug('form valid')
-                form.save()
-                uid = form.cleaned_data.get('uid')
-                deposit = Deposit.objects.get(uid=uid)
-                logger.debug(f'form save')
-                template = 'deposit/deposit_created.html'
-                form = DepositTransactionForm(request.POST, instance=deposit)
-                context = {'form': form, 'deposit': deposit}
-                return render(request, template_name=template, context=context)
-            else:
-                template = 'deposit/index.html'
-                context = {'form': form}
-                return render(request, template_name=template, context=context)
-        context = {'form': form}
-        template = 'deposit/index.html'
-        return render(request, template_name=template, context=context)
-    except Exception as err:
-        logger.error('ошибка', exc_info=True)
-        raise err
-
-
-def deposit_created(request):
-    logger.debug(f'deposit_created: {request}')
-    if request.method == 'POST':
-        data = request.POST
-        uid = data['uid']
-        phone = data['phone']
-        pay = data['pay_sum']
-        deposit = Deposit.objects.filter(uid=uid).exists()
-        if not deposit:
-            form = DepositTransactionForm(request.POST or None, files=request.FILES or None, initial={'phone': phone, 'uid': uid, 'pay_sum': pay})
-            if form.is_valid():
-                form.save()
-                logger.debug('Форма сохранена')
-            else:
-                logger.debug(f'Форма не валидная: {form}')
-                for error in form.errors:
-                    logger.warning(f'{error}')
-                template = 'deposit/index.html'
-                context = {'form': form}
-                return render(request, template_name=template, context=context)
-
-        deposit = Deposit.objects.get(uid=uid)
-        logger.debug(f'deposit: {deposit}')
-        input_transaction = data.get('input_transaction') or None
-        logger.debug(f'input_transaction: {input_transaction}')
-        deposit.input_transaction = input_transaction
-        form = DepositTransactionForm(request.POST, files=request.FILES, instance=deposit)
-        if form.is_valid():
-            deposit = form.save()
-            make_after_save_deposit(deposit)
-        template = 'deposit/deposit_created.html'
-
-        context = {'form': form, 'deposit': deposit, 'pay_screen': None}
-        return render(request, template_name=template, context=context)
-
-
-def deposit_status(request, uid):
-    logger.debug(f'deposit_status {request}')
-    template = 'deposit/deposit_status.html'
-    deposit = get_object_or_404(Deposit, uid=uid)
-    form = DepositImageForm(request.POST, files=request.FILES, instance=deposit)
-    if request.method == 'POST' and form.has_changed():
-        logger.debug(f'has_changed: {form.has_changed()}')
-        if form.is_valid():
-            form.save()
-        else:
-            form = DepositTransactionForm(instance=deposit, files=request.FILES)
-            template = 'deposit/deposit_created.html'
-            context = {'form': form, 'deposit': deposit, 'pay_screen': deposit.pay_screen}
-            return render(request, template_name=template, context=context)
-        form = DepositImageForm(instance=deposit)
-        context = {'deposit': deposit, 'form': form}
-        return render(request, template_name=template, context=context)
-    # form = DepositImageForm(initial=deposit.__dict__, instance=deposit)
-    context = {'deposit': deposit, 'form': form}
-    logger.debug(f'has_changed: {form.has_changed()}')
-
-    return render(request, template_name=template, context=context)
-
-
 def make_page_obj(request, objects, numbers_of_posts=settings.PAGINATE):
     paginator = Paginator(objects, numbers_of_posts)
     page_number = request.GET.get('page')
     return paginator.get_page(page_number)
-
-
-@staff_member_required(login_url='users:login')
-def deposits_list(request):
-    template = 'deposit/deposit_list.html'
-    deposits = Deposit.objects.order_by('-id').all()
-    context = {'page_obj': make_page_obj(request, deposits)}
-    return render(request, template, context)
-
-
-@staff_member_required(login_url='users:login')
-def deposits_list_pending(request):
-    template = 'deposit/deposit_list.html'
-    deposits = Deposit.objects.order_by('-id').filter(status='pending').all()
-    context = {'page_obj': make_page_obj(request, deposits)}
-    return render(request, template, context)
-
-
-@staff_member_required(login_url='users:login')
-def deposit_edit(request, pk):
-    deposit_from_pk = get_object_or_404(Deposit, pk=pk)
-    template = 'deposit/deposit_edit.html'
-    incomings = Incoming.objects.filter(confirmed_deposit=None).order_by('-id').all()
-    form = DepositEditForm(data=request.POST or None, files=request.FILES or None,
-                           instance=deposit_from_pk,
-                           initial={'confirmed_incoming': deposit_from_pk.confirmed_incoming,
-                                    'status': deposit_from_pk.status})
-    if request.method == 'POST':
-        old_confirmed_incoming = deposit_from_pk.confirmed_incoming
-        if old_confirmed_incoming:
-            old_confirmed_incoming_id = old_confirmed_incoming.id
-        else:
-            old_confirmed_incoming_id = None
-        new_confirmed_incoming_id = request.POST.get('confirmed_incoming') or None
-
-        if form.is_valid() and form.has_changed():
-            saved_deposit = form.save()
-            if old_confirmed_incoming_id and new_confirmed_incoming_id:
-                # 'ветка 1. Чек меняется с одного на другое'
-                old_incoming = Incoming.objects.get(id=old_confirmed_incoming_id)
-                old_incoming.confirmed_deposit = None
-                old_incoming.save()
-                new_incoming = Incoming.objects.get(id=new_confirmed_incoming_id)
-                new_incoming.confirmed_deposit = saved_deposit
-                new_incoming.save()
-            elif new_confirmed_incoming_id and not old_confirmed_incoming_id:
-                # 'ветка 2. Было пусто стало новый чек'
-                saved_deposit.status = 'approved'
-                saved_deposit.save()
-                incoming = Incoming.objects.get(id=new_confirmed_incoming_id)
-                incoming.confirmed_deposit = saved_deposit
-                incoming.save()
-            else:
-                # 'ветка 3. Удален чек'
-                saved_deposit.status = 'pending'
-                saved_deposit.save()
-                if old_confirmed_incoming:
-                    old_confirmed_incoming.confirmed_deposit = None
-                old_confirmed_incoming.save()
-            # form = DepositEditForm(data=request.POST, files=request.FILES or None,
-            form = DepositEditForm(instance=deposit_from_pk)
-            context = {'deposit': saved_deposit, 'form': form, 'page_obj': make_page_obj(request, incomings)}
-            return render(request, template_name=template, context=context)
-    context = {'deposit': deposit_from_pk, 'form': form, 'page_obj': make_page_obj(request, incomings)}
-    return render(request, template, context)
 
 
 @staff_member_required(login_url='users:login')
@@ -918,79 +749,79 @@ class WithdrawWebhookReceive(APIView):
             logger.error(err)
             return JsonResponse(status=HTTPStatus.BAD_REQUEST, data=str(err), safe=False)
 
-def withdraw_test(request):
-
-    template = 'deposit/withdraw_test.html'
-    logger = structlog.get_logger('deposit')
-    logger.info('тест логгера biragte')
-
-    logger = structlog.get_logger('deposit')
-    logger.info(f'тест логгера {__name__}')
-
-    token = get_new_token()
-    print(token)
-    # birpay = find_birpay_from_id('710021863')
-    withdraw_list = async_to_sync(get_birpay_withdraw)()
-
-    print(len(withdraw_list))
-    total_amount = 0
-    withdraws_to_work = []
-    results = []
-    limit = 1
-    count = 0
-    for withdraw in withdraw_list:
-        if count >= limit:
-            break
-        is_exists = WithdrawTransaction.objects.filter(withdraw_id=withdraw['id']).exists()
-        if not is_exists:
-            count += 1
-            # Если еще не брали в работу создадим на асупэй
-            expired_month = expired_year = target_phone = card_data = None
-            # print(withdraw)
-            amount = float(withdraw.get('amount'))
-            total_amount += amount
-            wallet_id = withdraw.get('customerWalletId', '')
-            if wallet_id.startswith('994'):
-                target_phone = f'+{wallet_id}'
-            elif len(wallet_id) == 9:
-                target_phone = f'+994{wallet_id}'
-            else:
-                payload = withdraw.get('payload', {})
-                if payload:
-                    card_date = payload.get('card_date')
-                    if card_date:
-                        expired_month, expired_year = card_date.split('/')
-                        if expired_year:
-                            expired_year = expired_year[-2:]
-                card_data = {
-                    "card_number": wallet_id,
-                }
-                if expired_month and expired_year:
-                    card_data['expired_month'] = expired_month
-                    expired_year['expired_year'] = expired_year
-            withdraw_data = {
-                'withdraw_id': withdraw['id'],
-                'amount': amount,
-                'card_data': card_data,
-                'target_phone': target_phone,
-            }
-            withdraws_to_work.append(withdraw_data)
-
-            # result = create_asu_withdraw(**withdraw_data)
-            # if result.get('status') == 'success':
-            #     # Успешно создана
-            #     WithdrawTransaction.objects.create(
-            #         withdraw_id=withdraw['id'],
-            #         status=1,
-            #     )
-            #
-            #     results.append(result)
-
-    context = {
-        'withdraws_to_work': withdraws_to_work,
-        'results': results,
-    }
-    return render(request, template, context)
+# def withdraw_test(request):
+#
+#     template = 'deposit/withdraw_test.html'
+#     logger = structlog.get_logger('deposit')
+#     logger.info('тест логгера biragte')
+#
+#     logger = structlog.get_logger('deposit')
+#     logger.info(f'тест логгера {__name__}')
+#
+#     token = get_new_token()
+#     print(token)
+#     # birpay = find_birpay_from_id('710021863')
+#     withdraw_list = async_to_sync(get_birpay_withdraw)()
+#
+#     print(len(withdraw_list))
+#     total_amount = 0
+#     withdraws_to_work = []
+#     results = []
+#     limit = 1
+#     count = 0
+#     for withdraw in withdraw_list:
+#         if count >= limit:
+#             break
+#         is_exists = WithdrawTransaction.objects.filter(withdraw_id=withdraw['id']).exists()
+#         if not is_exists:
+#             count += 1
+#             # Если еще не брали в работу создадим на асупэй
+#             expired_month = expired_year = target_phone = card_data = None
+#             # print(withdraw)
+#             amount = float(withdraw.get('amount'))
+#             total_amount += amount
+#             wallet_id = withdraw.get('customerWalletId', '')
+#             if wallet_id.startswith('994'):
+#                 target_phone = f'+{wallet_id}'
+#             elif len(wallet_id) == 9:
+#                 target_phone = f'+994{wallet_id}'
+#             else:
+#                 payload = withdraw.get('payload', {})
+#                 if payload:
+#                     card_date = payload.get('card_date')
+#                     if card_date:
+#                         expired_month, expired_year = card_date.split('/')
+#                         if expired_year:
+#                             expired_year = expired_year[-2:]
+#                 card_data = {
+#                     "card_number": wallet_id,
+#                 }
+#                 if expired_month and expired_year:
+#                     card_data['expired_month'] = expired_month
+#                     expired_year['expired_year'] = expired_year
+#             withdraw_data = {
+#                 'withdraw_id': withdraw['id'],
+#                 'amount': amount,
+#                 'card_data': card_data,
+#                 'target_phone': target_phone,
+#             }
+#             withdraws_to_work.append(withdraw_data)
+#
+#             # result = create_asu_withdraw(**withdraw_data)
+#             # if result.get('status') == 'success':
+#             #     # Успешно создана
+#             #     WithdrawTransaction.objects.create(
+#             #         withdraw_id=withdraw['id'],
+#             #         status=1,
+#             #     )
+#             #
+#             #     results.append(result)
+#
+#     context = {
+#         'withdraws_to_work': withdraws_to_work,
+#         'results': results,
+#     }
+#     return render(request, template, context)
 
 
 class IncomingStatSearchView(ListView):
@@ -1050,17 +881,10 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
 
     def get_queryset(self):
         qs = super().get_queryset().order_by('-created_at')
-        incoming_qs = Incoming.objects.filter(
-            birpay_id=OuterRef('merchant_transaction_id')
-        ).order_by('-register_date')
+        # Аннотируем данными из связанного Incoming (через OneToOneField)
         qs = qs.annotate(
-            incoming_pay=Subquery(incoming_qs.values('pay')[:1]),
-            delta=ExpressionWrapper(
-                Subquery(incoming_qs.values('pay')[:1]) - F('amount'),
-                output_field=FloatField()
-            ),
-            incoming_id=Subquery(incoming_qs.values('id')[:1]),
-            # incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
+            incoming_pay=F('incoming__pay'),
+            delta=ExpressionWrapper(F('incoming__pay') - F('amount'), output_field=FloatField()),
         )
         self.filterset = BirpayOrderFilter(self.request.GET, queryset=qs)
         return self.filterset.qs
@@ -1070,7 +894,6 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
         context['search_form'] = self.filterset.form
         gpt_auto_approve = Options.load().gpt_auto_approve
         context['gpt_auto_approve'] = gpt_auto_approve
-        # logger.info(f'gpt_auto_approve: {gpt_auto_approve}')
 
         show_stat = self.filterset.form.cleaned_data.get('show_stat')
         if show_stat:
@@ -1078,16 +901,17 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
             total_count = qs.count()
             stats = {
                 'total': total_count,
-                'with_incoming': qs.exclude(incoming_id__isnull=True).count(),
+                'with_incoming': qs.exclude(incoming__isnull=True).count(),
                 'sum_incoming_pay': qs.aggregate(sum=Sum('incoming_pay'))['sum'] or 0,
                 'sum_amount': qs.aggregate(sum=Sum('amount'))['sum'] or 0,
                 'sum_delta': qs.aggregate(sum=Sum('delta'))['sum'] or 0,
                 'status_0': qs.filter(status=0).count(),
                 'status_1': qs.filter(status=1).count(),
                 'status_2': qs.filter(status=2).count(),
-                'gpt_approve': int(qs.filter(gpt_flags=31).count() / total_count * 100)
+                'gpt_approve': int(qs.filter(gpt_flags=31).count() / total_count * 100) if total_count else 0
             }
             context['birpay_stats'] = stats
+
 
         for order in context['page_obj']:
             if hasattr(order, 'raw_data'):
@@ -1256,7 +1080,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                 Subquery(incoming_qs.values('pay')[:1]) - F('amount'),
                 output_field=FloatField()
             ),
-            incoming_id=Subquery(incoming_qs.values('id')[:1]),
+            # incoming_id=Subquery(incoming_qs.values('id')[:1]),
             incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
         )
         user_card_numbers = get_user_card_numbers(self.request.user)
@@ -1373,8 +1197,8 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                                 operator = self.request.user
                                 order.incomingsms_id = incoming_id
                                 order.confirmed_operator = operator
+                                order.incoming = incoming_to_approve
                                 order.save()
-                                incoming_to_approve = Incoming.objects.filter(pk=incoming_id, birpay_id__isnull=True).first()
                                 incoming_to_approve.birpay_id = order.merchant_transaction_id
                                 incoming_to_approve.save()
                                 logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')

@@ -115,6 +115,57 @@ class Setting(models.Model):
     def __str__(self):
         return f'Setting({self.name} = {self.value})'
 
+class BirpayOrder(models.Model):
+    class GPTIMHO(Flag):
+        time = auto()
+        recipient = auto()
+        amount = auto()
+        sms = auto()
+        gpt_status = auto()
+
+    birpay_id = models.IntegerField(verbose_name='Первычный id в birpay', unique=True, db_index=True)
+    sended_at = models.DateTimeField(verbose_name='Создалась у нас', auto_now_add=True, null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(db_index=True)
+    updated_at = models.DateTimeField(db_index=True)
+    merchant_transaction_id = models.CharField(max_length=16, db_index=True)
+    merchant_user_id = models.CharField(max_length=16, db_index=True)
+    merchant_name = models.CharField(max_length=64, null=True, blank=True)
+    customer_name = models.CharField(max_length=128, null=True, blank=True)
+    card_number = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    sender = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    # uniq_card_count = models.SmallIntegerField(null=True, blank=True)
+    check_file = models.ImageField(upload_to='birpay_check', null=True, blank=True)
+    check_file_url = models.URLField(null=True, blank=True)
+    check_file_failed = models.BooleanField(default=False)
+    check_hash = models.CharField(max_length=32, null=True, blank=True, db_index=True)
+    check_is_double = models.BooleanField(default=False)
+    status = models.SmallIntegerField("Статус на сервере birpay", db_index=True)
+    status_internal = models.SmallIntegerField("Наш статус", default=0, db_index=True)
+    confirmed_operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=SET_NULL, null=True, blank=True)
+    amount = models.FloatField(db_index=True)
+    operator = models.CharField("Логин оператора бирпай", max_length=128, null=True, blank=True, db_index=True)
+    raw_data = models.JSONField()
+    gpt_data = models.JSONField(default=dict, blank=True)
+    gpt_processing = models.BooleanField(default=False)
+    # gpt_status = models.SmallIntegerField(default=0)
+    gpt_flags = models.SmallIntegerField(default=0)
+    incomingsms_id = models.CharField(max_length=10, null=True, blank=True, unique=True, db_index=True)
+    incoming = models.OneToOneField('Incoming', on_delete=SET_NULL, null=True, blank=True, related_name='birpay', db_index=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    @property
+    def delay(self):
+        try:
+            return (self.sended_at - self.created_at).total_seconds()
+        except Exception:
+            pass
+
+    def is_moshennik(self):
+        options = Options.load()
+        birpay_moshennik_list = options.birpay_moshennik_list
+        return self.merchant_user_id in birpay_moshennik_list
 
 class Incoming(models.Model):
 
@@ -135,7 +186,7 @@ class Incoming(models.Model):
                               verbose_name='скрин', null=True, blank=True)
     birpay_confirm_time = models.DateTimeField('Время подтверждения', null=True, blank=True)
     birpay_edit_time = models.DateTimeField('Время ручной корректировки', null=True, blank=True)
-    confirmed_deposit = models.OneToOneField('Deposit', null=True, blank=True, on_delete=models.SET_NULL)
+    # confirmed_deposit = models.OneToOneField('Deposit', null=True, blank=True, on_delete=models.SET_NULL)
     birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True, db_index=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
     is_jail = models.BooleanField(default=False)
@@ -292,28 +343,28 @@ def after_save_incoming(sender, instance: Incoming, created, raw, using, update_
             logger.error(err)
 
 
-class Deposit(models.Model):
-    uid = models.CharField(max_length=36, db_index=True, unique=True, null=True, blank=True)
-    register_time = models.DateTimeField('Время добавления в базу', auto_now_add=True)
-    change_time = models.DateTimeField('Время изменения в базе', auto_now=True)
-    phone = models.CharField('Телефон отправителя')
-    pay_sum = models.IntegerField('Сумма платежа', validators=[MinValueValidator(5)])
-    input_transaction = models.BigIntegerField('Введенная транзакция с чека',
-                                            null=True, blank=True, help_text='Введите транзакцию из чека',
-                                            validators=[MinValueValidator(50000000), MaxValueValidator(99999999)])
-    status = models.CharField('Статус депозита',
-                              default='pending',
-                              choices=[
-                                  ('pending', 'На рассмотрении'),
-                                  ('approved', 'Подтвержден')])
-    pay_screen = models.ImageField(upload_to='pay_screens/',
-                                   verbose_name='Чек об оплате', null=True, blank=True, help_text='Скриншот чека')
-    confirmed_incoming = models.OneToOneField(Incoming, null=True, blank=True, on_delete=models.SET_NULL,
-                                              help_text='Подтвержденный чек')
-
-    def __str__(self):
-        string = f'Депозит {self.id}. {self.input_transaction}. Сумма: {self.pay_sum}. Pay_screen: {self.pay_screen}. Наш чек: {self.confirmed_incoming.id if self.confirmed_incoming else "-"}'
-        return string
+# class Deposit(models.Model):
+#     uid = models.CharField(max_length=36, db_index=True, unique=True, null=True, blank=True)
+#     register_time = models.DateTimeField('Время добавления в базу', auto_now_add=True)
+#     change_time = models.DateTimeField('Время изменения в базе', auto_now=True)
+#     phone = models.CharField('Телефон отправителя')
+#     pay_sum = models.IntegerField('Сумма платежа', validators=[MinValueValidator(5)])
+#     input_transaction = models.BigIntegerField('Введенная транзакция с чека',
+#                                             null=True, blank=True, help_text='Введите транзакцию из чека',
+#                                             validators=[MinValueValidator(50000000), MaxValueValidator(99999999)])
+#     status = models.CharField('Статус депозита',
+#                               default='pending',
+#                               choices=[
+#                                   ('pending', 'На рассмотрении'),
+#                                   ('approved', 'Подтвержден')])
+#     pay_screen = models.ImageField(upload_to='pay_screens/',
+#                                    verbose_name='Чек об оплате', null=True, blank=True, help_text='Скриншот чека')
+#     confirmed_incoming = models.OneToOneField(Incoming, null=True, blank=True, on_delete=models.SET_NULL,
+#                                               help_text='Подтвержденный чек')
+#
+#     def __str__(self):
+#         string = f'Депозит {self.id}. {self.input_transaction}. Сумма: {self.pay_sum}. Pay_screen: {self.pay_screen}. Наш чек: {self.confirmed_incoming.id if self.confirmed_incoming else "-"}'
+#         return string
 
 
 class BadScreen(models.Model):
@@ -385,58 +436,6 @@ class WithdrawTransaction(models.Model):
 
     def __str__(self):
         return f'{self.id}.{self.withdraw_id}'
-
-
-class BirpayOrder(models.Model):
-    class GPTIMHO(Flag):
-        time = auto()
-        recipient = auto()
-        amount = auto()
-        sms = auto()
-        gpt_status = auto()
-
-    birpay_id = models.IntegerField(unique=True, db_index=True)
-    sended_at = models.DateTimeField(verbose_name='Создалась у нас', auto_now_add=True, null=True, blank=True, db_index=True)
-    created_at = models.DateTimeField(db_index=True)
-    updated_at = models.DateTimeField(db_index=True)
-    merchant_transaction_id = models.CharField(max_length=16, db_index=True)
-    merchant_user_id = models.CharField(max_length=16, db_index=True)
-    merchant_name = models.CharField(max_length=64, null=True, blank=True)
-    customer_name = models.CharField(max_length=128, null=True, blank=True)
-    card_number = models.CharField(max_length=20, null=True, blank=True, db_index=True)
-    sender = models.CharField(max_length=20, null=True, blank=True, db_index=True)
-    # uniq_card_count = models.SmallIntegerField(null=True, blank=True)
-    check_file = models.ImageField(upload_to='birpay_check', null=True, blank=True)
-    check_file_url = models.URLField(null=True, blank=True)
-    check_file_failed = models.BooleanField(default=False)
-    check_hash = models.CharField(max_length=32, null=True, blank=True, db_index=True)
-    check_is_double = models.BooleanField(default=False)
-    status = models.SmallIntegerField("Статус на сервере birpay", db_index=True)
-    status_internal = models.SmallIntegerField("Наш статус", default=0, db_index=True)
-    confirmed_operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=SET_NULL, null=True, blank=True)
-    amount = models.FloatField(db_index=True)
-    operator = models.CharField("Логин оператора бирпай", max_length=128, null=True, blank=True, db_index=True)
-    raw_data = models.JSONField()
-    gpt_data = models.JSONField(default=dict, blank=True)
-    gpt_processing = models.BooleanField(default=False)
-    # gpt_status = models.SmallIntegerField(default=0)
-    gpt_flags = models.SmallIntegerField(default=0)
-    incomingsms_id = models.CharField(max_length=10, null=True, blank=True, unique=True, db_index=True)
-
-    class Meta:
-        ordering = ('-created_at',)
-
-    @property
-    def delay(self):
-        try:
-            return (self.sended_at - self.created_at).total_seconds()
-        except Exception:
-            pass
-
-    def is_moshennik(self):
-        options = Options.load()
-        birpay_moshennik_list = options.birpay_moshennik_list
-        return self.merchant_user_id in birpay_moshennik_list
 
 
 # @receiver(post_save, sender=BirpayOrder)

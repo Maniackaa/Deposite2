@@ -3,7 +3,7 @@ import re
 from django.core.validators import MinValueValidator, RegexValidator
 from rest_framework import serializers
 
-from .models import Incoming, Deposit
+from .models import Incoming
 
 
 class IncomingSerializer(serializers.ModelSerializer):

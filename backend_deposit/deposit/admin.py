@@ -5,7 +5,7 @@ from django.forms import TextInput, Textarea
 from rangefilter.filters import DateRangeFilterBuilder, DateRangeQuickSelectListFilterBuilder, \
     NumericRangeFilterBuilder, DateTimeRangeFilterBuilder
 
-from deposit.models import Incoming, BadScreen, Deposit, ColorBank, TrashIncoming, IncomingChange, CreditCard, Message, \
+from deposit.models import Incoming, BadScreen, ColorBank, TrashIncoming, IncomingChange, CreditCard, Message, \
     MessageRead, RePattern, IncomingCheck, BirpayOrder
 
 
@@ -17,7 +17,7 @@ class TrashIncomingAdmin(admin.ModelAdmin):
 
 class IncomingAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'register_date', 'response_date', 'recipient', 'sender', 'pay', 'balance', 'transaction', 'confirmed_deposit', 'type', 'image', 'phone_serial', 'worker'
+        'id', 'register_date', 'response_date', 'recipient', 'sender', 'pay', 'balance', 'transaction', 'type', 'image', 'phone_serial', 'worker'
     )
     list_filter = ('register_date', 'response_date',
                    ("register_date", DateRangeFilterBuilder()),
@@ -91,7 +91,6 @@ admin.site.register(BirpayOrder, BirpayOrderAdmin)
 admin.site.register(Incoming, IncomingAdmin)
 admin.site.register(TrashIncoming, TrashIncomingAdmin)
 admin.site.register(BadScreen, BadScreenAdmin)
-admin.site.register(Deposit, DepositAdmin)
 admin.site.register(ColorBank, ColorBankAdmin)
 admin.site.register(IncomingChange, IncomingChangeAdmin)
 admin.site.register(CreditCard, CreditCardAdmin)
