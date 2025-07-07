@@ -2,7 +2,6 @@ import datetime
 
 from django.apps import apps
 from django.core.management.base import BaseCommand
-from win32comext.adsi.demos.scp import logger
 
 
 class Command(BaseCommand):
