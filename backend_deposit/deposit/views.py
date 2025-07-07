@@ -84,6 +84,10 @@ def incoming_list(request):
             incoming.birpay_id = value
             incoming.birpay_confirm_time = datetime.datetime.now(tz=pytz.timezone(settings.TIME_ZONE))
             incoming.save()
+            order = BirpayOrder.objects.filter(merchant_transaction_id=value).first()
+            if order:
+                order.incoming = incoming
+                order.save()
             #Сохраняем историю
             new_history = IncomingChange(
                 incoming=incoming,
