@@ -387,36 +387,28 @@ def send_new_transactions_from_birpay_to_asu():
     return results
 
 
-@shared_task(prority=2, timeout=20)
-def download_birpay_check_file(order_id, check_file_url):
-    bind_contextvars(birpay_order_id=order_id)
+@shared_task(bind=True, max_retries=3, default_retry_delay=1, priority=2, soft_time_limit=20)
+def download_birpay_check_file(self, order_id, check_file_url):
     from deposit.models import BirpayOrder
-    order = BirpayOrder.objects.get(id=order_id)
-    logger.info(f'Скачивание чека {order}')
     try:
+        order = BirpayOrder.objects.get(id=order_id)
         response = requests.get(check_file_url)
-        logger.info(f'response: {response.status_code}')
         if response.ok:
             file_content = response.content
-
             filename = check_file_url.split('/')[-1]
             order.check_file.save(filename, ContentFile(file_content), save=True)
             order.check_file_failed = False
-
-            # Проверка на дубль
             md5_hash = hashlib.md5(file_content).hexdigest()
             is_double = False
             if md5_hash:
                 threshold = timezone.now() - datetime.timedelta(days=1)
                 is_double = BirpayOrder.objects.filter(created_at__gte=threshold, check_hash=md5_hash).exists()
-
             order.check_hash = md5_hash
             update_fields = ['check_file', 'check_file_failed', 'check_hash']
             if is_double:
                 order.check_is_double = is_double
                 update_fields.append('check_is_double')
             else:
-                # Запускаем GPT только если НЕ дубль!
                 order.gpt_processing = True
                 update_fields.append('gpt_processing')
                 send_image_to_gpt_task.delay(order.birpay_id)
@@ -425,11 +417,15 @@ def download_birpay_check_file(order_id, check_file_url):
         else:
             order.check_file_failed = True
             order.save(update_fields=['check_file_failed'])
-            return f"Failed: status={response.status_code}"
-    except Exception as e:
-        order.check_file_failed = True
-        order.save(update_fields=['check_file_failed'])
-        return f"Error: {e}"
+            raise Exception(f"Failed: status={response.status_code}")
+    except Exception as exc:
+        try:
+            self.retry(exc=exc)
+        except self.MaxRetriesExceededError:
+            order = BirpayOrder.objects.get(id=order_id)
+            order.check_file_failed = True
+            order.save(update_fields=['check_file_failed'])
+            return f"Error after max retries: {exc}"
 
 
 def process_birpay_order(data):
