@@ -503,7 +503,13 @@ def send_image_to_gpt_task(self, birpay_id):
             logger.info(f"BirpayOrder {birpay_id}: ответ GPT code={response.status_code}")
             if response.ok:
                 result = response.json().get("result")
-                order.gpt_data = json.loads(result)
+                if result is None:
+                    logger.error(
+                        f"BirpayOrder {birpay_id}: GPT ответ не содержит result или он пустой! response={response.text}")
+                    order.gpt_data = {}  # или '', или None — что у вас по логике
+                else:
+                    order.gpt_data = json.loads(result)
+                order.save(update_fields=['gpt_data'])
                 order.save(update_fields=['gpt_data'])
                 logger.info(f"BirpayOrder {birpay_id}: gpt_data успешно записано: {result}")
             else:
