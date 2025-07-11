@@ -15,17 +15,17 @@
         </div>
 
     <div class="card" style="">
-    <b>Возможные смс:</b><br>
-    {% for incoming in object.incomings.all %}
-        <div style="margin-bottom: 5px;">
-            {{ incoming.id }}
-            <img onclick="copyTextToClipboard({{ incoming.id }})"
-                 style="opacity: 0.5; width: 20px; height: 20px; object-fit: contain;"
-                 src="{% static '/img/copy.png' %}">
-            {{ incoming.pay }} azn {{ incoming.response_date|date:"H:i" }} {{ incoming.recipient }}
-        </div>
-    {% endfor %}
-</div>    
+        <b>Возможные смс:</b><br>
+        {% for incoming in object.incomings.all %}
+            <div style="margin-bottom: 5px;">
+                {{ incoming.id }}
+                <img onclick="copyTextToClipboard({{ incoming.id }})"
+                     style="opacity: 0.5; width: 20px; height: 20px; object-fit: contain;"
+                     src="{% static '/img/copy.png' %}">
+                {{ incoming.pay }} azn {{ incoming.response_date|date:"H:i" }} {{ incoming.recipient }}
+            </div>
+        {% endfor %}
+    </div>    
         
     
 
@@ -43,13 +43,13 @@
             <h3>Чек заказа (ID {{ object.id }}):</h3>
             <span>M Tx ID {{ object.merchant_transaction_id }}:  b_id {{ object.birpay_id }}</span><br>
             {% if object.check_file %}
-              <a href="{{ object.check_file.url }}" target="_blank">
-                 <img src="{{ object.check_file.url }}"
-                     style="max-width:100%; max-height:100%; background: #eee; cursor: pointer;"
-                     onerror="this.src=''; this.alt='нет изображения';">
-              </a>
+                {% if object.check_file.url|is_pdf %}
+                    <embed src="{{ object.check_file.url }}#toolbar=0" width="400" height="500" type="application/pdf">
+                {% else %}
+                    <img src="{{ object.check_file.url }}" style="height: 400px; width: auto;">
+                {% endif %}
             {% else %}
-              <span>Нет изображения чека</span>
+                <span>Нет изображения чека</span>
             {% endif %}
 
       </div>

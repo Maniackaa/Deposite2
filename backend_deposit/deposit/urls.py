@@ -70,7 +70,7 @@ urlpatterns = [
     path('birpay_panel/', views.BirpayPanelView.as_view(), name='birpay_panel'),
     path('assigned_cards/', views.assign_cards_to_user, name='assign_cards_to_user'),
     path('show_birpay_order_log/<str:query_string>/', views.show_birpay_order_log, name='show_birpay_order_log'),
-    path('test/', views.test, name='test'),
+    # path('test/', views.test, name='test'),
     path('users_stat/', views.BirpayUserStatView.as_view(), name='users_stat'),
     path('incomings/mark_as_jail/<int:pk>/', views.mark_as_jail, name='mark_as_jail'),
 ]

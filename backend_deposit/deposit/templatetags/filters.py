@@ -118,3 +118,7 @@ def as_bin(value, bits=5):
 def join_newline(cards):
     """ Превращает список в многострочную строку с реальными переводами строки """
     return '\n'.join(cards)
+
+@register.filter
+def is_pdf(url):
+    return str(url).lower().endswith('.pdf')
