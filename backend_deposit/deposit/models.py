@@ -142,6 +142,7 @@ class BirpayOrder(models.Model):
     status = models.SmallIntegerField("Статус на сервере birpay", db_index=True)
     status_internal = models.SmallIntegerField("Наш статус", default=0, db_index=True)
     confirmed_operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=SET_NULL, null=True, blank=True)
+    confirmed_time = models.DateTimeField(auto_now=True, null=True, blank=True)
     amount = models.FloatField(db_index=True)
     operator = models.CharField("Логин оператора бирпай", max_length=128, null=True, blank=True, db_index=True)
     raw_data = models.JSONField()

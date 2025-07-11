@@ -23,6 +23,9 @@
         height: 25px;
         font-size: x-small
     }
+    tr.force-row-bg > td {
+    background: inherit !important;
+    }
 </style>
     {% load l10n %}
         {% load static %}
@@ -96,7 +99,10 @@
             </thead>
             <tbody>
             {% for order in page_obj %}
-                <tr>
+                <tr {% if order.id == last_confirmed_order_id %}
+                        class="force-row-bg" style="background: rgba(8,204,1,0.13)"
+                        {% endif %}
+                >
                     <td class="text-center align-middle"
                         style="width:40px; cursor:pointer; color:#0d6efd; font-weight:500;"
                         onclick="toggleRawData({{ order.birpay_id }}, this); return false;"

@@ -1110,6 +1110,10 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         logger.info(self.request.GET.getlist('card_number'))
         logger.info(self.request.GET.getlist('status'))
         logger.info(self.request.GET.getlist('only_my'))
+        user = self.request.user
+        last_confirmed_order = BirpayOrder.objects.filter(confirmed_operator=user).order_by('-confirmed_time').first()
+        if last_confirmed_order:
+            context['last_confirmed_order_id'] = last_confirmed_order.id
 
         return context
 
@@ -1185,8 +1189,9 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                         return HttpResponseRedirect(f"{request.path}?{query_string}")
                     else:
                         #Апрувнем заявку
-                        response = approve_birpay_refill(pk=order.birpay_id)
-                        if response.status_code != 200:
+                        # response = approve_birpay_refill(pk=order.birpay_id)
+                        # if response.status_code != 200:
+                        if False:
                             text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
                             messages.add_message(request, messages.ERROR, text)
                             logger.warning(text)
@@ -1198,10 +1203,12 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                             order.status = 1
                             order.status_internal = 1
 
+
                             with transaction.atomic():
                                 operator = self.request.user
                                 order.incomingsms_id = incoming_id
                                 order.confirmed_operator = operator
+                                order.confirmed_time = timezone.now()
                                 order.incoming = incoming_to_approve
                                 order.save()
                                 incoming_to_approve.birpay_id = order.merchant_transaction_id
