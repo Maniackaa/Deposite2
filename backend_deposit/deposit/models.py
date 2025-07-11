@@ -166,7 +166,12 @@ class BirpayOrder(models.Model):
         options = Options.load()
         birpay_moshennik_list = options.birpay_moshennik_list
         return self.merchant_user_id in birpay_moshennik_list
-
+    
+    def is_painter(self):
+        options = Options.load()
+        birpay_painter_list = options.birpay_painter_list
+        return self.merchant_user_id in birpay_painter_list
+    
 class Incoming(models.Model):
 
     def __init__(self, *args, **kwargs) -> None:
@@ -341,30 +346,6 @@ def after_save_incoming(sender, instance: Incoming, created, raw, using, update_
                 clear_contextvars()
         except Exception as err:
             logger.error(err)
-
-
-# class Deposit(models.Model):
-#     uid = models.CharField(max_length=36, db_index=True, unique=True, null=True, blank=True)
-#     register_time = models.DateTimeField('Время добавления в базу', auto_now_add=True)
-#     change_time = models.DateTimeField('Время изменения в базе', auto_now=True)
-#     phone = models.CharField('Телефон отправителя')
-#     pay_sum = models.IntegerField('Сумма платежа', validators=[MinValueValidator(5)])
-#     input_transaction = models.BigIntegerField('Введенная транзакция с чека',
-#                                             null=True, blank=True, help_text='Введите транзакцию из чека',
-#                                             validators=[MinValueValidator(50000000), MaxValueValidator(99999999)])
-#     status = models.CharField('Статус депозита',
-#                               default='pending',
-#                               choices=[
-#                                   ('pending', 'На рассмотрении'),
-#                                   ('approved', 'Подтвержден')])
-#     pay_screen = models.ImageField(upload_to='pay_screens/',
-#                                    verbose_name='Чек об оплате', null=True, blank=True, help_text='Скриншот чека')
-#     confirmed_incoming = models.OneToOneField(Incoming, null=True, blank=True, on_delete=models.SET_NULL,
-#                                               help_text='Подтвержденный чек')
-#
-#     def __str__(self):
-#         string = f'Депозит {self.id}. {self.input_transaction}. Сумма: {self.pay_sum}. Pay_screen: {self.pay_screen}. Наш чек: {self.confirmed_incoming.id if self.confirmed_incoming else "-"}'
-#         return string
 
 
 class BadScreen(models.Model):

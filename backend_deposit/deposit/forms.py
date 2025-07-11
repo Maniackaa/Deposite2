@@ -176,3 +176,17 @@ class MoshennikListForm(forms.Form):
         # Всегда возвращаем список
         result = [c.strip() for c in data.replace('\n', ',').split(',') if c.strip()]
         return result
+
+class PainterListForm(forms.Form):
+    painter_list = forms.CharField(
+        label="Список рисовальщиков",
+        widget=forms.Textarea(attrs={'rows': 30, 'class': 'form-control'}),
+        help_text="Втавьте список рисовальщиков через запятую или с новой строки."
+    )
+
+    def clean_painter_list(self):
+        data = self.cleaned_data['painter_list']
+        logger.info(f'clean_painter_list: {data}')
+        # Всегда возвращаем список
+        result = [c.strip() for c in data.replace('\n', ',').split(',') if c.strip()]
+        return result

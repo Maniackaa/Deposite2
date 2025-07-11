@@ -130,7 +130,9 @@
 
                         <td>
                                 {% if order.is_moshennik %}<span style="background: rgba(120,48,255,0.64)">{{ order.merchant_user_id }}</span>
-                            {% else %}
+                                {% elif order.is_painter %}
+                                    <span style="background: rgba(48,255,238,0.64)">{{ order.merchant_user_id }}</span>
+                                {% else %}
                                     {{ order.merchant_user_id}}
                                 {% endif %}
 

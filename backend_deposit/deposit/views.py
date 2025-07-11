@@ -38,8 +38,9 @@ from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, d
 from deposit import tasks
 from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrderFilter, BirpayPanelFilter
 from deposit.forms import (ColorBankForm,
-                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm, AssignCardsToUserForm,
-                           MoshennikListForm)
+                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm,
+                           AssignCardsToUserForm,
+                           MoshennikListForm, PainterListForm)
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data, \
@@ -1070,7 +1071,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
     def get_queryset(self):
         now = timezone.now()
         if settings.DEBUG:
-            threshold = now - datetime.timedelta(days=5)
+            threshold = now - datetime.timedelta(days=50)
         else:
             threshold = now - datetime.timedelta(minutes=30)
         qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal__in=[0, 1]).order_by('-created_at')
@@ -1291,6 +1292,23 @@ def moshennik_list(request):
         form = MoshennikListForm(initial={'moshennik_list': '\n'.join(birpay_moshennik_list)})
     context = {'form': form}
     return render(request=request, template_name='deposit/moshennik_list.html', context=context)
+
+@staff_member_required()
+def painter_list(request):
+    options = Options.load()
+    birpay_painter_list = options.birpay_painter_list
+    form = PainterListForm(request.POST)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            p_list = form.cleaned_data['painter_list']
+            logger.info(f'{p_list} {type(p_list)}')
+            options.birpay_painter_list = p_list
+            options.save(update_fields=['birpay_painter_list'])
+    else:
+        form = PainterListForm(initial={'painter_list': '\n'.join(birpay_painter_list)})
+    context = {'form': form}
+    return render(request=request, template_name='deposit/painter_list.html', context=context)
 
 @staff_member_required()
 def show_birpay_order_log(request, query_string):

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+    {% load filters %}
+    {% include 'includes/operator_menu.html' %}
+<div class="container mt-5" style="max-width: 480px;">
+  <h3>Список рисовальщиков</h3>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn btn-primary" type="submit">Сохранить</button>
+  </form>
+
+</div>
+{% endblock %}

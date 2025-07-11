@@ -63,6 +63,7 @@ urlpatterns = [
     # path('withdraw_test/', views.withdraw_test, name='withdraw_test'),
 
     path('moshennik_list/', views.moshennik_list, name='moshennik_list'),
+    path('painter_list/', views.painter_list, name='painter_list'),
     path('birpay_orders/', views.BirpayOrderView.as_view(), name='birpay_orders'),
     path('birpay_orders/raw/<int:birpay_id>/', views.BirpayOrderRawView.as_view(), name='birpay_order_raw'),
     path('birpay_orders/info/<int:birpay_id>/', views.BirpayOrderInfoView.as_view(), name='birpay_order_info'),

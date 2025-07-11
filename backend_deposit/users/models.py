@@ -175,7 +175,8 @@ class Options(SingletonModel):
     gpt_chek_is_active = models.BooleanField(verbose_name='Делать проерку чеков GPT', default=0)
     # gpt_prompt = models.TextField(verbose_name='Запрос для чеков', default='')
     gpt_auto_approve = models.BooleanField(default=False)
-    birpay_moshennik_list = ArrayField(models.CharField(max_length=500), blank=True, default=list)
+    birpay_moshennik_list = ArrayField(models.CharField(max_length=1000), blank=True, default=list)
+    birpay_painter_list = ArrayField(models.CharField(max_length=1000), blank=True, default=list)
 
 
     def __str__(self):

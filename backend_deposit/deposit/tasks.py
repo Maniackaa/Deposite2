@@ -1,7 +1,6 @@
 import hashlib
 import time
 from enum import Enum, Flag, auto
-from sys import exc_info
 
 import requests
 import structlog
@@ -409,9 +408,10 @@ def download_birpay_check_file(self, order_id, check_file_url):
                 order.check_is_double = is_double
                 update_fields.append('check_is_double')
             else:
-                order.gpt_processing = True
-                update_fields.append('gpt_processing')
-                send_image_to_gpt_task.delay(order.birpay_id)
+                if not order.is_painter():
+                    order.gpt_processing = True
+                    update_fields.append('gpt_processing')
+                    send_image_to_gpt_task.delay(order.birpay_id)
             order.save(update_fields=update_fields)
             return f"OK: {filename}"
         else:
@@ -482,7 +482,7 @@ def process_birpay_order(data):
 def send_image_to_gpt_task(self, birpay_id):
     logger = structlog.get_logger('deposit')
     bind_contextvars(birpay_id=birpay_id)
-    logger.info(f' send_image_to_gpt_task {birpay_id}')
+    logger.info(f'send_image_to_gpt_task {birpay_id}')
     BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     try:
         order = BirpayOrder.objects.get(birpay_id=birpay_id)
@@ -599,7 +599,7 @@ def send_image_to_gpt_task(self, birpay_id):
             order.gpt_flags = gpt_imho_result.value
             Options = apps.get_model('users', 'Options')
             gpt_auto_approve = Options.load().gpt_auto_approve
-            if not order.is_moshennik() and gpt_auto_approve and order.gpt_flags == 31:
+            if not order.is_moshennik() and not order.is_painter() and gpt_auto_approve and order.gpt_flags == 31:
                 user_orders = BirpayOrder.objects.filter(merchant_user_id=order.merchant_user_id)
                 total_user_orders = user_orders.count()
                 logger.info(f'total_orders: {total_user_orders}')
@@ -607,7 +607,7 @@ def send_image_to_gpt_task(self, birpay_id):
                     user_orders_1 = user_orders.filter(status=1).count()
                     user_order_percent = round(user_orders_1 / total_user_orders * 100, 0)
                     logger.info(f'user_order_percent: {user_order_percent}')
-                    if user_order_percent >= 20:
+                    if user_order_percent >= 40:
                         # Автоматическое подтверждение
                         incoming_sms = incomings_with_correct_card_and_order_amount[0]
                         logger.info(
