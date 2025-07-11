@@ -1189,9 +1189,8 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                         return HttpResponseRedirect(f"{request.path}?{query_string}")
                     else:
                         #Апрувнем заявку
-                        # response = approve_birpay_refill(pk=order.birpay_id)
-                        # if response.status_code != 200:
-                        if False:
+                        response = approve_birpay_refill(pk=order.birpay_id)
+                        if response.status_code != 200:
                             text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
                             messages.add_message(request, messages.ERROR, text)
                             logger.warning(text)
