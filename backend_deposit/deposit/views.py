@@ -1,3 +1,4 @@
+import base64
 import datetime
 import io
 import json
@@ -564,131 +565,137 @@ def day_graph(request):
 def operator_speed_graph(request):
     form = OperatorStatsForm(request.GET or None)
     graph_url = None
+    stat_table = None
+    total_payments = 0
+    no_data = False
 
-    if form.is_valid():
-        date_from = form.cleaned_data['date_from']
-        date_to = form.cleaned_data['date_to']
-        operator = form.cleaned_data['operator']
+    try:
+        if form.is_valid():
+            date_from = form.cleaned_data['date_from']
+            date_to = form.cleaned_data['date_to']
+            operator = form.cleaned_data['operator']
 
-        qs = BirpayOrder.objects.filter(
-            sended_at__date__gte=date_from,
-            sended_at__date__lt=date_to,
-            confirmed_operator__isnull=False,
-            confirmed_time__isnull=False,
-        )
-        if operator:
-            qs = qs.filter(confirmed_operator=operator)
+            # Логируем фильтр
+            logger.info(f"Filter: from {date_from} to {date_to}, operator: {operator}")
 
-        # Берём только нужные поля (для скорости)
-        df = pd.DataFrame(
-            list(qs.values('sended_at', 'confirmed_time', 'id'))
-        )
-        if df.empty:
-            # Нет данных по выбранному фильтру
-            return render(request, 'deposit/operator_speed_graph.html', {
-                'form': form,
-                'graph_url': graph_url,
-                'stat_table': None,
-                'total_payments': 0,
-                'no_data': True,
-            })
-        else:
-            # Переводим во временную зону Москвы
-            df['sended_at'] = pd.to_datetime(df['sended_at'], utc=True).dt.tz_convert(TZ)
-            df['confirmed_time'] = pd.to_datetime(df['confirmed_time'], utc=True).dt.tz_convert(TZ)
-            df['hour'] = df['sended_at'].dt.hour
-            df['delta_minutes'] = (df['confirmed_time'] - df['sended_at']).dt.total_seconds() / 60
-
-            # Категории
-            conditions = [
-                df['delta_minutes'] < 5,
-                (df['delta_minutes'] >= 5) & (df['delta_minutes'] < 15),
-                (df['delta_minutes'] >= 15) & (df['delta_minutes'] < 60),
-                (df['delta_minutes'] >= 60),
-            ]
-            choices = ['<5 минут', '<15 минут', '<60 минут', '≥60 минут']
-            df['speed_cat'] = np.select(conditions, choices, default='≥60 минут')
-
-            all_hours = np.arange(0, 24)
-            speed_order = ['<5 минут', '<15 минут', '<60 минут', '≥60 минут']
-            speed_colors = ['mediumseagreen', 'gold', 'tomato', 'lightgray']
-
-            hourly = df.groupby(['hour', 'speed_cat'])['id'].count().unstack(fill_value=0)
-            hourly = hourly.reindex(index=all_hours, fill_value=0)
-            hourly = hourly.reindex(columns=speed_order, fill_value=0)
-
-            # Рисуем график и сохраняем в PNG
-            fig, ax = plt.subplots(figsize=(14, 5))
-            hourly.plot(
-                kind='bar',
-                stacked=True,
-                color=speed_colors,
-                ax=ax
+            qs = BirpayOrder.objects.filter(
+                sended_at__date__gte=date_from,
+                sended_at__date__lt=date_to,  # обычно до, не включая date_to (или поменяй на lte)
+                confirmed_operator__isnull=False,
+                confirmed_time__isnull=False,
             )
-            ax.set_xlabel('Час (МСК)')
-            ax.set_ylabel('Количество подтверждений')
-            ax.set_title(
-                f'Подтверждения по часам (МСК) за {date_from} — {date_to}'
-                + (f' (оператор {operator})' if operator else '')
-            )
-            ax.set_xticks(range(24))
-            ax.set_xticklabels([str(h) for h in range(24)], rotation=0)
-            ax.legend(title='Время подтверждения')
-            plt.tight_layout()
+            if operator:
+                qs = qs.filter(confirmed_operator=operator)
 
-            # Подписи (можно добавить так же, как в примерах выше)
-            for i, (idx, row) in enumerate(hourly.iterrows()):
-                vals = [int(row[c]) for c in speed_order]
-                total_height = np.sum(vals)
-                ax.text(
-                    i, total_height + 0.5,
-                    f"{vals[0]}/{vals[1]}/{vals[2]}",
-                    ha='center', va='bottom', fontsize=11, fontweight='bold'
+            logger.info(f"Queryset count: {qs.count()}")
+
+            df = pd.DataFrame(list(qs.values('sended_at', 'confirmed_time', 'id')))
+            logger.info(f"DataFrame shape: {df.shape}")
+            logger.info(f"DataFrame columns: {df.columns.tolist()}")
+
+            if df.empty:
+                no_data = True
+            else:
+                # Приведение к datetime + Moscow tz
+                df['sended_at'] = pd.to_datetime(df['sended_at'], utc=True).dt.tz_convert(TZ)
+                df['confirmed_time'] = pd.to_datetime(df['confirmed_time'], utc=True).dt.tz_convert(TZ)
+                df['hour'] = df['sended_at'].dt.hour
+                df['delta_minutes'] = (df['confirmed_time'] - df['sended_at']).dt.total_seconds() / 60
+
+                # Категории
+                conditions = [
+                    df['delta_minutes'] < 5,
+                    (df['delta_minutes'] >= 5) & (df['delta_minutes'] < 15),
+                    (df['delta_minutes'] >= 15) & (df['delta_minutes'] < 60),
+                    (df['delta_minutes'] >= 60),
+                ]
+                choices = ['<5 минут', '<15 минут', '<60 минут', '≥60 минут']
+                df['speed_cat'] = np.select(conditions, choices, default='≥60 минут')
+
+                all_hours = np.arange(0, 24)
+                speed_order = ['<5 минут', '<15 минут', '<60 минут', '≥60 минут']
+                speed_colors = ['mediumseagreen', 'gold', 'tomato', 'lightgray']
+
+                hourly = df.groupby(['hour', 'speed_cat'])['id'].count().unstack(fill_value=0)
+                hourly = hourly.reindex(index=all_hours, fill_value=0)
+                hourly = hourly.reindex(columns=speed_order, fill_value=0)
+
+                # Рисуем график и сохраняем в PNG
+                fig, ax = plt.subplots(figsize=(14, 5))
+                hourly.plot(
+                    kind='bar',
+                    stacked=True,
+                    color=speed_colors,
+                    ax=ax
                 )
+                ax.set_xlabel('Час (МСК)')
+                ax.set_ylabel('Количество подтверждений')
+                title = f'Подтверждения по часам (МСК) за {date_from} — {date_to}'
+                if operator:
+                    title += f' (оператор {operator})'
+                ax.set_title(title)
+                ax.set_xticks(range(24))
+                ax.set_xticklabels([str(h) for h in range(24)], rotation=0)
+                ax.legend(title='Время подтверждения')
+                plt.tight_layout()
 
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png')
-            buf.seek(0)
-            import base64
-            graph_url = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
-            plt.close(fig)
-        # Статистика по разбивке времени (1, 2, ..., 5, 10, 15, ..., 1440)
-        bins = [0, 1, 2, 3, 4, 5, 10, 15, 20, 30, 60, 90, 120, 180, 360, 720, 1440, np.inf]
-        labels = [
-            '<1', '<2', '<3', '<4', '<5', '<10', '<15', '<20', '<30',
-            '<60', '<90', '<120', '<180', '<360', '<720', '<1440', '>1440'
-        ]
-        df['delta_minutes'] = (df['confirmed_time'] - df['sended_at']).dt.total_seconds() / 60
-        df['bucket'] = pd.cut(df['delta_minutes'], bins=bins, labels=labels, right=True)
+                # Подписи
+                for i, (idx, row) in enumerate(hourly.iterrows()):
+                    vals = [int(row[c]) for c in speed_order]
+                    total_height = np.sum(vals)
+                    ax.text(
+                        i, total_height + 0.5,
+                        f"{vals[0]}/{vals[1]}/{vals[2]}",
+                        ha='center', va='bottom', fontsize=11, fontweight='bold'
+                    )
 
-        stat_table = (
-            df['bucket'].value_counts()
-            .reindex(labels, fill_value=0)
-            .reset_index()
-        )
-        stat_table.columns = ['Категория', 'Количество']  # Явно задаём имена!
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png')
+                buf.seek(0)
+                graph_url = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
+                plt.close(fig)
 
-        # Явно приводим "Количество" к int:
-        stat_table['Количество'] = stat_table['Количество'].astype(int)
+                # Статистика по разбивке времени
+                bins = [0, 1, 2, 3, 4, 5, 10, 15, 20, 30, 60, 90, 120, 180, 360, 720, 1440, np.inf]
+                labels = [
+                    '<1', '<2', '<3', '<4', '<5', '<10', '<15', '<20', '<30',
+                    '<60', '<90', '<120', '<180', '<360', '<720', '<1440', '>1440'
+                ]
+                df['bucket'] = pd.cut(df['delta_minutes'], bins=bins, labels=labels, right=True)
 
-        # Считаем процент:
-        total_count = stat_table['Количество'].sum()
-        stat_table['%'] = (stat_table['Количество'] / total_count * 100).round(2)
+                stat_table = (
+                    df['bucket'].value_counts()
+                    .reindex(labels, fill_value=0)
+                    .reset_index()
+                )
+                stat_table.columns = ['Категория', 'Количество']
+                stat_table['Количество'] = stat_table['Количество'].astype(int)
+                total_count = stat_table['Количество'].sum()
+                stat_table['%'] = (stat_table['Количество'] / total_count * 100).round(2)
+                stat_table = stat_table[stat_table['Количество'] > 0]
+                stat_table = stat_table.sort_values('%', ascending=False).reset_index(drop=True)
 
-        stat_table = stat_table[stat_table['Количество'] > 0]
-        stat_table = stat_table.sort_values('%', ascending=False).reset_index(drop=True)
+                total_payments = df.shape[0]
+                logger.info(f"stat_table:\n{stat_table}")
 
-        # Общая статистика:
-        total_payments = df.shape[0]
-
-        logger.info(stat_table)
-
+    except Exception as e:
+        logger.exception("Error in operator_speed_graph view")
         return render(request, 'deposit/operator_speed_graph.html', {
             'form': form,
-            'graph_url': graph_url,
-            'stat_table': stat_table if not df.empty else None,
-            'total_payments': total_payments if not df.empty else 0,
+            'graph_url': None,
+            'stat_table': None,
+            'total_payments': 0,
+            'no_data': True,
+            'error': str(e),
         })
+
+    return render(request, 'deposit/operator_speed_graph.html', {
+        'form': form,
+        'graph_url': graph_url,
+        'stat_table': stat_table if not no_data else None,
+        'total_payments': total_payments if not no_data else 0,
+        'no_data': no_data,
+    })
 
 
 class MessageView(DetailView):
