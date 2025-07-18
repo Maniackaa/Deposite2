@@ -76,6 +76,7 @@
                     <th>Customer Name</th>
                     <th>Operator</th>
                     <th>Подтв</th>
+                    <th>Время Подтв</th>
                     <th>Чек</th>
                     <th>Raw Data</th>
                     <th>GPT Data</th>
@@ -115,6 +116,7 @@
                     <td>{{ order.customer_name }}</td>
                     <td>{{ order.operator|default_if_none:"" }}</td>
                     <td>{{ order.confirmed_operator|default_if_none:"" }}</td>
+                    <td>{{ order.confirmed_time|date:"Y-m-d H:i:s" }}</td>
                     <td>
                         {% if order.check_file %}
                             <a href="{{ order.check_file.url }}" target="_blank">Чек</a>
