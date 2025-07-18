@@ -574,7 +574,7 @@ def operator_speed_graph(request):
             date_from = form.cleaned_data['date_from']
             date_to = form.cleaned_data['date_to']
             operator = form.cleaned_data['operator']
-
+            raise ValueError('ddd')
             # Логируем фильтр
             logger.info(f"Filter: from {date_from} to {date_to}, operator: {operator}")
 
@@ -679,6 +679,7 @@ def operator_speed_graph(request):
                 logger.info(f"stat_table:\n{stat_table}")
 
     except Exception as e:
+        logger.info(f'{e}')
         logger.exception("Error in operator_speed_graph view")
         return render(request, 'deposit/operator_speed_graph.html', {
             'form': form,
