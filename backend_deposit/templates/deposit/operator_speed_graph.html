@@ -14,7 +14,14 @@
   <div>Нет данных за выбранный период</div>
 {% endif %}
 
-        
+    {% if error %}
+    <div class="alert alert-danger">
+        Ошибка: {{ error }}
+    </div>
+{% endif %}
+{% if no_data %}
+    <div class="alert alert-warning">Нет данных за выбранный период и условия.</div>
+{% endif %}    
     
 
   <h4>Всего платежей: {{ total_payments }}</h4>

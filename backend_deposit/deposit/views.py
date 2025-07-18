@@ -574,10 +574,7 @@ def operator_speed_graph(request):
             date_from = form.cleaned_data['date_from']
             date_to = form.cleaned_data['date_to']
             operator = form.cleaned_data['operator']
-            raise ValueError('ddd')
             # Логируем фильтр
-            logger.info(f"Filter: from {date_from} to {date_to}, operator: {operator}")
-
             qs = BirpayOrder.objects.filter(
                 sended_at__date__gte=date_from,
                 sended_at__date__lt=date_to,  # обычно до, не включая date_to (или поменяй на lte)
