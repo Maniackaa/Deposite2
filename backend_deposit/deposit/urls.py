@@ -47,6 +47,7 @@ urlpatterns = [
     path('stats_day2/', views.get_stats2, name='stats_day2'),
     path('trash/', views.IncomingTrashList.as_view(), name='trash'),
     path('graph/', views.day_graph, name='graph'),
+    path('operator_speed_graph/', views.operator_speed_graph, name='operator_speed_graph'),
 
     path('messages/<int:pk>/', views.MessageView.as_view(), name='message_view'),
     path('messages/', views.MessageListView.as_view(), name='messages'),

@@ -43,14 +43,19 @@
             <h3>Чек заказа (ID {{ object.id }}):</h3>
             <span>M Tx ID {{ object.merchant_transaction_id }}:  b_id {{ object.birpay_id }}</span><br>
             {% if object.check_file %}
-                <a href="{{ object.check_file.url }}" target="_blank">
+                <div style="position: relative; display: inline-block; width: 400px; height: 500px;">
                     {% if object.check_file.url|is_pdf %}
-                        <embed src="{{ object.check_file.url }}#toolbar=0" width="400" height="500" type="application/pdf"
-                               style="border-radius: 6px; border: 1px solid #ccc;"/>
+                        <embed src="{{ object.check_file.url }}#toolbar=0" width="400" height="500" type="application/pdf" style="border-radius: 6px; border: 1px solid #ccc;" />
+                        <a href="{{ object.check_file.url }}" target="_blank"
+                           style="position: absolute; left:0; top:0; width:100%; height:100%; z-index:10; display:block;">
+                            <span style="display:none;">PDF</span>
+                        </a>
                     {% else %}
-                        <img src="{{ object.check_file.url }}" style="height: 400px; width: auto; border-radius: 6px; border: 1px solid #ccc;"/>
+                        <a href="{{ object.check_file.url }}" target="_blank">
+                            <img src="{{ object.check_file.url }}" style="height: 400px; width: auto; border-radius: 6px; border: 1px solid #ccc;"/>
+                        </a>
                     {% endif %}
-                </a>
+                </div>
             {% else %}
                 <span>Нет изображения чека</span>
             {% endif %}

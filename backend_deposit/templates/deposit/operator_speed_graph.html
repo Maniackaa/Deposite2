@@ -1,0 +1,40 @@
+{% load l10n %}
+{% localize off %}
+{% load filters %}
+{% load static %}
+
+    
+<form method="get">
+  {{ form.as_p }}
+  <button type="submit" class="btn btn-primary">Построить график</button>
+</form>
+{% if graph_url %}
+  <img src="{{ graph_url }}" style="max-width: 100%;">
+{% elif form.is_bound %}
+  <div>Нет данных за выбранный период</div>
+{% endif %}
+
+        
+    
+
+  <h4>Всего платежей: {{ total_payments }}</h4>
+  <table class="table table-bordered table-sm">
+    <thead>
+      <tr>
+        <th>Категория (минуты)</th>
+        <th>Количество</th>
+        <th>%</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in stat_table.values %}
+      <tr>
+        <td>{{ row.0 }}</td>
+        <td>{{ row.1 }}</td>
+        <td>{{ row.2 }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+    
+{% endlocalize %}

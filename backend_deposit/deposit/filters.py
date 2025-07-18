@@ -260,7 +260,7 @@ class BirpayOrderFilter(django_filters.FilterSet):
         model = BirpayOrder
         fields = [
             'status', 'merchant_transaction_id', 'customer_name', 'merchant_name',
-            'merchant_user_id', 'operator',
+            'merchant_user_id', 'operator', 'confirmed_operator'
             # аннотированные поля НЕ указывать здесь
         ]
 

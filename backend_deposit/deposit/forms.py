@@ -190,3 +190,13 @@ class PainterListForm(forms.Form):
         # Всегда возвращаем список
         result = [c.strip() for c in data.replace('\n', ',').split(',') if c.strip()]
         return result
+
+
+class OperatorStatsForm(forms.Form):
+    date_from = forms.DateField(label='C какого дня', widget=forms.DateInput(attrs={'type': 'date'}))
+    date_to = forms.DateField(label='По какой день', widget=forms.DateInput(attrs={'type': 'date'}))
+    operator = forms.ModelChoiceField(
+        label='Оператор',
+        queryset=get_user_model().objects.all(),
+        required=False
+    )
