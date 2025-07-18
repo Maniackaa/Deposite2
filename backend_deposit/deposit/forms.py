@@ -192,11 +192,5 @@ class PainterListForm(forms.Form):
         return result
 
 
-class OperatorStatsForm(forms.Form):
-    date_from = forms.DateField(label='C какого дня', widget=forms.DateInput(attrs={'type': 'date'}))
-    date_to = forms.DateField(label='По какой день', widget=forms.DateInput(attrs={'type': 'date'}))
-    operator = forms.ModelChoiceField(
-        label='Оператор',
-        queryset=get_user_model().objects.all(),
-        required=False
-    )
+class OperatorStatsDayForm(forms.Form):
+    date = forms.DateField(label='День', widget=forms.DateInput(attrs={'type': 'date'}))

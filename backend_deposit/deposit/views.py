@@ -24,7 +24,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count, Subquery, ExpressionWrapper, FloatField, \
-    Max
+    Max, DurationField
 from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy, reverse
@@ -46,7 +46,7 @@ from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrder
 from deposit.forms import (ColorBankForm,
                            IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm,
                            AssignCardsToUserForm,
-                           MoshennikListForm, PainterListForm, OperatorStatsForm)
+                           MoshennikListForm, PainterListForm, OperatorStatsDayForm)
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data, \
@@ -563,43 +563,48 @@ def day_graph(request):
 
 @staff_member_required()
 def operator_speed_graph(request):
-    form = OperatorStatsForm(request.GET or None)
+    form = OperatorStatsDayForm(request.GET or None)
     graph_url = None
-    stat_table = None
-    total_payments = 0
+    stat_table_data = None
+    stat_table_columns = None
     no_data = False
 
-    try:
-        if form.is_valid():
-            date_from = form.cleaned_data['date_from']
-            date_to = form.cleaned_data['date_to']
-            operator = form.cleaned_data['operator']
-            # Логируем фильтр
-            qs = BirpayOrder.objects.filter(
-                sended_at__date__gte=date_from,
-                sended_at__date__lt=date_to,  # обычно до, не включая date_to (или поменяй на lte)
+    if form.is_valid():
+        chosen_date = form.cleaned_data['date']
+        try:
+
+            qs = BirpayOrder.objects.annotate(
+                delta=ExpressionWrapper(
+                    F('confirmed_time') - F('sended_at'),
+                    output_field=DurationField()
+                )
+            ).filter(
+                sended_at__date=chosen_date,
                 confirmed_operator__isnull=False,
                 confirmed_time__isnull=False,
+                delta__lte=datetime.timedelta(days=1)  # <= сутки
             )
-            if operator:
-                qs = qs.filter(confirmed_operator=operator)
 
-            logger.info(f"Queryset count: {qs.count()}")
+            logger.info(f"Queryset count: {qs.count()} на {chosen_date}")
 
-            df = pd.DataFrame(list(qs.values('sended_at', 'confirmed_time', 'id')))
+            df = pd.DataFrame(
+                list(qs.values(
+                    'sended_at', 'confirmed_time', 'id',
+                    'confirmed_operator__username'
+                ))
+            )
             logger.info(f"DataFrame shape: {df.shape}")
             logger.info(f"DataFrame columns: {df.columns.tolist()}")
 
             if df.empty:
                 no_data = True
             else:
-                # Приведение к datetime + Moscow tz
                 df['sended_at'] = pd.to_datetime(df['sended_at'], utc=True).dt.tz_convert(TZ)
                 df['confirmed_time'] = pd.to_datetime(df['confirmed_time'], utc=True).dt.tz_convert(TZ)
                 df['hour'] = df['sended_at'].dt.hour
                 df['delta_minutes'] = (df['confirmed_time'] - df['sended_at']).dt.total_seconds() / 60
 
-                # Категории
+                # Категории для графика (по скорости)
                 conditions = [
                     df['delta_minutes'] < 5,
                     (df['delta_minutes'] >= 5) & (df['delta_minutes'] < 15),
@@ -613,11 +618,11 @@ def operator_speed_graph(request):
                 speed_order = ['<5 минут', '<15 минут', '<60 минут', '≥60 минут']
                 speed_colors = ['mediumseagreen', 'gold', 'tomato', 'lightgray']
 
+                # --- График ---
                 hourly = df.groupby(['hour', 'speed_cat'])['id'].count().unstack(fill_value=0)
                 hourly = hourly.reindex(index=all_hours, fill_value=0)
                 hourly = hourly.reindex(columns=speed_order, fill_value=0)
 
-                # Рисуем график и сохраняем в PNG
                 fig, ax = plt.subplots(figsize=(14, 5))
                 hourly.plot(
                     kind='bar',
@@ -627,10 +632,7 @@ def operator_speed_graph(request):
                 )
                 ax.set_xlabel('Час (МСК)')
                 ax.set_ylabel('Количество подтверждений')
-                title = f'Подтверждения по часам (МСК) за {date_from} — {date_to}'
-                if operator:
-                    title += f' (оператор {operator})'
-                ax.set_title(title)
+                ax.set_title(f'Подтверждения по часам (МСК) за {chosen_date}')
                 ax.set_xticks(range(24))
                 ax.set_xticklabels([str(h) for h in range(24)], rotation=0)
                 ax.legend(title='Время подтверждения')
@@ -652,46 +654,47 @@ def operator_speed_graph(request):
                 graph_url = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
                 plt.close(fig)
 
-                # Статистика по разбивке времени
-                bins = [0, 1, 2, 3, 4, 5, 10, 15, 20, 30, 60, 90, 120, 180, 360, 720, 1440, np.inf]
+                # --- Таблица по юзерам (операторам) ---
+                bins = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120, np.inf]
                 labels = [
-                    '<1', '<2', '<3', '<4', '<5', '<10', '<15', '<20', '<30',
-                    '<60', '<90', '<120', '<180', '<360', '<720', '<1440', '>1440'
+                    '0–5', '5–10', '10–15', '15–20', '20–30',
+                    '30–45', '45–60', '60–90', '90–120', '120+'
                 ]
-                df['bucket'] = pd.cut(df['delta_minutes'], bins=bins, labels=labels, right=True)
+                df['bucket'] = pd.cut(df['delta_minutes'], bins=bins, labels=labels, right=False)
+                op_field = 'confirmed_operator__username'
 
-                stat_table = (
-                    df['bucket'].value_counts()
-                    .reindex(labels, fill_value=0)
-                    .reset_index()
-                )
-                stat_table.columns = ['Категория', 'Количество']
-                stat_table['Количество'] = stat_table['Количество'].astype(int)
-                total_count = stat_table['Количество'].sum()
-                stat_table['%'] = (stat_table['Количество'] / total_count * 100).round(2)
-                stat_table = stat_table[stat_table['Количество'] > 0]
-                stat_table = stat_table.sort_values('%', ascending=False).reset_index(drop=True)
+                user_stats = []
+                for op, group in df.groupby(op_field):
+                    total = group.shape[0]
+                    bucket_counts = group['bucket'].value_counts().reindex(labels, fill_value=0)
+                    bucket_perc = (bucket_counts / total * 100).round(1)
+                    # Только проценты (без "Доля", без %)
+                    user_stats.append(
+                        [op, total] + [bucket_perc[l] for l in labels]
+                    )
+                stat_cols = ['Оператор', 'Кол-во'] + labels
+                stat_table = pd.DataFrame(user_stats, columns=stat_cols)
+                # Сортировка по первому периоду (0–5)
+                stat_table = stat_table.sort_values('0–5', ascending=False).reset_index(drop=True)
+                stat_table_data = stat_table.to_dict('records')
+                stat_table_columns = list(stat_table.columns)
 
-                total_payments = df.shape[0]
-                logger.info(f"stat_table:\n{stat_table}")
-
-    except Exception as e:
-        logger.info(f'{e}')
-        logger.exception("Error in operator_speed_graph view")
-        return render(request, 'deposit/operator_speed_graph.html', {
-            'form': form,
-            'graph_url': None,
-            'stat_table': None,
-            'total_payments': 0,
-            'no_data': True,
-            'error': str(e),
-        })
+        except Exception as e:
+            logger.exception("Error in operator_speed_graph view")
+            return render(request, 'deposit/operator_speed_graph.html', {
+                'form': form,
+                'graph_url': None,
+                'stat_table_data': None,
+                'stat_table_columns': None,
+                'no_data': True,
+                'error': str(e),
+            })
 
     return render(request, 'deposit/operator_speed_graph.html', {
         'form': form,
         'graph_url': graph_url,
-        'stat_table': stat_table if not no_data else None,
-        'total_payments': total_payments if not no_data else 0,
+        'stat_table_data': stat_table_data,
+        'stat_table_columns': stat_table_columns,
         'no_data': no_data,
     })
 
