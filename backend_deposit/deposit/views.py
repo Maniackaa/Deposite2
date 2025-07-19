@@ -579,7 +579,7 @@ def operator_speed_graph(request):
                     output_field=DurationField()
                 )
             ).filter(
-                confirmed_time__date=chosen_date,
+                sended_at__date=chosen_date,
                 confirmed_operator__isnull=False,
                 confirmed_time__isnull=False,
                 delta__lte=datetime.timedelta(days=1)
