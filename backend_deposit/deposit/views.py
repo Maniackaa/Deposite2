@@ -579,10 +579,10 @@ def operator_speed_graph(request):
                     output_field=DurationField()
                 )
             ).filter(
-                sended_at__date=chosen_date,
+                confirmed_time__date=chosen_date,
                 confirmed_operator__isnull=False,
                 confirmed_time__isnull=False,
-                delta__lte=datetime.timedelta(days=1)  # <= сутки
+                delta__lte=datetime.timedelta(days=1)
             )
 
             logger.info(f"Queryset count: {qs.count()} на {chosen_date}")
@@ -655,10 +655,9 @@ def operator_speed_graph(request):
                 plt.close(fig)
 
                 # --- Таблица по юзерам (операторам) ---
-                bins = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120, np.inf]
+                bins = [0, 5, 10, 15, 60, np.inf]
                 labels = [
-                    '0–5', '5–10', '10–15', '15–20', '20–30',
-                    '30–45', '45–60', '60–90', '90–120', '120+'
+                    '0–5', '5–10', '10–15', '15–60', '60+'
                 ]
                 df['bucket'] = pd.cut(df['delta_minutes'], bins=bins, labels=labels, right=False)
                 op_field = 'confirmed_operator__username'
