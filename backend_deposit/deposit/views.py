@@ -1282,7 +1282,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                     incoming_id = value.strip()
                     order = BirpayOrder.objects.get(pk=order_id)
                     logger.info(f'Для {order} сохраняем смс {incoming_id}')
-                    bind_contextvars(birpay_id=order.birpay_id)
+                    bind_contextvars(merchant_transaction_id=order.merchant_transaction_id)
                 elif name.startswith('orderamount'):
                     new_amount = float(value)
                     logger.info(f'new_amount: {new_amount}')
@@ -1291,11 +1291,12 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                     logger.info(f'action: {action}')
 
             update_fields = []
-
+            # bind_contextvars(birpay_id=order.merchant_transaction_id)
             # смена суммы
             if order.amount != new_amount:
                 if order.status != 0:
                     text = f'Не удалось сменить сумму {order} mtx_id {order.merchant_transaction_id}: Статус не pending'
+                    logger.warning(text)
                     messages.add_message(request, messages.WARNING, text)
                     # raise ValidationError(text)
                 else:
@@ -1303,6 +1304,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                     response = change_amount_birpay(pk=order.birpay_id, amount=new_amount)
                     if response.status_code == 200:
                         text = f"Сумма {order} mtx_id {order.merchant_transaction_id} изменена с {order.amount} на {new_amount}"
+                        logger.info(text)
                         messages.add_message(request, messages.INFO, text)
                         order.amount = new_amount
                         update_fields.append('amount')
@@ -1311,12 +1313,15 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
 
             # Обработка действий
             if action == 'hide':
+                logger.info('hide')
                 order.status_internal = -2
                 update_fields.extend(['status_internal'])
                 order.save(update_fields=update_fields)
             elif action == 'pending':
+                logger.info('pending')
                 order.save(update_fields=update_fields)
             elif action == 'approve':
+                logger.info('approve')
                 if incoming_id == '':
                     text = f'Не указана свободная смс {incoming_id}'
                     logger.warning(text)
@@ -1331,6 +1336,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                         return HttpResponseRedirect(f"{request.path}?{query_string}")
                     else:
                         #Апрувнем заявку
+                        logger.info('Апрувнем заявку')
                         response = approve_birpay_refill(pk=order.birpay_id)
                         if response.status_code != 200:
                             text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"

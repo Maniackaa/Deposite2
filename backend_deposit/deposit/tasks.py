@@ -487,7 +487,7 @@ def send_image_to_gpt_task(self, birpay_id):
     try:
         order = BirpayOrder.objects.get(birpay_id=birpay_id)
         logger.debug(f'Найден BirpayOrder: {order}')
-        bind_contextvars(birpay_order_id=order.id)
+        bind_contextvars(merchant_transaction_id=order.merchant_transaction_id)
     except BirpayOrder.DoesNotExist:
         logger.error(f"BirpayOrder {birpay_id} не найден")
         return f"BirpayOrder {birpay_id} не найден"
@@ -615,7 +615,9 @@ def send_image_to_gpt_task(self, birpay_id):
                         order.incomingsms_id = incoming_sms.id
                         update_fields.append("incomingsms_id")
                         order.incoming = incoming_sms
+                        order.confirmed_time = timezone.now()
                         update_fields.append("incoming")
+                        update_fields.append("confirmed_time")
                         incoming_sms.birpay_id = order.merchant_transaction_id
                         incoming_sms.save()
                         # Апрувнем заявку
