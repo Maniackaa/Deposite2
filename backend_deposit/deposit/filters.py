@@ -165,12 +165,20 @@ class BirpayOrderFilter(django_filters.FilterSet):
         lookup_expr='exact',
         label='ID incoming'
     )
-    updated_at_gte = django_filters.DateTimeFilter(
-        label='От включая', field_name='updated_at', lookup_expr='gte',
+    created_at_gte = django_filters.DateTimeFilter(
+        label='Cоздано От', field_name='created_at', lookup_expr='gte',
         widget=MyTimeInput({'class': 'form-control'})
     )
-    updated_at_lt = django_filters.DateTimeFilter(
-        label='до (не включая)', field_name='updated_at', lookup_expr='lt',
+    created_at_lt = django_filters.DateTimeFilter(
+        label='Создано до', field_name='created_at', lookup_expr='lt',
+        widget=MyTimeInput({'class': 'form-control'})
+    )
+    confirmed_time_gte = django_filters.DateTimeFilter(
+        label='Подтверждено От', field_name='confirmed_time', lookup_expr='gte',
+        widget=MyTimeInput({'class': 'form-control'})
+    )
+    confirmed_time_lt = django_filters.DateTimeFilter(
+        label='Подтверждено до', field_name='confirmed_time', lookup_expr='lt',
         widget=MyTimeInput({'class': 'form-control'})
     )
     # incoming_pay_gte = django_filters.NumberFilter(
