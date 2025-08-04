@@ -582,7 +582,7 @@ def operator_speed_graph(request):
                 sended_at__date=chosen_date,
                 confirmed_operator__isnull=False,
                 confirmed_time__isnull=False,
-                delta__lte=datetime.timedelta(days=1)
+                delta__lte=datetime.timedelta(hours=1)
             )
 
             logger.info(f"Queryset count: {qs.count()} на {chosen_date}")
@@ -607,15 +607,15 @@ def operator_speed_graph(request):
                 # Категории для графика (по скорости)
                 conditions = [
                     df['delta_minutes'] < 5,
-                    (df['delta_minutes'] >= 5) & (df['delta_minutes'] < 15),
-                    (df['delta_minutes'] >= 15) & (df['delta_minutes'] < 60),
-                    (df['delta_minutes'] >= 60),
+                    (df['delta_minutes'] >= 5) & (df['delta_minutes'] < 10),
+                    (df['delta_minutes'] >= 10) & (df['delta_minutes'] < 15),
+                    (df['delta_minutes'] >= 15),
                 ]
-                choices = ['<5 минут', '<15 минут', '<60 минут', '≥60 минут']
-                df['speed_cat'] = np.select(conditions, choices, default='≥60 минут')
+                choices = ['<5 минут', '<10 минут', '<15 минут', '≥15 минут']
+                df['speed_cat'] = np.select(conditions, choices, default='≥15 минут')
 
                 all_hours = np.arange(0, 24)
-                speed_order = ['<5 минут', '<15 минут', '<60 минут', '≥60 минут']
+                speed_order = ['<5 минут', '<10 минут', '<15 минут', '≥15 минут']
                 speed_colors = ['mediumseagreen', 'gold', 'tomato', 'lightgray']
 
                 # --- График ---
@@ -655,9 +655,9 @@ def operator_speed_graph(request):
                 plt.close(fig)
 
                 # --- Таблица по юзерам (операторам) ---
-                bins = [0, 5, 10, 15, 60, np.inf]
+                bins = [0, 5, 10, 15, np.inf]
                 labels = [
-                    '0–5', '5–10', '10–15', '15–60', '60+'
+                    '0–5', '5–10', '10–15', '15+'
                 ]
                 df['bucket'] = pd.cut(df['delta_minutes'], bins=bins, labels=labels, right=False)
                 op_field = 'confirmed_operator__username'

@@ -6,6 +6,7 @@ import pytz
 import structlog
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
@@ -406,6 +407,9 @@ def analyse_sms_text_and_save(text, imei, sms_id, worker, *args, **kwargs):
     # Добавим получателя если его нет
     if not responsed_pay.get('recipient'):
         responsed_pay['recipient'] = imei
+    # Добавим время если нет
+    if not responsed_pay.get('response_date'):
+        responsed_pay['response_date'] = timezone.now()
     if text_sms_type:
         logger.info(f'Сохраняем в базу{responsed_pay}')
         if text_sms_type in ['sms8', 'sms7']:
