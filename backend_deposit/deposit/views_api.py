@@ -465,8 +465,10 @@ def sms(request: Request):
                      f' forwarded: {forwarded}')
 
         post = request.POST
+        logger.info(f'POST: {post}')
         text = post.get('message').replace('\r\n', '\n')
-        print(repr(text))
+        text = text.replace('\\n', '\n')
+        # print(repr(text))
         sms_id = post.get('id')
         imei = post.get('imei')
         worker = request.data.get('worker')
