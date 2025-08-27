@@ -657,4 +657,4 @@ def refresh_birpay_data():
                 b_id = row.get('id')
                 result = process_birpay_order(row)
                 # logger.info(f'Обработка birpay_id {b_id}: {result}')
-    return birpay_data
+    return len(birpay_data)

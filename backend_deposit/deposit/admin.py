@@ -85,7 +85,7 @@ class BirpayOrderAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'sended_at', 'amount', 'merchant_transaction_id', 'check_is_double', 'status',
     )
-
+    raw_id_fields = ('incoming',)
 
 admin.site.register(BirpayOrder, BirpayOrderAdmin)
 admin.site.register(Incoming, IncomingAdmin)
