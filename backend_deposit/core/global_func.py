@@ -24,7 +24,9 @@ def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):
                    f'bot{settings.BOT_TOKEN}/'
                    f'sendMessage?'
                    f'chat_id={chat_id}&'
-                   f'text={message}&parse_mode=html')
+                   f'text={message}'
+                   # f'&parse_mode=html'
+                   )
             response = requests.get(url)
             if response.status_code == 200:
                 logger.debug(f'Сообщение для {chat_id} отправлено')

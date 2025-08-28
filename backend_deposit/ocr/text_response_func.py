@@ -15,7 +15,8 @@ def get_unrecognized_field_error_text(response_fields, result):
     """Добавляет текст ошибки по полю если оно пустое (не распозналось)"""
     errors = []
     for field in response_fields:
-        if not result.get(field):
+        field_value = result.get(field)
+        if field_value is None:
             error_text = f'Не распознано поле {field} при распознавании шаблона {result.get("type")}. result: {result}'
             errors.append(error_text)
             logger.warning(error_text)
