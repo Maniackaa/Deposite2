@@ -1291,14 +1291,14 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                     logger.info(f'action: {action}')
 
             update_fields = []
-            # bind_contextvars(birpay_id=order.merchant_transaction_id)
+
             # смена суммы
             if order.amount != new_amount:
                 if order.status != 0:
                     text = f'Не удалось сменить сумму {order} mtx_id {order.merchant_transaction_id}: Статус не pending'
                     logger.warning(text)
                     messages.add_message(request, messages.WARNING, text)
-                    # raise ValidationError(text)
+                    raise ValidationError(text)
                 else:
                     logger.info(f'Меняем amount с {order.amount} на {new_amount}')
                     response = change_amount_birpay(pk=order.birpay_id, amount=new_amount)
@@ -1309,7 +1309,9 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                         order.amount = new_amount
                         update_fields.append('amount')
                     else:
-                        messages.add_message(request, messages.ERROR, "Сумма не изменена")
+                        text = f'Не удалось изменить сумму mtx_id {order.merchant_transaction_id} с {order.amount} на {new_amount}'
+                        messages.add_message(request, messages.ERROR, text)
+                        raise ValidationError(text)
 
             # Обработка действий
             if action == 'hide':
@@ -1365,7 +1367,9 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             return HttpResponseRedirect(f"{request.path}?{query_string}")
         except Exception as e:
             logger.error(e, exc_info=True)
-            return HttpResponseBadRequest(content=f'Ошибка при обработке заявки: {e}')
+            messages.add_message(request, messages.ERROR, e)
+            return HttpResponseRedirect(f"{request.path}?{query_string}")
+
 @staff_member_required()
 def test(request):
     options = Options.load()
