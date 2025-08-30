@@ -20,12 +20,19 @@ def send_message_tg(message: str, chat_ids: list = settings.ADMIN_IDS):
     try:
         for chat_id in chat_ids:
             logger.debug(f'Отправляем сообщение для {chat_id}. Текст:\n{message}')
-            url = (f'https://api.telegram.org/'
+            url1 = (f'https://api.telegram.org/'
                    f'bot{settings.BOT_TOKEN}/'
                    f'sendMessage?'
                    f'chat_id={chat_id}&'
-                   f'text={message}&parse_mode=html')
-            response = requests.get(url)
+                   f'text={message}'
+                   # f'&parse_mode=html'
+                   )
+            url2= url1 + '&parse_mode=html'
+            try:
+                response = requests.get(url2)
+            except Exception as e:
+                logger.warning(e)
+                response = requests.get(url1)
             if response.status_code == 200:
                 logger.debug(f'Сообщение для {chat_id} отправлено')
             else:

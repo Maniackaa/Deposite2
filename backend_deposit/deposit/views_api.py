@@ -333,7 +333,8 @@ patterns = {
     'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
     'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*.*\n*.*\nKart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
     'sms3': r'^.+[medaxil|mexaric] (.+?) AZN (.*)(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+Balance: (.+?) AZN.*',
-    'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
+    # 'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
+    'sms4': r'Amount:\s*(.+?)\s*AZN\s*(?:\n|\\n)?\s*Card:\s*(.*)\s*(?:\n|\\n)?\s*Date:\s*(.*)\s*(?:\n|\\n)?\s*Merchant:\s*(.*)\s*(?:\n|\\n)?\s*Balance:\s*(.*)',
     'sms5': r'.*Mebleg:(.+) AZN.*\n.*(\*\*\*.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
     'sms6': r'.*Mebleg:(.+) AZN.*\nHesaba medaxil: (.*)\nUnvan: (.*)\n(.*)\nBalans: (.*) AZN',
     'sms7': r'(.+) AZN.*\n(.+)\nBalans (.+) AZN\nKart:(.+)',
@@ -464,8 +465,10 @@ def sms(request: Request):
                      f' forwarded: {forwarded}')
 
         post = request.POST
+        logger.info(f'POST: {post}')
         text = post.get('message').replace('\r\n', '\n')
-        print(repr(text))
+        text = text.replace('\\n', '\n')
+        # print(repr(text))
         sms_id = post.get('id')
         imei = post.get('imei')
         worker = request.data.get('worker')

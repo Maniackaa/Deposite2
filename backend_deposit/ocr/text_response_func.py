@@ -15,15 +15,17 @@ def get_unrecognized_field_error_text(response_fields, result):
     """Добавляет текст ошибки по полю если оно пустое (не распозналось)"""
     errors = []
     for field in response_fields:
-        if not result.get(field):
-            error_text = f'Не распознано поле {field} при распознавании шаблона {result.get("type")}'
+        field_value = result.get(field)
+        if field_value is None:
+            error_text = f'Не распознано поле {field} при распознавании шаблона {result.get("type")}. result: {result}'
             errors.append(error_text)
+            logger.warning(error_text)
     return errors
 
 
 def date_response(data_text: str) -> datetime.datetime:
     """Преобразование строки в datetime"""
-    logger.debug(f'Распознавание даты из текста: {data_text}')
+    # logger.debug(f'Распознавание даты из текста: {data_text}')
     try:
         native_datetime = datetime.datetime.fromisoformat(data_text.strip()) - datetime.timedelta(hours=1)
         response_data = tz.localize(native_datetime)
@@ -36,13 +38,15 @@ def date_response(data_text: str) -> datetime.datetime:
         '%H:%M %d.%m.%y',
         '%d %B %Y %H:%M',
         '%d %B %Y%H:%M',
+        '%d.%m.%Y %H:%M'
     ]
     for date_format in formats:
         try:
             native_datetime = datetime.datetime.strptime(data_text.strip(), date_format) - datetime.timedelta(hours=1)
             response_data = tz.localize(native_datetime)
             return response_data
-        except ValueError:
+        except ValueError as e:
+            # print(e)
             pass
         except Exception as err:
             err_log.error(f'Ошибка распознавания даты из текста: {err}')
@@ -545,3 +549,7 @@ def response_sms18(fields, groups) -> dict[str, str | float]:
     except Exception as err:
         err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
         raise err
+
+
+x = date_response('05.08.2025 11:12')
+print(x)
