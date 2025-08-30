@@ -58,7 +58,7 @@ def date_response(data_text: str) -> datetime.datetime:
 # print(date_response('03.10.23 20:54'))
 # print(date_response('20:08 30.06.24'))
 
-def response_operations(fields: list[str], groups: tuple[str], response_fields, sms_type: str) -> dict:
+def response_operations(fields: list[str], groups: tuple[str, ...], response_fields, sms_type: str) -> dict:
     result = dict.fromkeys(fields)
     result['type'] = sms_type
     errors = []
@@ -118,6 +118,40 @@ def response_sms1(fields: list[str], groups: tuple[str]) -> dict[str, str | floa
 
 # x = response_sms1(['response_date', 'sender', 'bank', 'pay', 'balance', 'transaction', 'type'], ('Bloklanmish kart', '4127***6869', '2023-08-22 25:17:19', 'P2P SEND- LEO APP', '29.00', '569.51'))
 # print(x)
+
+
+def response_sms1b(fields, groups) -> dict[str, str | float]:
+    """
+    Функия распознавания шаблона 1b (как 2)
+    Mebleg:+-4.00 AZN (Original:4.00 AZN) - это поступление
+    Mebleg:-2.00 AZN (Original: 1.00 AZN) - это списание
+    :param fields: ['response_date', 'recipient', 'sender', 'pay', 'balance', 'transaction', 'type']
+    :param groups: ('+80.00', '4127*6869', '2023-08-22 15:17:19', 'P2P SEND- LEO APP', '569.51')
+    :return: dict[str, str | float]
+    """
+    response_fields = {
+        'response_date':    {'pos': 2, 'func': date_response},
+        'recipient':           {'pos': 1},
+        'sender':             {'pos': 3},
+        'pay':              {'pos': 0, 'func': float_digital},
+        'balance':          {'pos': 4, 'func': float_digital},
+    }
+    sms_type = 'sms1b'
+    try:
+        # обработка дурацкого +-
+        new_groups = []
+        for val in groups:
+            if '+-' in val:
+                new_val = val.replace('+-', '+')
+                new_groups.append(new_val)
+            else:
+                new_groups.append(val)
+        new_groups_tuple: tuple[str, ...] = tuple(new_groups)
+        result = response_operations(fields, new_groups_tuple, response_fields, sms_type)
+        return result
+    except Exception as err:
+        err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
+        raise err
 
 
 def response_sms2(fields, groups) -> dict[str, str | float]:

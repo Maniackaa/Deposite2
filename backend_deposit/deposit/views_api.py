@@ -20,7 +20,7 @@ from ocr.screen_response import screen_text_to_pay
 from deposit.serializers import IncomingSerializer
 from ocr.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
     response_sms6, response_sms7, response_sms8, response_sms9, response_sms10, response_sms11, response_sms12, \
-    response_sms13, response_sms14, response_sms15, response_sms16, response_sms17, response_sms18
+    response_sms13, response_sms14, response_sms15, response_sms16, response_sms17, response_sms18, response_sms1b
 from ocr.views_api import convert_atb_value
 
 logger = structlog.get_logger('deposit')
@@ -331,6 +331,7 @@ def screen(request: Request):
 
 patterns = {
     'sms1': r'^Imtina:(.*)\nKart:(.*)\nTarix:(.*)\nMercant:(.*)\nMebleg:(.*) .+\nBalans:(.*) ',
+    'sms1b': '.*Original:\s*(.*?) AZN.*\n*.*\n*.*\nKart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
     'sms2': r'.*Mebleg:\s*(.*?) AZN.*\n*.*\n*.*\nKart:(.*)\n*Tarix:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
     'sms3': r'^.+[medaxil|mexaric] (.+?) AZN (.*)(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+Balance: (.+?) AZN.*',
     # 'sms4': r'^Amount:(.+?) AZN[\n]?.*\nCard:(.*)\nDate:(.*)\nMerchant:(.*)[\n]*Balance:(.*) .*',
@@ -353,6 +354,7 @@ patterns = {
 }
 response_func = {
     'sms1': response_sms1,
+    'sms1b': response_sms1b,
     'sms2': response_sms2,
     'sms3': response_sms3,
     'sms4': response_sms4,
