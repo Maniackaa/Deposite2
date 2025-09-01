@@ -1285,7 +1285,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                     bind_contextvars(merchant_transaction_id=order.merchant_transaction_id)
                 elif name.startswith('orderamount'):
                     new_amount = float(value)
-                    logger.info(f'new_amount: {new_amount}')
+                    logger.info(f'sended_amount: {new_amount}')
                 elif name.startswith('order_action_'):
                     action = value
                     logger.info(f'action: {action}')
@@ -1338,6 +1338,12 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                         return HttpResponseRedirect(f"{request.path}?{query_string}")
                     else:
                         #Апрувнем заявку
+                        # Но сначала проверим суммы
+                        if incoming_to_approve.pay != order.amount:
+                            text = f'Сумма в смс {incoming_to_approve.id} {incoming_to_approve.pay} и заказе {order.amount} отличаются. Подтверждение и привязка не возможна'
+                            messages.add_message(request, messages.ERROR, text)
+                            logger.error(text)
+                            raise ValidationError(text)
                         logger.info('Апрувнем заявку')
                         response = approve_birpay_refill(pk=order.birpay_id)
                         if response.status_code != 200:
