@@ -187,10 +187,10 @@ class Incoming(models.Model):
         self.cached_birpay_id = self.birpay_id
 
     register_date = models.DateTimeField('Время добавления в базу', auto_now_add=True)
-    response_date = models.DateTimeField('Распознанное время', null=True, blank=True)
+    response_date = models.DateTimeField('Распознанное время', null=True, blank=True, db_index=True)
     recipient = models.CharField('Получатель', max_length=50, null=True, blank=True)
     sender = models.CharField('Отравитель/карта', max_length=50, null=True, blank=True)
-    pay = models.FloatField('Платеж')
+    pay = models.FloatField('Платеж', db_index=True)
     balance = models.FloatField('Баланс', null=True, blank=True)
     transaction = models.BigIntegerField('Транзакция', null=True, unique=True, blank=True)
     type = models.CharField(max_length=20, default='unknown')

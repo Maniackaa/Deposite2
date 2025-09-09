@@ -1,11 +1,14 @@
+import structlog
 from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
+
 from .forms import CreationForm
 from .models import Options
 
+logger = structlog.get_logger('deposit')
 
 class SignUp(CreateView):
     form_class = CreationForm
@@ -22,4 +25,5 @@ def toggle_option(request, value):
         raise Http404("Можно только для булевых опций")
     setattr(opts, value, not field)
     opts.save()
+    logger.info(f'Изменена опция {value} на {not field} юзером {request.user}')
     return redirect(request.META.get('HTTP_REFERER', request.path))
