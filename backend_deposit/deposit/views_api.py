@@ -351,7 +351,7 @@ patterns = {
     'sms16': r'.*Summa:\s*(.*?) AZN.*\n*.*\n*.*\nKarta:(.*)\n*Data:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
     'sms17': r'(\d{2}\.\d{2}\.\d{2}\s\d{2}:\d{2})\s(.*?),\s.*?:\s(\*\*\*\*\d+)\sMEBLEG:([-\d.]+)\sAZN.*?Balans:([-\d.]+)AZN',
     'sms18': r'(\d{2}\.\d{2}\.\d{2}\s\d{2}:\d{2})\s(.*?), AZ Card: (.*)\sMEBLEG:([-\d.]+)\sAZN.*?Balans:\s*([-\d.]+) AZN',
-    'sms19': r'.*Kredit:\s*(.*?) AZN.*Tarix:(.*)\n*Detal:(.*)\n*Balans:(.*) .*'
+    'sms19': r'.*Kredit:\s*(.*?) AZN\s+(.*?)\s+Tarix:(.*)\n*Detal:(.*)\n*Balans:(.*) .*'
 
 
 }
