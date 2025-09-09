@@ -38,6 +38,13 @@ class TrashIncoming(models.Model):
         string = f'Мусор {self.id} {self.register_date} {self.text[:20]}'
         return string
 
+    def formated_message(self):
+        if self.text:
+            text = self.text.replace('\r\n', '\n')
+            text = text.replace('\n', '<br>')
+            return text
+        return ''
+
 
 @receiver(post_save, sender=TrashIncoming)
 def after_save_trash(sender, instance: TrashIncoming, **kwargs):
@@ -223,6 +230,7 @@ class Incoming(models.Model):
         if len(from_part) == 2:
             return from_part[1][:-4]
         return 'unknown'
+
 
 
 class IncomingChange(models.Model):
