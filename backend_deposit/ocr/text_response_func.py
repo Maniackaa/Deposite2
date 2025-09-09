@@ -596,7 +596,7 @@ def response_sms19(fields, groups) -> dict[str, str | float]:
         'recipient':           {'pos': 1},
         'sender':             {'pos': 3},
         'pay':              {'pos': 0, 'func': float_digital},
-        'balance':          {'pos': 5, 'func': float_digital},
+        'balance':          {'pos': 4, 'func': float_digital},
     }
     sms_type = 'sms19'
     try:
