@@ -285,7 +285,9 @@ LOGGING = {
         # },
     },
 }
-
+LOGGING['loggers']['django.request']['level'] = 'ERROR'
+LOGGING['loggers']['django.request']['handlers'] = ['console']
+LOGGING['loggers']['django.server'] = {"handlers": ["console"], "level": "ERROR"}
 
 
 class LogJump:
