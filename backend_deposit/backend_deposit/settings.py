@@ -285,10 +285,39 @@ LOGGING = {
         # },
     },
 }
-LOGGING['loggers']['django.request']['level'] = 'ERROR'
-LOGGING['loggers']['django.request']['handlers'] = ['console']
-LOGGING['loggers']['django.server'] = {"handlers": ["console"], "level": "ERROR"}
+# --- SAFE logging patch: add missing Django loggers and root logger ---
+LOGGING.setdefault("handlers", {})
+LOGGING.setdefault("loggers", {})
 
+# Гарантируем, что консольный handler есть
+LOGGING["handlers"].setdefault("console", {
+    "class": "logging.StreamHandler",
+    "formatter": "color_console",
+    "level": "INFO",
+})
+
+# Логгеры Django, которые часто нужны
+LOGGING["loggers"].setdefault("django.request", {
+    "handlers": ["console"],            # можно добавить "errors", если хочешь писать в файл
+    "level": "ERROR",
+    "propagate": False,
+})
+LOGGING["loggers"].setdefault("django.server", {
+    "handlers": ["console"],
+    "level": "ERROR",
+    "propagate": False,
+})
+LOGGING["loggers"].setdefault("django", {
+    "handlers": ["console"],
+    "level": "INFO",
+    "propagate": True,
+})
+
+# Необязательно, но полезно: корневой логгер, чтобы всё нераспределённое не терялось
+LOGGING["root"] = {
+    "handlers": ["console", "root"],    # у тебя уже есть handler "root" -> logs/root.log
+    "level": "INFO",
+}
 
 class LogJump:
     def __init__(
