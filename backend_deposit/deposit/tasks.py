@@ -394,7 +394,8 @@ def download_birpay_check_file(self, order_id, check_file_url):
         response = requests.get(check_file_url)
         if response.ok:
             file_content = response.content
-            filename = check_file_url.split('/')[-1]
+            # filename = check_file_url.split('/')[-1]
+            filename = f'{order.merchant_transaction_id}_{order.amount}_azn'
             order.check_file.save(filename, ContentFile(file_content), save=True)
             order.check_file_failed = False
             md5_hash = hashlib.md5(file_content).hexdigest()
