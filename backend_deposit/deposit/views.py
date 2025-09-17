@@ -886,11 +886,14 @@ class WithdrawWebhookReceive(APIView):
             if status == 9:
                 logger.info(f'Подтверждаем на birpay {birpay_withdraw_id}')
                 result = approve_birpay_withdraw(birpay_withdraw_id, transaction_id)
+
             elif status == -1:
                 logger.info(f'Отклоняем на birpay {birpay_withdraw_id}')
                 result = decline_birpay_withdraw(birpay_withdraw_id, transaction_id)
 
             logger.info(f'result: {result}')
+            if result.get('errors'):
+                return JsonResponse(status=400, data=result, safe=False)
             return JsonResponse(status=200, data=result, safe=False)
         except Exception as err:
             logger.error(err)

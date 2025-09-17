@@ -114,7 +114,7 @@
     <span>
         <hr>
           {% for log in history %}
-             {{ log.time }} {{ log.user }} {{ log.val_name }} {{ log.new_val }}<br>
+             {{ log.time }} {{ log.user }}: "{{ log.val_name }}" -> {{ log.new_val }}<br>
           {% endfor %}
     </span>
   </div>
