@@ -385,13 +385,12 @@ CELERYD_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_work.log")
 CELERYBEAT_LOG_FILE = os.path.join(BASE_DIR, "logs", "celery_beat.log")
 CELERYD_HIJACK_ROOT_LOGGER = False
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-# CELERY_BEAT_SCHEDULE = {
-#     "check_macros": {
-#         "task": "deposit.tasks.check_macros",
-#         # "schedule": crontab(minute="*/1"),
-#         "schedule": 10,
-#     },
-# }
+CELERY_BEAT_SCHEDULE = {
+    "check_cards_activity": {
+        "task": "deposit.tasks.check_cards_activity",
+        "schedule": 60.0,  # Каждую минуту
+    },
+}
 REMOTE_SERVER = os.getenv('REMOTE_SERVER')
 
 BIRPAY_NEW_LOGIN = os.getenv('BIRPAY_NEW_LOGIN')

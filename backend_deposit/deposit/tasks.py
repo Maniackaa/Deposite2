@@ -25,6 +25,7 @@ from core.global_func import send_message_tg, TZ, Timer, mask_compare
 from deposit.func import find_possible_incomings
 from deposit.models import *
 from django.apps import apps
+from users.models import Options
 
 
 User = get_user_model()
@@ -663,3 +664,95 @@ def refresh_birpay_data():
                 result = process_birpay_order(row)
                 # logger.info(f'Обработка birpay_id {b_id}: {result}')
     return len(birpay_data)
+
+
+@shared_task(priority=2, time_limit=30)
+def check_cards_activity():
+    """Периодическая задача для проверки активности карт"""
+    try:
+        logger.info('Запуск проверки активности карт')
+        
+        # Получаем настройки
+        options = Options.load()
+        monitoring_minutes = options.card_monitoring_minutes
+        
+        # Получаем все активные карты из assigned_cards всех операторов
+        staff_users = User.objects.filter(is_staff=True, is_active=True).select_related('profile')
+        all_cards = set()
+        
+        for user in staff_users:
+            profile = getattr(user, 'profile', None)
+            if profile and profile.assigned_card_numbers:
+                cards = profile.assigned_card_numbers
+                if isinstance(cards, str):
+                    cards = [x.strip() for x in cards.split(',') if x.strip()]
+                all_cards.update(cards)
+        
+        if not all_cards:
+            logger.info('Нет активных карт для мониторинга')
+            return "Нет активных карт"
+        
+        logger.info(f'Мониторинг {len(all_cards)} карт')
+        
+        # Получаем текущее время
+        now = timezone.now()
+        threshold_time = now - datetime.timedelta(minutes=monitoring_minutes)
+        
+        inactive_cards = []
+        cards_to_notify = []
+        
+        for card_number in all_cards:
+            # Проверяем, есть ли поступления на эту карту за последние X минут
+            Incoming = apps.get_model('deposit', 'Incoming')
+            recent_incomings = Incoming.objects.filter(
+                response_date__gte=threshold_time
+            ).exclude(recipient__isnull=True).exclude(recipient='')
+            
+            # Проверяем каждое поступление на соответствие маске карты
+            has_recent_activity = False
+            for incoming in recent_incomings:
+                if mask_compare(card_number, incoming.recipient):
+                    has_recent_activity = True
+                    break
+            
+            if not has_recent_activity:
+                inactive_cards.append(card_number)
+                logger.warning(f'Карта {card_number} неактивна более {monitoring_minutes} минут')
+                
+                # Проверяем, отправляли ли уже уведомление для этой карты
+                CardMonitoringStatus = apps.get_model('deposit', 'CardMonitoringStatus')
+                monitoring_status, created = CardMonitoringStatus.objects.get_or_create(
+                    card_number=card_number,
+                    defaults={'is_active': False, 'last_activity': now}
+                )
+                
+                # Если это новая запись или карта была активна, но стала неактивной
+                if created or monitoring_status.is_active:
+                    cards_to_notify.append(card_number)
+                    monitoring_status.is_active = False
+                    monitoring_status.last_activity = now
+                    monitoring_status.save()
+            else:
+                # Если карта активна, обновляем статус
+                CardMonitoringStatus = apps.get_model('deposit', 'CardMonitoringStatus')
+                monitoring_status, created = CardMonitoringStatus.objects.get_or_create(
+                    card_number=card_number,
+                    defaults={'is_active': True, 'last_activity': now}
+                )
+                if not created:
+                    monitoring_status.is_active = True
+                    monitoring_status.last_activity = now
+                    monitoring_status.save()
+        
+        # Отправляем уведомления только для новых неактивных карт
+        if cards_to_notify:
+            message = f'На карты № {", ".join(cards_to_notify)} не было поступлений {monitoring_minutes} минут'
+            send_message_tg(message, settings.ALARM_IDS)
+            logger.warning(f'Отправлено уведомление о {len(cards_to_notify)} новых неактивных картах')
+        
+        return f'Проверено {len(all_cards)} карт, неактивных: {len(inactive_cards)}'
+        
+    except Exception as err:
+        logger.error(f'Ошибка при проверке активности карт: {err}')
+        send_message_tg(f'Ошибка при проверке активности карт: {err}', settings.ALARM_IDS)
+        return f"Ошибка: {err}"

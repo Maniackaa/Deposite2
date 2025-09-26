@@ -1135,24 +1135,45 @@ def assign_cards_to_user(request):
     User = get_user_model()
 
     if request.method == 'POST':
-        form = AssignCardsToUserForm(request.POST)
-        if form.is_valid():
-            selected_user = form.cleaned_data['user']
-            cards_list = form.cleaned_data['assigned_card_numbers']
-            profile = selected_user.profile
-            profile.assigned_card_numbers = cards_list  # Для ArrayField — это список!
-            profile.save()
-            assigned_cards = cards_list
-            messages.success(request, f"Карты назначены для {selected_user.username}")
-        else:
-            selected_user = form.cleaned_data.get('user', None)
-            if selected_user:
+        # Проверяем, нажата ли кнопка очистки
+        if request.POST.get('clear_cards'):
+            form = AssignCardsToUserForm(request.POST)
+            if form.is_valid():
+                selected_user = form.cleaned_data['user']
                 profile = selected_user.profile
-                cards = profile.assigned_card_numbers or []
-                # На случай, если поле — строка
-                if isinstance(cards, str):
-                    cards = [x.strip() for x in cards.split(',') if x.strip()]
-                assigned_cards = cards
+                profile.assigned_card_numbers = []  # Очищаем список
+                profile.save()
+                assigned_cards = []
+                messages.success(request, f"Карты очищены для {selected_user.username}")
+            else:
+                selected_user = form.cleaned_data.get('user', None)
+                if selected_user:
+                    profile = selected_user.profile
+                    cards = profile.assigned_card_numbers or []
+                    # На случай, если поле — строка
+                    if isinstance(cards, str):
+                        cards = [x.strip() for x in cards.split(',') if x.strip()]
+                    assigned_cards = cards
+        else:
+            # Обычное сохранение карт
+            form = AssignCardsToUserForm(request.POST)
+            if form.is_valid():
+                selected_user = form.cleaned_data['user']
+                cards_list = form.cleaned_data['assigned_card_numbers']
+                profile = selected_user.profile
+                profile.assigned_card_numbers = cards_list  # Для ArrayField — это список!
+                profile.save()
+                assigned_cards = cards_list
+                messages.success(request, f"Карты назначены для {selected_user.username}")
+            else:
+                selected_user = form.cleaned_data.get('user', None)
+                if selected_user:
+                    profile = selected_user.profile
+                    cards = profile.assigned_card_numbers or []
+                    # На случай, если поле — строка
+                    if isinstance(cards, str):
+                        cards = [x.strip() for x in cards.split(',') if x.strip()]
+                    assigned_cards = cards
     else:
         form = AssignCardsToUserForm()
         user_id = request.GET.get('user_id')
@@ -1172,7 +1193,7 @@ def assign_cards_to_user(request):
                 pass
 
     # Формируем таблицу всех staff-юзеров и их назначенных карт
-    staff_users = User.objects.filter(is_staff=True, role='staff', is_active=True).select_related('profile')
+    staff_users = User.objects.filter(is_staff=True, is_active=True).select_related('profile')
     users_cards = []
     for user in staff_users:
         profile = getattr(user, 'profile', None)

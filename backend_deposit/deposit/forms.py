@@ -147,17 +147,25 @@ class CheckScreenForm(forms.Form):
 
 class AssignCardsToUserForm(forms.Form):
     user = forms.ModelChoiceField(
-        queryset=User.objects.filter(is_staff=True),
+        queryset=User.objects.filter(is_staff=True, is_active=True),
         label="Оператор"
     )
     assigned_card_numbers = forms.CharField(
         label="Назначенные карты",
-        widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
-        help_text="Введите номера карт через запятую или с новой строки."
+        widget=forms.Textarea(attrs={
+            'rows': 3, 
+            'class': 'form-control',
+            'style': 'font-family: monospace; font-size: 14px; min-width: 400px;'
+        }),
+        help_text="Введите номера карт через запятую или с новой строки.",
+        required=False
     )
 
     def clean_assigned_card_numbers(self):
         data = self.cleaned_data['assigned_card_numbers']
+        # Если поле пустое, возвращаем пустой список
+        if not data or not data.strip():
+            return []
         # Всегда возвращаем список
         cards = [c.strip() for c in data.replace('\n', ',').split(',') if c.strip()]
         return cards

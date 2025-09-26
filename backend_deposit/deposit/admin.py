@@ -6,7 +6,7 @@ from rangefilter.filters import DateRangeFilterBuilder, DateRangeQuickSelectList
     NumericRangeFilterBuilder, DateTimeRangeFilterBuilder
 
 from deposit.models import Incoming, BadScreen, ColorBank, TrashIncoming, IncomingChange, CreditCard, Message, \
-    MessageRead, RePattern, IncomingCheck, BirpayOrder
+    MessageRead, RePattern, IncomingCheck, BirpayOrder, CardMonitoringStatus
 
 
 class TrashIncomingAdmin(admin.ModelAdmin):
@@ -87,6 +87,15 @@ class BirpayOrderAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ('incoming',)
 
+
+class CardMonitoringStatusAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'card_number', 'last_activity', 'is_active', 'created_at', 'updated_at'
+    )
+    list_filter = ('is_active', 'created_at', 'last_activity')
+    search_fields = ('card_number',)
+    readonly_fields = ('created_at', 'updated_at')
+
 admin.site.register(BirpayOrder, BirpayOrderAdmin)
 admin.site.register(Incoming, IncomingAdmin)
 admin.site.register(TrashIncoming, TrashIncomingAdmin)
@@ -98,3 +107,4 @@ admin.site.register(Message, MessageAdmin)
 admin.site.register(MessageRead)
 admin.site.register(IncomingCheck, IncomingCheckAdmin)
 admin.site.register(RePattern, RePatternAdmin)
+admin.site.register(CardMonitoringStatus, CardMonitoringStatusAdmin)

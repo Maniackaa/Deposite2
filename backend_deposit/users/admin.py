@@ -106,7 +106,11 @@ class ProfileAdmin(admin.ModelAdmin):
 
 
 class OptionsAdmin(admin.ModelAdmin):
-    list_display = ('id', 'birpay_check')
+    list_display = ('id', 'birpay_check', 'card_monitoring_minutes')
+    fields = ('birpay_check', 'um_login', 'um_password', 'asu_login', 'asu_password', 
+              'asu_merchant_id', 'asu_secret', 'asu_birshop_login', 'asu_birshop_password', 
+              'asu_birshop_merchant_id', 'gpt_chek_is_active', 'gpt_auto_approve', 
+              'birpay_moshennik_list', 'birpay_painter_list', 'card_monitoring_minutes')
 
 
 

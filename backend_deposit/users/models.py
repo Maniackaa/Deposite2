@@ -7,13 +7,63 @@ from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin, Group
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.core.exceptions import ValidationError
+import re
 
 # from deposit.models import Message
 
 
 from users.managers import UserManager
+
+
+def validate_card_number(card_number):
+    """
+    Валидатор для номеров кредитных карт.
+    Только полные 16-значные номера карт.
+    Поддерживает форматы:
+    - 1234567890123456 (полный номер 16 цифр)
+    - 1234-5678-9012-3456 (с дефисами)
+    - 1234 5678 9012 3456 (с пробелами)
+    """
+    if not card_number or not isinstance(card_number, str):
+        raise ValidationError('Номер карты не может быть пустым')
+    
+    # Убираем все пробелы и дефисы
+    cleaned = re.sub(r'[\s\-]', '', card_number.strip())
+    
+    # Проверяем, что содержит только цифры
+    if not re.match(r'^\d+$', cleaned):
+        raise ValidationError(
+            f'Номер карты "{card_number}" должен содержать только цифры'
+        )
+    
+    # Проверяем длину (должно быть 16 символов)
+    if len(cleaned) != 16:
+        raise ValidationError(
+            f'Номер карты "{card_number}" должен содержать ровно 16 цифр. '
+            f'Получено: {len(cleaned)} цифр'
+        )
+    
+    return cleaned
+
+
+def validate_card_numbers_list(card_numbers):
+    """
+    Валидатор для списка номеров карт
+    """
+    if not card_numbers:
+        return card_numbers
+    
+    validated_cards = []
+    for card in card_numbers:
+        if card and card.strip():  # Пропускаем пустые значения
+            validated_card = validate_card_number(card.strip())
+            if validated_card not in validated_cards:  # Избегаем дубликатов
+                validated_cards.append(validated_card)
+    
+    return validated_cards
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -95,6 +145,8 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
     instance.profile.save()
 
 
+
+
 class Profile(models.Model):
     user = models.OneToOneField(
         verbose_name="Пользователь", to=User, on_delete=models.CASCADE
@@ -117,7 +169,12 @@ class Profile(models.Model):
     my_filter2 = models.JSONField('Фильтр по получателю2', default=list, blank=True)
     my_filter3 = models.JSONField('Фильтр по получателю3', default=list, blank=True)
     view_bad_warning = models.BooleanField(default=False)
-    assigned_card_numbers = ArrayField(models.CharField(max_length=32), blank=True, default=list)
+    assigned_card_numbers = ArrayField(
+        models.CharField(max_length=16), 
+        blank=True, 
+        default=list,
+        help_text='Номера кредитных карт для мониторинга (16 цифр). Формат: 1234567890123456'
+    )
 
     @staticmethod
     def all_message_count():
@@ -127,6 +184,22 @@ class Profile(models.Model):
     def read_message_count(self):
         res = self.user.messages_read.all().exclude(message__type='macros').count()
         return res
+
+    def clean(self):
+        """Валидация полей модели"""
+        super().clean()
+        
+        # Валидируем номера карт
+        if self.assigned_card_numbers:
+            try:
+                self.assigned_card_numbers = validate_card_numbers_list(self.assigned_card_numbers)
+            except ValidationError as e:
+                raise ValidationError({'assigned_card_numbers': e.message})
+
+    def save(self, *args, **kwargs):
+        """Переопределяем save для автоматической валидации"""
+        self.clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.user.username}'
@@ -141,6 +214,63 @@ class Profile(models.Model):
             ('stats', 'Статистика по картам'),
             ('graph', 'График'),
         ]
+
+
+@receiver(pre_save, sender=Profile)
+def track_assigned_cards_changes(sender, instance, **kwargs):
+    """Отслеживает изменения в assigned_card_numbers для обновления мониторинга"""
+    if instance.pk:
+        try:
+            old_instance = Profile.objects.get(pk=instance.pk)
+            old_cards = set(old_instance.assigned_card_numbers or [])
+            new_cards = set(instance.assigned_card_numbers or [])
+            
+            # Сохраняем изменения в атрибуте экземпляра для использования в post_save
+            instance._old_assigned_cards = old_cards
+            instance._new_assigned_cards = new_cards
+            instance._cards_added = new_cards - old_cards
+            instance._cards_removed = old_cards - new_cards
+        except Profile.DoesNotExist:
+            # Если профиль новый, все карты считаются добавленными
+            instance._old_assigned_cards = set()
+            instance._new_assigned_cards = set(instance.assigned_card_numbers or [])
+            instance._cards_added = set(instance.assigned_card_numbers or [])
+            instance._cards_removed = set()
+    else:
+        # Если профиль новый, все карты считаются добавленными
+        instance._old_assigned_cards = set()
+        instance._new_assigned_cards = set(instance.assigned_card_numbers or [])
+        instance._cards_added = set(instance.assigned_card_numbers or [])
+        instance._cards_removed = set()
+
+
+@receiver(post_save, sender=Profile)
+def update_card_monitoring_status(sender, instance, created, **kwargs):
+    """Обновляет статус мониторинга карт при изменении assigned_card_numbers"""
+    if hasattr(instance, '_cards_added') and hasattr(instance, '_cards_removed'):
+        from django.apps import apps
+        from django.utils import timezone
+        
+        CardMonitoringStatus = apps.get_model('deposit', 'CardMonitoringStatus')
+        now = timezone.now()
+        
+        # Добавляем новые карты в мониторинг
+        for card_number in instance._cards_added:
+            if card_number:  # Проверяем, что карта не пустая
+                CardMonitoringStatus.objects.update_or_create(
+                    card_number=card_number,
+                    defaults={
+                        'is_active': True,  # Новые карты считаем активными
+                        'last_activity': now
+                    }
+                )
+                print(f"Добавлена карта {card_number} в мониторинг")
+        
+        # Удаляем карты из мониторинга
+        for card_number in instance._cards_removed:
+            if card_number:  # Проверяем, что карта не пустая
+                CardMonitoringStatus.objects.filter(card_number=card_number).delete()
+                print(f"Удалена карта {card_number} из мониторинга")
 
 
 class SingletonModel(models.Model):
@@ -177,6 +307,8 @@ class Options(SingletonModel):
     gpt_auto_approve = models.BooleanField(default=False)
     birpay_moshennik_list = ArrayField(models.CharField(max_length=1000), blank=True, default=list)
     birpay_painter_list = ArrayField(models.CharField(max_length=1000), blank=True, default=list)
+    card_monitoring_minutes = models.PositiveIntegerField(verbose_name='Время мониторинга карт (минуты)', default=20)
+
 
 
     def __str__(self):

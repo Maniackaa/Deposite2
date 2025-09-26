@@ -279,6 +279,24 @@ class IncomingCheck(models.Model):
         ordering = ('-id',)
 
 
+class CardMonitoringStatus(models.Model):
+    """Модель для отслеживания статуса мониторинга карт"""
+    card_number = models.CharField('Номер карты', max_length=32, db_index=True)
+    last_activity = models.DateTimeField('Последняя активность', auto_now_add=True)
+    is_active = models.BooleanField('Активна', default=True)
+    created_at = models.DateTimeField('Создано', auto_now_add=True)
+    updated_at = models.DateTimeField('Обновлено', auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Статус мониторинга карты'
+        verbose_name_plural = 'Статусы мониторинга карт'
+        unique_together = ('card_number',)
+        ordering = ('-last_activity',)
+    
+    def __str__(self):
+        return f'{self.card_number} - {self.last_activity}'
+
+
 @receiver(post_save, sender=Incoming)
 def after_save_incoming(sender, instance: Incoming, created, raw, using, update_fields, *args, **kwargs):
     try:
