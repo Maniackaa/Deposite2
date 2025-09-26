@@ -49,10 +49,29 @@
                     <button type="submit" class="btn btn-primary">
                          Сохранить
                     </button>
+                    <button type="button" class="btn btn-secondary" onclick="resetAllCheckboxes()">
+                         Сбросить все
+                    </button>
 
             </form>
           </div>
 
 
 
+{% endblock %}
+
+{% block javascript %}
+<script>
+function resetAllCheckboxes() {
+    // Находим все чекбоксы в форме и снимаем с них галочки
+    console.log('Сброс чекбоксов...');
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    console.log('Найдено чекбоксов:', checkboxes.length);
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        console.log('Сброшен чекбокс:', checkbox.name);
+    });
+    alert('Все чекбоксы сброшены!');
+}
+</script>
 {% endblock %}
