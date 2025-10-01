@@ -3,7 +3,7 @@ import requests
 import structlog
 
 from django.conf import settings
-from core.global_func import hash_gen
+from core.global_func import hash_gen, send_message_tg
 from users.models import Options
 
 log = structlog.get_logger('deposit')
@@ -114,6 +114,10 @@ def create_payment(payment_data):
         logger.debug(f'response: {response} {response.reason} {response.text}')
         if response.status_code == 201:
             return response.json()['id']
+        else:
+            text = f'Ошибка создания платежа на АСУ. response: {response} {response.reason} {response.text}'
+            logger.error(text)
+            send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
     except Exception as err:
         logger.debug(f'Ошибка при создании payment: {err}')
 

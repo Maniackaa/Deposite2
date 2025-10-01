@@ -280,7 +280,9 @@ def send_new_transactions_from_um_to_asu():
                             base_um_transaction.status = 4
                             base_um_transaction.save()
                     else:
-                        um_logger.debug(f'Payment по транзакции {transaction_id} НЕ создан!')
+                        text = f'Payment по транзакции UM {transaction_id} НЕ создан!'
+                        um_logger.debug(text)
+                        send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
 
                 except Exception as err:
                     um_logger.error(err)
