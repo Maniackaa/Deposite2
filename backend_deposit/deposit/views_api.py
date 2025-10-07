@@ -352,7 +352,7 @@ patterns = {
     'sms17': r'(\d{2}\.\d{2}\.\d{2}\s\d{2}:\d{2})\s(.*?),\s.*?:\s(\*\*\*\*\d+)\sMEBLEG:([-\d.]+)\sAZN.*?Balans:([-\d.]+)AZN',
     'sms18': r'(\d{2}\.\d{2}\.\d{2}\s\d{2}:\d{2})\s(.*?), AZ Card: (.*)\sMEBLEG:([-\d.]+)\sAZN.*?Balans:\s*([-\d.]+) AZN',
     'sms19': r'.*Kredit:\s*(.*?) AZN\s+(.*?)\s+Tarix:(.*)\n*Detal:(.*)\n*Balans:(.*) .*',
-    'sms20': r'Depozit\n(.*) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
+    'sms20': r'(Depozit)\n(.*) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
     'sms21': r'(.*) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN'
 
 
