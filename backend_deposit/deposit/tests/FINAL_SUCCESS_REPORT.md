@@ -100,3 +100,4 @@ pytest deposit/tests/test_simple_birpay.py -v
 3. **Поле суммы изменяется пользователем** в HTML форме
 4. **`change_amount_birpay` вызывается только при изменении суммы**
 5. **`approve_birpay_refill` вызывается для подтверждения заявки**
+

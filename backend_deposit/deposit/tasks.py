@@ -495,7 +495,7 @@ def send_image_to_gpt_task(self, birpay_id):
     try:
         order = BirpayOrder.objects.get(birpay_id=birpay_id)
         logger.debug(f'Найден BirpayOrder: {order}')
-        bind_contextvars(merchant_transaction_id=order.merchant_transaction_id)
+        bind_contextvars(merchant_transaction_id=order.merchant_transaction_id, birpay_id=birpay_id)
     except BirpayOrder.DoesNotExist:
         logger.error(f"BirpayOrder {birpay_id} не найден")
         return f"BirpayOrder {birpay_id} не найден"
@@ -594,6 +594,23 @@ def send_image_to_gpt_task(self, birpay_id):
                 gpt_imho_result |= BirpayOrder.GPTIMHO.sms
             else:
                 logger.info(f'Однозначная смс не найдена')
+            
+            # Проверка репутации пользователя
+            user_orders = BirpayOrder.objects.filter(merchant_user_id=order.merchant_user_id)
+            total_user_orders = user_orders.count()
+            logger.info(f'total_user_orders: {total_user_orders}')
+            if total_user_orders >= 5:
+                gpt_imho_result |= BirpayOrder.GPTIMHO.min_orders
+                logger.info(f'min_orders: ✅')
+                
+                user_orders_1 = user_orders.filter(status=1).count()
+                user_order_percent = round(user_orders_1 / total_user_orders * 100, 0)
+                logger.info(f'user_order_percent: {user_order_percent}')
+                if user_order_percent >= 40:
+                    gpt_imho_result |= BirpayOrder.GPTIMHO.user_reputation
+                    logger.info(f'user_reputation: ✅')
+            else:
+                logger.info(f'min_orders: ❌ (всего {total_user_orders} < 5)')
 
             result_str = ", ".join(
                 f"{flag.name}: {'✅ ' if flag in gpt_imho_result else '❌ '}"
@@ -607,33 +624,26 @@ def send_image_to_gpt_task(self, birpay_id):
             order.gpt_flags = gpt_imho_result.value
             Options = apps.get_model('users', 'Options')
             gpt_auto_approve = Options.load().gpt_auto_approve
-            if not order.is_moshennik() and not order.is_painter() and gpt_auto_approve and order.gpt_flags == 31:
-                user_orders = BirpayOrder.objects.filter(merchant_user_id=order.merchant_user_id)
-                total_user_orders = user_orders.count()
-                logger.info(f'total_orders: {total_user_orders}')
-                if total_user_orders >= 5:
-                    user_orders_1 = user_orders.filter(status=1).count()
-                    user_order_percent = round(user_orders_1 / total_user_orders * 100, 0)
-                    logger.info(f'user_order_percent: {user_order_percent}')
-                    if user_order_percent >= 40:
-                        # Автоматическое подтверждение
-                        incoming_sms = incomings_with_correct_card_and_order_amount[0]
-                        logger.info(
-                            f'Автоматическое подтверждение {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
-                        order.incomingsms_id = incoming_sms.id
-                        update_fields.append("incomingsms_id")
-                        order.incoming = incoming_sms
-                        order.confirmed_time = timezone.now()
-                        update_fields.append("incoming")
-                        update_fields.append("confirmed_time")
-                        incoming_sms.birpay_id = order.merchant_transaction_id
-                        incoming_sms.save()
-                        # Апрувнем заявку
-                        response = approve_birpay_refill(pk=order.birpay_id)
-                        if response.status_code != 200:
-                            text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
-                            logger.warning(text)
-                            send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
+            # Автоматическое подтверждение только если ВСЕ 7 флагов установлены (127 = 0b1111111)
+            if not order.is_moshennik() and not order.is_painter() and gpt_auto_approve and order.gpt_flags == 127:
+                # Автоматическое подтверждение
+                incoming_sms = incomings_with_correct_card_and_order_amount[0]
+                logger.info(
+                    f'Автоматическое подтверждение {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
+                order.incomingsms_id = incoming_sms.id
+                update_fields.append("incomingsms_id")
+                order.incoming = incoming_sms
+                order.confirmed_time = timezone.now()
+                update_fields.append("incoming")
+                update_fields.append("confirmed_time")
+                incoming_sms.birpay_id = order.merchant_transaction_id
+                incoming_sms.save()
+                # Апрувнем заявку
+                response = approve_birpay_refill(pk=order.birpay_id)
+                if response.status_code != 200:
+                    text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
+                    logger.warning(text)
+                    send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
             if order.is_moshennik():
                 logger.info(f'Обработка мошенника')
                 if len(incomings_with_correct_card_and_order_amount) == 1:

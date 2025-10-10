@@ -106,3 +106,4 @@ pytest deposit/tests/test_birpay_simple.py::BirpaySimpleTest::test_birpay_panel_
 - ✅ Готовые к использованию тесты
 
 **Можете использовать `test_birpay_simple.py` для тестирования BirpayPanelView!** 🚀
+

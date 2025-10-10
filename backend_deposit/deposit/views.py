@@ -1058,7 +1058,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
                 'status_0': qs.filter(status=0).count(),
                 'status_1': qs.filter(status=1).count(),
                 'status_2': qs.filter(status=2).count(),
-                'gpt_approve': int(qs.filter(gpt_flags=31).count() / total_count * 100) if total_count else 0
+                'gpt_approve': int(qs.filter(gpt_flags=127).count() / total_count * 100) if total_count else 0
             }
             context['birpay_stats'] = stats
 

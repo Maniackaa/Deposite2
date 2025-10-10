@@ -129,6 +129,8 @@ class BirpayOrder(models.Model):
         amount = auto()
         sms = auto()
         gpt_status = auto()
+        min_orders = auto()
+        user_reputation = auto()
 
     birpay_id = models.IntegerField(verbose_name='Первычный id в birpay', unique=True, db_index=True)
     sended_at = models.DateTimeField(verbose_name='Создалась у нас', auto_now_add=True, null=True, blank=True, db_index=True)

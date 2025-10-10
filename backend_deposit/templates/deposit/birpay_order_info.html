@@ -29,7 +29,11 @@
         
     
 
-        <div class="card row" ><b>Gpt данные: {{ object.gpt_flags|as_bin }}</b><br>
+        <div class="card row" >
+            <b>GPT валидация: {{ object.gpt_flags|as_bin }}</b>
+            <small style="color: #666;">time, recipient, amount, sms, status, ≥5 orders, ≥40% reputation</small>
+            <div style="margin-top: 5px;">{% if object.gpt_flags == 127 %}<span style="background: #28a745; color: white; padding: 2px 5px; border-radius: 3px;">✓ Полная валидация (127)</span>{% endif %}</div>
+            <hr style="margin: 8px 0;">
             <div class="row" style="white-space: nowrap"><span> <b>Сумма</b>: {{ gpt_data|get_item:"amount" }}</span></div>
             <div class="row" style="white-space: nowrap"><span> <b>Дата</b>: {{ gpt_data|get_item:"create_at" }}</span></div>
             <div class="row" style="white-space: nowrap"><span> <b>Получатель</b>: {{ gpt_data|get_item:"recipient" }}</span></div>
