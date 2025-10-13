@@ -440,14 +440,12 @@ def process_birpay_order(data):
     bind_contextvars(birpay_id=birpay_id)
     check_file_url = data.get('payload', {}).get('check_file')
 
+    card_number = None
     paymentRequisite = data.get('paymentRequisite')
     if paymentRequisite:
         payload = paymentRequisite.get('payload', {})
         if payload:
             card_number = payload.get('card_number')
-    else:
-        card_number = None
-
 
     order_data = {
         'created_at': parse_datetime(data['createdAt']),
