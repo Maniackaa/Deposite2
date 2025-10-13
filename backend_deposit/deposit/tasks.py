@@ -442,7 +442,9 @@ def process_birpay_order(data):
 
     paymentRequisite = data.get('paymentRequisite')
     if paymentRequisite:
-        card_number = paymentRequisite.get('payload', {}).get('card_number')
+        payload = paymentRequisite.get('payload', {})
+        if payload:
+            card_number = payload.get('card_number')
     else:
         card_number = None
 
