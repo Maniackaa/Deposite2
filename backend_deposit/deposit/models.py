@@ -16,11 +16,8 @@ from colorfield.fields import ColorField
 from django_currentuser.middleware import get_current_authenticated_user
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-
-from core.asu_pay_func import check_asu_payment_for_card, create_birpay_payment, send_card_data, send_card_data_birshop, \
-    send_sms_code_birpay
 from core.global_func import send_message_tg, Timer
-from deposit.tasks import check_incoming, send_image_to_gpt_task
+from deposit.tasks import check_incoming
 from ocr.views_api import *
 from users.models import Options
 
@@ -63,50 +60,50 @@ def after_save_trash(sender, instance: TrashIncoming, **kwargs):
     except Exception as e:
         logger.error(e, exc_info=True)
 
-    # Поиск смс в мусоре по активным картам
-    try:
-        pattern = r"Code: (\d*)\n([\d,]+\.\d{2}) AZN\n(\d\*\d\d\d\d)"
-        text = instance.text.replace('\r\n', '\n')
-        match = re.search(pattern, text)
-        if match:
-            logger.debug('Мусор по шаблону OTP')
-            code, raw_amount, card_mask = match.groups()
-            amount = convert_atb_value(raw_amount)
-            logger.debug(f'{code, raw_amount, amount, card_mask}') # '4*7498'
-            first_char = card_mask[0]
-            last_chars = card_mask[2:]
-            logger.debug(f'Ищем карту {first_char, last_chars}')
-            card = CreditCard.objects.filter(
-                number__startswith=first_char,
-                number__endswith=last_chars
-            ).first()
-            logger.debug(f'card: {card}')
-            if card and card.is_active:
-                logger.debug('Карта активна')
-                # Проверим есть ли активные платежи по этой карте
-                response = check_asu_payment_for_card(card_number=card.number)
-                results = response.json().get('results', [])
-                if response.status_code == 200 and len(results) == 1:
-                    payment = results[0]
-                    logger.info('Нужный платеж найден. Передаем смс')
-                    message = (
-                        f'Смс с рабочей карты {card_mask}:\n'
-                        f'{amount} azn. Code: {code}'
-                    )
-                    send_message_tg(message=message)
-                    # Проверим сумму
-                    logger.info(f'Проверим сумму. сумма заявки: {card.current_payment_amount}, смс: {amount}')
-                    if amount == card.current_payment_amount:
-                        logger.info(f'Сумма совпадает с текущей завкой: {amount}')
-                        send_sms_code_birpay(payment_id=payment["id"], sms_code=code)
-
-                else:
-                    logger.info(f'Нужный платеж не найден. result_list: {results}')
-        else:
-            logger.debug(logger.info(f'Не по шаблону BirPay:\n{repr(text)}'))
-
-    except Exception as e:
-        logger.error(e)
+    # # Поиск смс в мусоре по активным картам
+    # try:
+    #     pattern = r"Code: (\d*)\n([\d,]+\.\d{2}) AZN\n(\d\*\d\d\d\d)"
+    #     text = instance.text.replace('\r\n', '\n')
+    #     match = re.search(pattern, text)
+    #     if match:
+    #         logger.debug('Мусор по шаблону OTP')
+    #         code, raw_amount, card_mask = match.groups()
+    #         amount = convert_atb_value(raw_amount)
+    #         logger.debug(f'{code, raw_amount, amount, card_mask}') # '4*7498'
+    #         first_char = card_mask[0]
+    #         last_chars = card_mask[2:]
+    #         logger.debug(f'Ищем карту {first_char, last_chars}')
+    #         card = CreditCard.objects.filter(
+    #             number__startswith=first_char,
+    #             number__endswith=last_chars
+    #         ).first()
+    #         logger.debug(f'card: {card}')
+    #         if card and card.is_active:
+    #             logger.debug('Карта активна')
+    #             # Проверим есть ли активные платежи по этой карте
+    #             response = check_asu_payment_for_card(card_number=card.number)
+    #             results = response.json().get('results', [])
+    #             if response.status_code == 200 and len(results) == 1:
+    #                 payment = results[0]
+    #                 logger.info('Нужный платеж найден. Передаем смс')
+    #                 message = (
+    #                     f'Смс с рабочей карты {card_mask}:\n'
+    #                     f'{amount} azn. Code: {code}'
+    #                 )
+    #                 send_message_tg(message=message)
+    #                 # Проверим сумму
+    #                 logger.info(f'Проверим сумму. сумма заявки: {card.current_payment_amount}, смс: {amount}')
+    #                 if amount == card.current_payment_amount:
+    #                     logger.info(f'Сумма совпадает с текущей завкой: {amount}')
+    #                     send_sms_code_birpay(payment_id=payment["id"], sms_code=code)
+    #
+    #             else:
+    #                 logger.info(f'Нужный платеж не найден. result_list: {results}')
+    #     else:
+    #         logger.debug(logger.info(f'Не по шаблону BirPay:\n{repr(text)}'))
+    #
+    # except Exception as e:
+    #     logger.error(e)
 
 
 SITE_VAR = {
@@ -321,60 +318,60 @@ def after_save_incoming(sender, instance: Incoming, created, raw, using, update_
     except Exception as err:
         logger.error(err)
 
-    # Обработка прихода на нашу карту
-    if created:
-        try:
-            # Если карта в списке CreditCards и активна то создаем заявку для BirPayShop на asu
-            active_cards = CreditCard.objects.filter(is_active=True).values_list('name', flat=True)
-            logger.info(f'active_cards: {active_cards}')
-            if instance.recipient in active_cards:
-                logger.info(f'Платеж на активную карту {instance.recipient}')
-                active_card = CreditCard.objects.get(name=instance.recipient)
-                bind_contextvars(active_card=active_card.name)
-                min_balance = 300
-                if instance.balance > min_balance:
-                    logger.info('Баланс больше лимита')
-                    # Проверим есть ли активные платежи по этой карте
-                    response = check_asu_payment_for_card(card_number=active_card.number)
-                    logger.debug(f'response: {response.status_code}')
-                    if response.status_code != 200:
-                        raise ValueError('Плохой ответ при проверке активных платежей по карте')
-                    result = response.json()
-                    logger.info(f'result: {result}')
-                    results = result.get('results', [])
-                    logger.info(f'results: {results}')
-                    if results:
-                        logger.info('Есть активные платежи. Отбой')
-                        return
-
-                    logger.debug(f'Активных выплат по карте нет. Создаем новую заявку на асу')
-                    #{'merchant': 34, 'order_id': 1586, 'amount': 1560.0, 'user_login': '119281059', 'pay_type': 'card_2'}
-                    payment_data = {
-                        'merchant': Options.load().asu_birshop_merchant_id,
-                        'order_id': instance.pk,
-                        'amount': instance.balance - 1,
-                        'pay_type': 'card_2'}
-                    p = create_birpay_payment(payment_data)
-                    logger.info(f'Создана новая выплата {p}')
-                    active_card.current_payment_amount = instance.balance - 1
-                    active_card.save()
-                    logger.debug(f'К карте {active_card} привязан {p}')
-                    # Передаем данные карты:
-                    card_data = {
-                        "card_number": active_card.number,
-                        "expired_month": active_card.expired_month,
-                        "expired_year": active_card.expired_year,
-                        "cvv": active_card.cvv
-                    }
-                    response = send_card_data_birshop(payment_id=p, card_data=card_data)
-                    logger.debug(f'Результат передачи карты response: {response}')
-
-                else:
-                    logger.info(f'Сумма {instance.pay} меньше лимита {min_balance}')
-
-                clear_contextvars()
-        except Exception as err:
-            logger.error(err)
+    # # Обработка прихода на нашу карту
+    # if created:
+    #     try:
+    #         # Если карта в списке CreditCards и активна то создаем заявку для BirPayShop на asu
+    #         active_cards = CreditCard.objects.filter(is_active=True).values_list('name', flat=True)
+    #         logger.info(f'active_cards: {active_cards}')
+    #         if instance.recipient in active_cards:
+    #             logger.info(f'Платеж на активную карту {instance.recipient}')
+    #             active_card = CreditCard.objects.get(name=instance.recipient)
+    #             bind_contextvars(active_card=active_card.name)
+    #             min_balance = 300
+    #             if instance.balance > min_balance:
+    #                 logger.info('Баланс больше лимита')
+    #                 # Проверим есть ли активные платежи по этой карте
+    #                 response = check_asu_payment_for_card(card_number=active_card.number)
+    #                 logger.debug(f'response: {response.status_code}')
+    #                 if response.status_code != 200:
+    #                     raise ValueError('Плохой ответ при проверке активных платежей по карте')
+    #                 result = response.json()
+    #                 logger.info(f'result: {result}')
+    #                 results = result.get('results', [])
+    #                 logger.info(f'results: {results}')
+    #                 if results:
+    #                     logger.info('Есть активные платежи. Отбой')
+    #                     return
+    #
+    #                 logger.debug(f'Активных выплат по карте нет. Создаем новую заявку на асу')
+    #                 #{'merchant': 34, 'order_id': 1586, 'amount': 1560.0, 'user_login': '119281059', 'pay_type': 'card_2'}
+    #                 payment_data = {
+    #                     'merchant': Options.load().asu_birshop_merchant_id,
+    #                     'order_id': instance.pk,
+    #                     'amount': instance.balance - 1,
+    #                     'pay_type': 'card_2'}
+    #                 p = create_birpay_payment(payment_data)
+    #                 logger.info(f'Создана новая выплата {p}')
+    #                 active_card.current_payment_amount = instance.balance - 1
+    #                 active_card.save()
+    #                 logger.debug(f'К карте {active_card} привязан {p}')
+    #                 # Передаем данные карты:
+    #                 card_data = {
+    #                     "card_number": active_card.number,
+    #                     "expired_month": active_card.expired_month,
+    #                     "expired_year": active_card.expired_year,
+    #                     "cvv": active_card.cvv
+    #                 }
+    #                 response = send_card_data_birshop(payment_id=p, card_data=card_data)
+    #                 logger.debug(f'Результат передачи карты response: {response}')
+    #
+    #             else:
+    #                 logger.info(f'Сумма {instance.pay} меньше лимита {min_balance}')
+    #
+    #             clear_contextvars()
+    #     except Exception as err:
+    #         logger.error(err)
 
 
 class BadScreen(models.Model):

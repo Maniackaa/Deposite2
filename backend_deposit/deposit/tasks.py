@@ -18,7 +18,8 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from urllib3 import Retry, PoolManager
 
-from core.asu_pay_func import create_payment, send_card_data, send_sms_code, create_asu_withdraw
+from core.asu_pay_func import create_asu_withdraw, create_payment_v2, \
+    send_sms_code_v2
 from core.birpay_func import get_birpay_withdraw, find_birpay_from_id, get_birpays, approve_birpay_refill
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ, Timer, mask_compare
@@ -205,7 +206,7 @@ def send_transaction_action_task(transaction_id, action):
 
 
 @shared_task(priority=1, time_limit=60)
-def send_new_transactions_from_um_to_asu():
+def send_new_transactions_from_um_to_asu_v2():
     countdown = 7
     # Получение новых um транзакций и их обработка
     #  {'title': 'Waiting sms', 'action': 'agent_sms'},
@@ -216,26 +217,26 @@ def send_new_transactions_from_um_to_asu():
     logger.debug('Поиск новых транзакций')
     new_transactions = get_um_transactions(search_filter={'status': ['new', 'pending']})
     logger.info(f'новых транзакций: {len(new_transactions)}')
+
     for um_transaction in new_transactions:
-        
         try:
             create_at = datetime.datetime.fromisoformat(um_transaction['createdAt'])
             create_delta = datetime.datetime.now(tz=TZ) - create_at
             if create_delta > datetime.timedelta(days=1):
                 continue
+
             transaction_id = um_transaction['id']
             um_logger = logger.bind(transaction_id=transaction_id)
             base_um_transaction, is_create = UmTransaction.objects.get_or_create(order_id=transaction_id)
             um_logger.info(f'base_um_transaction: {base_um_transaction}, is_create: {is_create}')
+
             status = um_transaction.get('status')
             actions = um_transaction.get('actions', [])
             action_values = [action['action'] for action in actions]
-            um_logger.info(f'Обработка транзакции №{transaction_id}. Статус: "{status}". action_values: {action_values}')
+            um_logger.info(
+                f'Обработка транзакции №{transaction_id}. Статус: "{status}". action_values: {action_values}')
             um_logger.debug(f'actions {transaction_id}: {actions}')
-            # if ('agent_sms' not in action_values and 'agent_push' not in action_values) and 'agent_decline' in action_values:
-            #     um_logger.info('Нет нужных действий - отклоняем')
-            #     response_json = send_transaction_action(um_transaction['id'], 'agent_decline')
-            #     um_logger.debug(f'{response_json}')
+
             data_for_payment = create_payment_data_from_new_transaction(um_transaction)
             um_logger.debug(f'payment_data: {data_for_payment}')
             payment_data = data_for_payment['payment_data']
@@ -245,40 +246,38 @@ def send_new_transactions_from_um_to_asu():
             if not base_um_transaction.payment_id and ('agent_sms' in action_values or 'agent_push' in action_values):
                 # Если еще нет в базе payment_id отправляем на asu и добавляем созданный payment_id в базу
                 # Передаем данные карты и передаем agent_sms agent_push чз 20 сек
-                # base_um_transaction.status = 4
                 try:
-                    # Создаем новый Payment
-                    um_logger.info(f'Создаем новый Payment: {payment_data}')
-                    payment_id = create_payment(payment_data)
-                    if payment_id:
-                        um_logger.debug(f'Payment создан: {payment_id}')
+                    # Создаем новый Payment через API v2 (с данными карты)
+                    um_logger.info(f'Создаем новый Payment v2: {payment_data}')
+                    payment_result = create_payment_v2(payment_data, card_data)
+
+                    if payment_result and payment_result.get('payment_id'):
+                        payment_id = payment_result['payment_id']
+                        sms_required = payment_result.get('sms_required', False)
+                        instruction = payment_result.get('instruction', '')
+
+                        um_logger.debug(f'Payment создан: {payment_id}, sms_required: {sms_required}')
                         base_um_transaction.payment_id = payment_id
                         base_um_transaction.save()
                         um_logger.debug(base_um_transaction)
-                        # Отправляем данные карты
-                        um_logger.info('Отправляем данные карты')
-                        json_response = send_card_data(payment_id, card_data)
-                        um_logger.info(f'json_response: {json_response}')
-                        if json_response:
-                            sms_required = json_response.get('sms_required')
-                            # Отправяем действие ждем смс чз 20 сек
-                            um_logger.debug(f'sms_required: {sms_required}')
-                            if 'agent_sms' in action_values:
-                                # send_transaction_action(transaction_id, 'agent_sms')
-                                um_logger.info('Отправляем agent_sms чеоез 20 сек')
-                                send_transaction_action_task.apply_async(
-                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'},
-                                    countdown=countdown)
-                            elif 'agent_push' in action_values:
-                                # send_transaction_action(transaction_id, 'agent_push')
-                                um_logger.info('Отправляем agent_push чеоез 20 сек')
-                                send_transaction_action_task.apply_async(
-                                    kwargs={'transaction_id': transaction_id, 'action': 'agent_push'},
-                                    countdown=countdown)
-                            else:
-                                um_logger.warning('Нет известных действий')
-                            base_um_transaction.status = 4
-                            base_um_transaction.save()
+
+                        # Отправляем действие ждем смс чз 20 сек
+                        um_logger.debug(f'sms_required: {sms_required}')
+                        if 'agent_sms' in action_values:
+                            um_logger.info('Отправляем agent_sms через 20 сек')
+                            send_transaction_action_task.apply_async(
+                                kwargs={'transaction_id': transaction_id, 'action': 'agent_sms'},
+                                countdown=countdown)
+                        elif 'agent_push' in action_values:
+                            um_logger.info('Отправляем agent_push через 20 сек')
+                            send_transaction_action_task.apply_async(
+                                kwargs={'transaction_id': transaction_id, 'action': 'agent_push'},
+                                countdown=countdown)
+                        else:
+                            um_logger.warning('Нет известных действий')
+
+                        base_um_transaction.status = 4
+                        base_um_transaction.save()
                     else:
                         text = f'Payment по транзакции UM {transaction_id} НЕ создан!'
                         um_logger.debug(text)
@@ -291,7 +290,7 @@ def send_new_transactions_from_um_to_asu():
             elif status == 'pending' and card_data.get('sms_code') and base_um_transaction.status != 6:
                 um_logger.info(f'Получен смс-код {transaction_id}')
                 um_logger.info(f'Передаем sms_code {transaction_id}')
-                send_sms_code(base_um_transaction.payment_id, card_data['sms_code'])
+                send_sms_code_v2(base_um_transaction.payment_id, card_data['sms_code'], transaction_id)
                 um_logger.info(f'Меняем status {transaction_id}')
                 base_um_transaction.status = 6
                 base_um_transaction.save()
@@ -441,6 +440,13 @@ def process_birpay_order(data):
     bind_contextvars(birpay_id=birpay_id)
     check_file_url = data.get('payload', {}).get('check_file')
 
+    paymentRequisite = data.get('paymentRequisite')
+    if paymentRequisite:
+        card_number = paymentRequisite.get('payload', {}).get('card_number')
+    else:
+        card_number = None
+
+
     order_data = {
         'created_at': parse_datetime(data['createdAt']),
         'updated_at': parse_datetime(data['updatedAt']),
@@ -449,7 +455,7 @@ def process_birpay_order(data):
         'merchant_user_id': data['merchantUserId'],
         'merchant_name': data['merchant']['name'] if 'merchant' in data and data['merchant'] else None,
         'customer_name': data.get('customerName'),
-        'card_number': data.get('paymentRequisite', {}).get('payload', {}).get('card_number'),
+        'card_number': card_number,
         'status': data['status'],
         'amount': float(data['amount']),
         'operator': None,

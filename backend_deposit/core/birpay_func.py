@@ -372,8 +372,8 @@ async def main():
     # pprint(t)
     # t = find_birpay_from_merch_transaction_id('889136356')
     # pprint(t)
-    withdraw_list = await get_birpay_withdraw(limit=10)
-    pprint(withdraw_list)
+    # withdraw_list = await get_birpay_withdraw(limit=10)
+    # pprint(withdraw_list)
     # r = change_amount_birpay(pk=888308930, amount=1)
     # print(r.status_code)
     # print(r.text)
@@ -394,6 +394,13 @@ async def main():
     # print(res)
     # print(wlist)
 
+    birpays = get_birpays()
+    pprint(birpays)
+    row = birpays[0]
+    print(row)
+    for row in birpays:
+        print(row.get('paymentRequisite').get('payload'))
+    # esult = process_birpay_order(row)
 
 if __name__ == '__main__':
     asyncio.run(main())

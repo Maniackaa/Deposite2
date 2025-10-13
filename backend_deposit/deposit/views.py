@@ -34,7 +34,7 @@ from matplotlib import pyplot as plt
 from rest_framework.views import APIView
 from structlog.contextvars import bind_contextvars
 
-from core.asu_pay_func import create_payment, send_card_data, create_asu_withdraw
+from core.asu_pay_func import create_asu_withdraw
 from core.birpay_func import get_birpay_withdraw, get_new_token, approve_birpay_withdraw, decline_birpay_withdraw, \
     get_birpays, change_amount_birpay, approve_birpay_refill
 from core.birpay_new_func import get_um_transactions, send_transaction_action
@@ -49,7 +49,7 @@ from deposit.forms import (ColorBankForm,
                            MoshennikListForm, PainterListForm, OperatorStatsDayForm)
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
-from deposit.tasks import check_incoming, send_new_transactions_from_um_to_asu, refresh_birpay_data, \
+from deposit.tasks import check_incoming, refresh_birpay_data, \
     send_image_to_gpt_task, download_birpay_check_file
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
@@ -812,7 +812,7 @@ def test_transactions(request):
     # send_card_data(payment_id, card_data)
     # send_new_transactions_to_asu()
 
-    tasks.send_new_transactions_from_um_to_asu.delay()
+    # tasks.send_new_transactions_from_um_to_asu.delay()
 
     return HttpResponse("<body>hello</body>")
 
