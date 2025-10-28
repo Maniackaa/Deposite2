@@ -15,7 +15,7 @@ from django.db.models import Subquery, Q
 from django.forms import CheckboxInput
 from django.utils import timezone
 
-from .models import Incoming, ColorBank, BadScreen
+from .models import Incoming, ColorBank, BadScreen, Bank
 from .widgets import MinimalSplitDateTimeMultiWidget
 
 logger = structlog.get_logger('deposit')
@@ -23,8 +23,72 @@ logger = structlog.get_logger('deposit')
 User = get_user_model()
 
 
+def get_choice_by_banks():
+    """Функция которая группирует получателей по банкам на основе BIN-кодов"""
+    try:
+        # Получаем все банки с их BIN-кодами
+        banks = Bank.objects.all().order_by('name')
+        
+        # Получаем всех получателей за последние 30 дней (исключая телефоны и звездочки)
+        start_q = Incoming.objects.filter(register_date__gte=timezone.now() - datetime.timedelta(days=30))
+        q = start_q.exclude(
+            recipient__iregex=r'\d\d\d\d \d\d.*\d\d\d\d').exclude(
+            type__in=('m10', 'm10_short'), sender__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d'
+        ).distinct('recipient').values('pk')
+        
+        distinct_recipients = start_q.filter(
+            pk__in=Subquery(q), recipient__isnull=False
+        ).exclude(
+            recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d'  # исключаем телефоны
+        ).exclude(
+            recipient__iregex=r'^\*\*\*'  # исключаем звездочки
+        ).values('recipient').order_by('register_date')
+        
+        # Группируем получателей по банкам
+        bank_groups = {}
+        ungrouped = []
+        
+        for recipient_data in distinct_recipients:
+            recipient = recipient_data['recipient']
+            
+            # Извлекаем первые 4 цифры из номера карты
+            bin_match = re.search(r'(\d{4})', recipient)
+            if bin_match:
+                bin_code = int(bin_match.group(1))
+                
+                # Ищем банк по BIN-коду
+                found_bank = None
+                for bank in banks:
+                    if bin_code in bank.bins:
+                        found_bank = bank
+                        break
+                
+                if found_bank:
+                    if found_bank.name not in bank_groups:
+                        bank_groups[found_bank.name] = []
+                    bank_groups[found_bank.name].append((recipient, recipient))
+                else:
+                    ungrouped.append((recipient, recipient))
+            else:
+                ungrouped.append((recipient, recipient))
+        
+        # Формируем результат: сначала банки, потом негруппированные
+        result = []
+        for bank_name in sorted(bank_groups.keys()):
+            result.append((bank_name, bank_groups[bank_name]))
+        
+        if ungrouped:
+            result.append(('Неопределенные', ungrouped))
+            
+        return result
+        
+    except Exception as err:
+        logger.error(err, exc_info=True)
+        return []
+
+
 def get_choice(recepient_type='phone'):
-    """Функция которая ищет получателя для фильтра в форме"""
+    """Функция которая ищет получателя для фильтра в форме (старая версия)"""
     try:
 
         tables = connection.creation.connection.introspection.get_table_list(connection.cursor())
@@ -64,17 +128,34 @@ def get_choice(recepient_type='phone'):
 
 class MyFilterForm(forms.Form):
     def __init__(self, *args, **kwargs):
-        # print('**********__init__ MyFilterForm')
         super(MyFilterForm, self).__init__(*args, **kwargs)
-        if self.fields.get('my_filter'):
-            self.fields['my_filter'].choices = copy(get_choice('phone'))
-            self.fields['my_filter2'].choices = copy(get_choice('card'))
-            self.fields['my_filter3'].choices = copy(get_choice('stars'))
+        
+        # Получаем группы по банкам
+        bank_groups = get_choice_by_banks()
+        
+        # Создаем динамические поля для каждого банка
+        for bank_name, choices in bank_groups:
+            field_name = f'bank_{bank_name.lower().replace(" ", "_").replace("-", "_")}'
+            self.fields[field_name] = forms.MultipleChoiceField(
+                choices=choices,
+                widget=forms.CheckboxSelectMultiple,
+                required=False,
+                label=bank_name
+            )
+            
+            # Устанавливаем начальные значения если они есть
+            if self.initial and isinstance(self.initial, dict):
+                # Если initial содержит список получателей, проверяем какие из них относятся к этому банку
+                if 'recipients' in self.initial:
+                    bank_recipients = [choice[0] for choice in choices]
+                    selected_for_bank = [r for r in self.initial['recipients'] if r in bank_recipients]
+                    if selected_for_bank:
+                        self.fields[field_name].initial = selected_for_bank
 
+    # Старые поля для обратной совместимости (можно удалить позже)
     my_filter = forms.MultipleChoiceField(choices=copy(get_choice('phone')), widget=forms.CheckboxSelectMultiple, required=False)
     my_filter2 = forms.MultipleChoiceField(choices=copy(get_choice('card')), widget=forms.CheckboxSelectMultiple, required=False)
-    my_filter3 = forms.MultipleChoiceField(choices=copy(get_choice('stars')), widget=forms.CheckboxSelectMultiple,
-                                           required=False)
+    my_filter3 = forms.MultipleChoiceField(choices=copy(get_choice('stars')), widget=forms.CheckboxSelectMultiple, required=False)
 
 
 class ColorBankForm(forms.ModelForm):

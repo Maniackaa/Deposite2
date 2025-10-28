@@ -16,8 +16,25 @@
        Ваш фильтр на получателя: {{ user.profile.my_filter }}
        <a class="changelink" href="{% url 'deposit:my_filter' %}">Изменить</a>
     {% endif %}
+    
+    {% if view_name == 'deposit:incoming_my_filter' %}
+      <div class="alert alert-info mb-3">
+        <h5>Ваши назначенные карты:</h5>
+        {% if assigned_cards %}
+          <div style="font-family: monospace; font-size: 14px;">
+            {% for card in assigned_cards %}
+              <span class="badge bg-secondary me-1 mb-1">{{ card }}</span>
+            {% endfor %}
+          </div>
+          <small class="text-muted">Показаны платежи по этим картам</small>
+        {% else %}
+          <p class="text-muted">У вас нет назначенных карт</p>
+        {% endif %}
+      </div>
+    {% endif %}
 
     <span class="row justify-content-start">
+      {% if not hide_search_form %}
       <div class="col-6">
         <form method="GET">
 
@@ -27,6 +44,7 @@
           <input class="btn btn-success " type="submit" name="date_search" value="Найти">
        </form>
       </div>
+      {% endif %}
       <p id="last_id" hidden>{{ last_id }}</p>
       <p id="last_bad_id" hidden>{{ last_bad_id }}</p>
       <p id="filter" hidden>{{ filter }}</p>

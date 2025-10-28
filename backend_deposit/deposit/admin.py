@@ -6,7 +6,7 @@ from rangefilter.filters import DateRangeFilterBuilder, DateRangeQuickSelectList
     NumericRangeFilterBuilder, DateTimeRangeFilterBuilder
 
 from deposit.models import Incoming, BadScreen, ColorBank, TrashIncoming, IncomingChange, CreditCard, Message, \
-    MessageRead, RePattern, IncomingCheck, BirpayOrder, CardMonitoringStatus
+    MessageRead, RePattern, IncomingCheck, BirpayOrder, CardMonitoringStatus, Bank
 
 
 class TrashIncomingAdmin(admin.ModelAdmin):
@@ -96,7 +96,20 @@ class CardMonitoringStatusAdmin(admin.ModelAdmin):
     search_fields = ('card_number',)
     readonly_fields = ('created_at', 'updated_at')
 
+
+class BankAdmin(admin.ModelAdmin):
+    list_display = ('name', 'bins_count', 'created_at')
+    search_fields = ('name',)
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('name',)
+    
+    def bins_count(self, obj):
+        return len(obj.bins) if obj.bins else 0
+    bins_count.short_description = 'Количество BIN-ов'
+
+
 admin.site.register(BirpayOrder, BirpayOrderAdmin)
+admin.site.register(Bank, BankAdmin)
 admin.site.register(Incoming, IncomingAdmin)
 admin.site.register(TrashIncoming, TrashIncomingAdmin)
 admin.site.register(BadScreen, BadScreenAdmin)

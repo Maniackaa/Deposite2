@@ -2,6 +2,7 @@ import re
 from enum import Flag, auto
 
 import structlog
+from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models import SET_NULL
@@ -276,6 +277,27 @@ class IncomingCheck(models.Model):
 
     class Meta:
         ordering = ('-id',)
+
+
+class Bank(models.Model):
+    """Модель для банков с их BIN-кодами"""
+    name = models.CharField('Наименование банка', max_length=100, unique=True)
+    bins = ArrayField(
+        base_field=models.IntegerField(), 
+        default=list, 
+        blank=True,
+        help_text='BIN-коды банка (первые 4 цифры карт)'
+    )
+    created_at = models.DateTimeField('Создано', auto_now_add=True)
+    updated_at = models.DateTimeField('Обновлено', auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Банк'
+        verbose_name_plural = 'Банки'
+        ordering = ('name',)
+    
+    def __str__(self):
+        return f'{self.name} ({len(self.bins)} BIN-ов)'
 
 
 class CardMonitoringStatus(models.Model):

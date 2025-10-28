@@ -42,9 +42,11 @@
     <form method="GET" class="form-inline flex-wrap gap-2 align-items-end" style="display: flex; flex-wrap: wrap; gap: 10px;">
       {% if search_form %}
         {% for field in search_form %}
-          <div class="form-group mb-2" style="min-width: 180px; margin-right: 10px;">
-            {{ field.label_tag }}{{ field }}
-          </div>
+          {% if not is_my_filter_tab or field.name != 'only_my' %}
+            <div class="form-group mb-2" style="min-width: 180px; margin-right: 10px;">
+              {{ field.label_tag }}{{ field }}
+            </div>
+          {% endif %}
         {% endfor %}
       {% endif %}
       <button class="btn btn-success mb-2" type="submit">Найти</button>

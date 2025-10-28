@@ -32,6 +32,7 @@ urlpatterns = [
 
     path('incomings_empty/', views.IncomingEmpty.as_view(), name='incomings_empty'),
     path('incomings_filter/', views.IncomingFiltered.as_view(), name='incomings_filter'),
+    path('incoming_my_filter/', views.IncomingMyCardsView.as_view(), name='incoming_my_filter'),
     path('my_filter/', views.my_filter, name='my_filter'),
     path('incomings_search/', views.IncomingSearch.as_view(), name='incomings_search'),
     path('incoming-stat/', views.IncomingStatSearchView.as_view(), name='incoming_stat_search'),
@@ -69,6 +70,7 @@ urlpatterns = [
     path('birpay_orders/raw/<int:birpay_id>/', views.BirpayOrderRawView.as_view(), name='birpay_order_raw'),
     path('birpay_orders/info/<int:birpay_id>/', views.BirpayOrderInfoView.as_view(), name='birpay_order_info'),
     path('birpay_panel/', views.BirpayPanelView.as_view(), name='birpay_panel'),
+    path('birpay_my_filter/', views.BirpayMyFilterView.as_view(), name='birpay_my_filter'),
     path('assigned_cards/', views.assign_cards_to_user, name='assign_cards_to_user'),
     path('show_birpay_order_log/<str:query_string>/', views.show_birpay_order_log, name='show_birpay_order_log'),
     # path('test/', views.test, name='test'),
