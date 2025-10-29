@@ -29,7 +29,7 @@ def get_choice_by_banks():
         # Получаем все банки с их BIN-кодами
         banks = Bank.objects.all().order_by('name')
         
-        # Получаем всех получателей за последние 30 дней (исключая телефоны и звездочки)
+        # Получаем всех получателей за последние 30 дней (исключая телефоны)
         start_q = Incoming.objects.filter(register_date__gte=timezone.now() - datetime.timedelta(days=30))
         q = start_q.exclude(
             recipient__iregex=r'\d\d\d\d \d\d.*\d\d\d\d').exclude(
@@ -40,8 +40,6 @@ def get_choice_by_banks():
             pk__in=Subquery(q), recipient__isnull=False
         ).exclude(
             recipient__iregex=r'\d\d\d \d\d \d\d\d \d\d \d\d'  # исключаем телефоны
-        ).exclude(
-            recipient__iregex=r'^\*\*\*'  # исключаем звездочки
         ).values('recipient').order_by('register_date')
         
         # Группируем получателей по банкам
@@ -51,10 +49,11 @@ def get_choice_by_banks():
         for recipient_data in distinct_recipients:
             recipient = recipient_data['recipient']
             
-            # Извлекаем первые 4 цифры из номера карты
-            bin_match = re.search(r'(\d{4})', recipient)
-            if bin_match:
-                bin_code = int(bin_match.group(1))
+            # Извлекаем BIN только если строка начинается с 4 цифр
+            recipient_str = (recipient or '').strip()
+            start_bin_match = re.match(r'^(\d{4})', recipient_str)
+            if start_bin_match:
+                bin_code = int(start_bin_match.group(1))
                 
                 # Ищем банк по BIN-коду
                 found_bank = None
