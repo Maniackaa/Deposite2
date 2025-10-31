@@ -48,7 +48,7 @@
       <p id="last_id" hidden>{{ last_id }}</p>
       <p id="last_bad_id" hidden>{{ last_bad_id }}</p>
       <p id="filter" hidden>{{ filter }}</p>
-      {% if view_name == 'deposit:incomings' or view_name == 'deposit:incomings_filter' %}
+      {% if view_name == 'deposit:incomings' or view_name == 'deposit:incomings_filter' or view_name == 'deposit:incoming_my_filter' %}
        <div class="col-3" role="alert" id="warnings" style="padding:  6px 0 6px 0; margin: 0 0 0 10px">
          <!-- Здесь будут отображаться уведомления -->
         </div>

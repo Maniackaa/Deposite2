@@ -345,8 +345,9 @@ class IncomingMyCardsView(StaffOnlyPerm, ListView):
         # Сообщения макросов как в IncomingFiltered
         last_bad = Message.objects.filter(type='macros').order_by('-id').first()
         context['last_bad_id'] = last_bad.id if last_bad else None
-        # Для AJAX уведомлений в шаблоне
-        context['filter'] = json.dumps(assigned_cards)
+        # Для AJAX уведомлений в шаблоне - передаем список уникальных получателей из отфильтрованных записей
+        filtered_recipients = list(set(self.object_list.values_list('recipient', flat=True).distinct()))
+        context['filter'] = json.dumps(filtered_recipients)
         return context
 
 
