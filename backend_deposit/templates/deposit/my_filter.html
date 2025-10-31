@@ -9,6 +9,18 @@
 
     <form method="post">
        {% csrf_token %}
+       <div class="mb-4">
+           <button type="submit" class="btn btn-primary">
+                Сохранить фильтр
+           </button>
+           <button type="button" class="btn btn-secondary" onclick="resetAllCheckboxes()">
+                Сбросить все
+           </button>
+           <a href="{% url 'deposit:incomings_filter' %}" class="btn btn-outline-secondary">
+                Вернуться к фильтру
+           </a>
+       </div>
+       
        <div class="row justify-content-start">
        {% for field in form %}
           {% if field.name|slice:":5" == "bank_" %}
@@ -29,18 +41,6 @@
           </div>
           {% endif %}
         {% endfor %}
-        </div>
-        
-        <div class="mt-4">
-            <button type="submit" class="btn btn-primary">
-                 Сохранить фильтр
-            </button>
-            <button type="button" class="btn btn-secondary" onclick="resetAllCheckboxes()">
-                 Сбросить все
-            </button>
-            <a href="{% url 'deposit:incomings_filter' %}" class="btn btn-outline-secondary">
-                 Вернуться к фильтру
-            </a>
         </div>
     </form>
 </div>
