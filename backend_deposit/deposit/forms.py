@@ -15,7 +15,7 @@ from django.db.models import Subquery, Q
 from django.forms import CheckboxInput
 from django.utils import timezone
 
-from .models import Incoming, ColorBank, BadScreen, Bank
+from .models import Incoming, ColorBank, BadScreen, Bank, RequsiteZajon
 from .widgets import MinimalSplitDateTimeMultiWidget
 
 logger = structlog.get_logger('deposit')
@@ -282,3 +282,12 @@ class PainterListForm(forms.Form):
 
 class OperatorStatsDayForm(forms.Form):
     date = forms.DateField(label='День', widget=forms.DateInput(attrs={'type': 'date'}))
+
+
+class RequsiteZajonForm(forms.ModelForm):
+    class Meta:
+        model = RequsiteZajon
+        fields = ('card_number',)
+        widgets = {
+            'card_number': forms.TextInput(attrs={'class': 'form-control'}),
+        }

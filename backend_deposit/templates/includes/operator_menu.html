@@ -26,6 +26,9 @@
             <li><a class="dropdown-item" href="{% url 'deposit:painter_list' %}">Список рисовальщиков</a></li>
             <li><a class="dropdown-item" href="{% url 'deposit:users_stat' %}">Список юзеров</a></li>
             <li><a class="dropdown-item" href="{% url 'deposit:operator_speed_graph' %}">Скорость операторов</a></li>
+            {% if user.is_superuser or user.role == 'admin' or user.role == 'editor' %}
+              <li><a class="dropdown-item" href="{% url 'deposit:requisite_zajon_list' %}">Реквизиты Zajon</a></li>
+            {% endif %}
           </ul>
         </li>
       </ul>

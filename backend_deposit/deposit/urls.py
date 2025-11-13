@@ -76,6 +76,9 @@ urlpatterns = [
     # path('test/', views.test, name='test'),
     path('users_stat/', views.BirpayUserStatView.as_view(), name='users_stat'),
     path('incomings/mark_as_jail/<int:pk>/', views.mark_as_jail, name='mark_as_jail'),
+    path('requisite-zajon/', views.RequsiteZajonListView.as_view(), name='requisite_zajon_list'),
+    path('requisite-zajon/<int:pk>/', views.RequsiteZajonUpdateView.as_view(), name='requisite_zajon_edit'),
+    path('requisite-zajon/<int:pk>/toggle-active/', views.RequsiteZajonToggleActiveView.as_view(), name='requisite_zajon_toggle_active'),
 ]
 
 

@@ -318,6 +318,40 @@ class CardMonitoringStatus(models.Model):
         return f'{self.card_number} - {self.last_activity}'
 
 
+class RequsiteZajon(models.Model):
+    """Реквизиты (Birpay) для агента Zajon AZN."""
+
+    id = models.IntegerField(primary_key=True, verbose_name='ID в Birpay')
+    active = models.BooleanField('Активен', default=False, db_index=True)
+    agent_id = models.IntegerField('ID агента', db_index=True)
+    agent_name = models.CharField('Название агента', max_length=255)
+    name = models.CharField('Название реквизита', max_length=255)
+    weight = models.IntegerField('Вес', default=0)
+    created_at = models.DateTimeField('Создано (Birpay)')
+    updated_at = models.DateTimeField('Обновлено (Birpay)')
+    payment_requisite_filter_id = models.IntegerField('ID фильтра реквизита', null=True, blank=True)
+    card_number = models.CharField('Номер карты', max_length=32, blank=True)
+    refill_method_types = models.JSONField('Методы пополнения', default=list, blank=True)
+    payload = models.JSONField('Параметры реквизита', default=dict, blank=True)
+    users = models.JSONField('Операторы', default=list, blank=True)
+
+    class Meta:
+        verbose_name = 'Реквизит Zajon'
+        verbose_name_plural = 'Реквизиты Zajon'
+        ordering = ('-updated_at', '-weight')
+
+    def __str__(self):
+        return f'{self.name} ({self.agent_name})'
+
+    @property
+    def has_target_method(self) -> bool:
+        """Проверка, содержит ли реквизит требуемый метод."""
+        for method in self.refill_method_types or []:
+            if method.get('id') == 127 and method.get('name') == 'AZN_azcashier_5_birpay':
+                return True
+        return False
+
+
 @receiver(post_save, sender=Incoming)
 def after_save_incoming(sender, instance: Incoming, created, raw, using, update_fields, *args, **kwargs):
     try:

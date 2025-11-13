@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+        cursor: pointer;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.3s;
+        border-radius: 34px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        z-index: 2;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+        background-color: #81C784;
+    }
+
+    .toggle-switch input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+        background-color: #4CAF50;
+        content: "✓";
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    /* Крестик внутри белого круга когда выключено */
+    .toggle-switch input:not(:checked) + .toggle-slider:before {
+        content: "✕";
+        color: #666;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    .toggle-slider.pending {
+        background-color: #bdbdbd !important;
+    }
+
+    .toggle-slider.pending:before {
+        transform: translateX(13px) !important;
+        background-color: #f5f5f5 !important;
+        color: #666 !important;
+        content: "⋯" !important;
+        font-size: 18px !important;
+        letter-spacing: 2px;
+    }
+
+    .toggle-switch input:disabled + .toggle-slider {
+        cursor: wait;
+    }
+
+    .toggle-disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .toggle-disabled .toggle-slider {
+        cursor: not-allowed;
+    }
+
+    .missing-row td {
+        vertical-align: middle;
+        opacity: 0.9;
+    }
+
+    .disabled-link {
+        pointer-events: none;
+        opacity: 0.6;
+    }
+</style>
+
+<div class="container mt-4">
+    <h1 class="mb-3">Реквизиты Zajon</h1>
+    <p class="text-muted">Синхронизированы через метод {{ method_name }}.</p>
+
+    {% if sync_result %}
+        <div class="mb-3">
+            <span class="badge bg-secondary">Всего: {{ sync_result.total }}</span>
+            <span class="badge bg-success">Создано: {{ sync_result.created }}</span>
+            <span class="badge bg-info text-dark">Обновлено: {{ sync_result.updated }}</span>
+            <span class="badge bg-danger">Отсутствуют: {{ sync_result.deleted }}</span>
+            {% if sync_result.error %}
+                <div class="alert alert-danger mt-2" role="alert">
+                    Не удалось обновить данные: {{ sync_result.error }}
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Название</th>
+                    <th scope="col">Агент</th>
+                    <th scope="col">Карта</th>
+                    <th scope="col">Активен</th>
+                    <th scope="col">Вес</th>
+                    <th scope="col">Обновлён</th>
+                    <th scope="col">Создан</th>
+                    <th scope="col" class="text-center">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in requisites %}
+                    {% if item.id in missing_ids %}
+                        <tr class="table-danger missing-row">
+                    {% else %}
+                        <tr {% if not item.active %}class="table-warning"{% endif %}>
+                    {% endif %}
+                        <td>{{ item.id }}</td>
+                        <td>
+                            {{ item.name }}
+                            {% if item.id in missing_ids %}
+                                <span class="badge bg-dark ms-2">Нет в Birpay</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.agent_name }}</td>
+                        <td>
+                            <span class="fw-semibold">{{ item.card_number|default:'—' }}</span>
+                        </td>
+                        <td class="text-center">
+                            <form method="post" action="{% url 'deposit:requisite_zajon_toggle_active' item.pk %}" class="d-inline toggle-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="set_active" id="set_active_{{ item.pk }}" value="{% if item.active %}0{% else %}1{% endif %}">
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <label class="toggle-switch {% if item.id in missing_ids %}toggle-disabled{% endif %}">
+                                    <input type="checkbox" {% if item.active %}checked{% endif %} {% if item.id in missing_ids %}disabled{% endif %} onchange="handleToggleChange(this, '{{ item.pk }}')">
+                                    <span class="toggle-slider" id="toggle_slider_{{ item.pk }}"></span>
+                                </label>
+                            </form>
+                        </td>
+                        <td>{{ item.weight }}</td>
+                        <td>{{ item.updated_at|date:'d.m.Y H:i' }}</td>
+                        <td>{{ item.created_at|date:'d.m.Y H:i' }}</td>
+                        <td class="text-center">
+                            <a class="btn btn-sm btn-primary {% if item.id in missing_ids %}disabled-link{% endif %}" {% if item.id in missing_ids %}tabindex="-1" aria-disabled="true"{% endif %} href="{% if item.id in missing_ids %}#{% else %}{% url 'deposit:requisite_zajon_edit' item.pk %}{% endif %}">
+                                Редактировать
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">Нет данных для отображения</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+        <nav aria-label="Навигация по страницам">
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Предыдущая">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo;</span>
+                    </li>
+                {% endif %}
+
+                {% for page_num in paginator.page_range %}
+                    {% if page_obj.number == page_num %}
+                        <li class="page-item active" aria-current="page">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Следующая">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&raquo;</span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+</div>
+<script>
+    function handleToggleChange(checkbox, pk) {
+        const form = checkbox.closest('form');
+        const hiddenInput = form.querySelector('#set_active_' + pk);
+        const slider = document.getElementById('toggle_slider_' + pk);
+
+        if (checkbox.disabled) {
+            return false;
+        }
+
+        checkbox.disabled = true;
+        hiddenInput.value = checkbox.checked ? '1' : '0';
+        slider.classList.add('pending');
+
+        setTimeout(function () {
+            form.submit();
+        }, 120);
+
+        return false;
+    }
+</script>
+{% endblock %}
+

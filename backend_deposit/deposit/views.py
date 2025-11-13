@@ -29,38 +29,312 @@ from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequ
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, TemplateView
 from matplotlib import pyplot as plt
 from rest_framework.views import APIView
 from structlog.contextvars import bind_contextvars
 
 from core.asu_pay_func import create_asu_withdraw
-from core.birpay_func import get_birpay_withdraw, get_new_token, approve_birpay_withdraw, decline_birpay_withdraw, \
-    get_birpays, change_amount_birpay, approve_birpay_refill
+from core.birpay_func import (
+    get_birpay_withdraw,
+    get_new_token,
+    approve_birpay_withdraw,
+    decline_birpay_withdraw,
+    get_birpays,
+    change_amount_birpay,
+    approve_birpay_refill,
+    get_payment_requisite_data,
+    update_payment_requisite_data,
+    set_payment_requisite_active,
+)
 from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.global_func import TZ, mask_compare
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
 from deposit import tasks
 from deposit.filters import IncomingCheckFilter, IncomingStatSearch, BirpayOrderFilter, BirpayPanelFilter
-from deposit.forms import (ColorBankForm,
-                           IncomingForm, MyFilterForm, IncomingSearchForm, CheckSmsForm, CheckScreenForm,
-                           AssignCardsToUserForm,
-                           MoshennikListForm, PainterListForm, OperatorStatsDayForm)
+from deposit.forms import (
+    ColorBankForm,
+    IncomingForm,
+    MyFilterForm,
+    IncomingSearchForm,
+    CheckSmsForm,
+    CheckScreenForm,
+    AssignCardsToUserForm,
+    MoshennikListForm,
+    PainterListForm,
+    OperatorStatsDayForm,
+    RequsiteZajonForm,
+)
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, refresh_birpay_data, \
     send_image_to_gpt_task, download_birpay_check_file
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
-from deposit.models import Incoming, TrashIncoming, IncomingChange, Message, \
-    MessageRead, RePattern, IncomingCheck, WithdrawTransaction, BirpayOrder, Bank
+from deposit.models import (
+    Incoming,
+    TrashIncoming,
+    IncomingChange,
+    Message,
+    MessageRead,
+    RePattern,
+    IncomingCheck,
+    WithdrawTransaction,
+    BirpayOrder,
+    Bank,
+    RequsiteZajon,
+)
 from users.models import Options
 
 logger = structlog.get_logger('deposit')
 
 
 User = get_user_model()
+
+
+REQUIRED_REFILL_METHOD_ID = 127
+REQUIRED_REFILL_METHOD_NAME = 'AZN_azcashier_5_birpay'
+
+
+def _has_requisite_access(user) -> bool:
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    role = getattr(user, 'role', None)
+    return user.is_superuser or role in ('admin', 'editor')
+
+
+def _parse_iso_datetime(value: str | None):
+    if not value:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        logger.warning('Failed to parse datetime', value=value)
+        return None
+
+
+def _has_required_method(refill_methods):
+    if not refill_methods:
+        return False
+    for method in refill_methods:
+        if (
+            method.get('id') == REQUIRED_REFILL_METHOD_ID
+            and method.get('name') == REQUIRED_REFILL_METHOD_NAME
+        ):
+            return True
+    return False
+
+
+def sync_requsite_zajon():
+    """
+    Синхронизация реквизитов Birpay с локальной базой.
+    Создает/обновляет записи только для нужного метода пополнения.
+    """
+    sync_result = {
+        'created': 0,
+        'updated': 0,
+        'deleted': 0,
+        'total': 0,
+        'missing_ids': [],
+        'error': None,
+    }
+    try:
+        remote_data = get_payment_requisite_data()
+    except Exception as err:
+        logger.error('Не удалось получить реквизиты Birpay', exc_info=True)
+        sync_result['error'] = str(err)
+        return sync_result
+
+    filtered = [
+        row for row in remote_data
+        if _has_required_method(row.get('refillMethodTypes'))
+    ]
+    sync_result['total'] = len(filtered)
+
+    target_ids = [row.get('id') for row in filtered if row.get('id') is not None]
+    existing_map = {
+        obj.pk: obj for obj in RequsiteZajon.objects.filter(pk__in=target_ids)
+    }
+
+    seen_ids = set()
+
+    with transaction.atomic():
+        for row in filtered:
+            pk = row.get('id')
+            if pk is None:
+                logger.warning('Пропущена запись без id', row=row)
+                continue
+
+            existing = existing_map.get(pk)
+
+            created_at = _parse_iso_datetime(row.get('createdAt')) or timezone.now()
+            updated_at = _parse_iso_datetime(row.get('updatedAt')) or created_at
+            remote_changed = existing is None or existing.updated_at != updated_at
+
+            payload_data = row.get('payload') or {}
+            payload_copy = dict(payload_data)
+
+            if existing and not remote_changed:
+                card_number_value = existing.card_number
+                active_value = existing.active
+            else:
+                card_number_value = payload_copy.get('card_number', '') or ''
+                active_value = row.get('active', False)
+
+            payload_copy['card_number'] = card_number_value
+
+            common_fields = {
+                'active': active_value,
+                'agent_id': row.get('agentId'),
+                'agent_name': row.get('agentName') or '',
+                'name': row.get('name') or '',
+                'weight': row.get('weight') or 0,
+                'created_at': created_at,
+                'updated_at': updated_at,
+                'payment_requisite_filter_id': row.get('paymentRequisiteFilterId'),
+                'card_number': card_number_value,
+                'refill_method_types': row.get('refillMethodTypes') or [],
+                'payload': payload_copy,
+                'users': row.get('users') or [],
+            }
+
+            if existing:
+                for field, value in common_fields.items():
+                    setattr(existing, field, value)
+                existing.save(update_fields=list(common_fields.keys()))
+                sync_result['updated'] += 1
+            else:
+                RequsiteZajon.objects.create(id=pk, **common_fields)
+                sync_result['created'] += 1
+
+            seen_ids.add(pk)
+
+        missing_ids = list(
+            RequsiteZajon.objects.exclude(pk__in=seen_ids).values_list('pk', flat=True)
+        )
+        sync_result['missing_ids'] = missing_ids
+        sync_result['deleted'] = len(missing_ids)
+
+    return sync_result
+
+
+class RequsiteZajonListView(StaffOnlyPerm, ListView):
+    model = RequsiteZajon
+    template_name = 'deposit/requsite_zajon_list.html'
+    context_object_name = 'requisites'
+    paginate_by = settings.PAGINATE
+    missing_ids = ()
+
+    def dispatch(self, request, *args, **kwargs):
+        if not _has_requisite_access(request.user):
+            return redirect('deposit:index')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        self.sync_result = sync_requsite_zajon()
+        if self.sync_result.get('error'):
+            messages.error(self.request, f"Ошибка обновления реквизитов: {self.sync_result['error']}")
+        self.missing_ids = set(self.sync_result.get('missing_ids', []))
+        return RequsiteZajon.objects.order_by('-updated_at', '-weight')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['sync_result'] = getattr(self, 'sync_result', {})
+        context['method_name'] = REQUIRED_REFILL_METHOD_NAME
+        context['missing_ids'] = list(getattr(self, 'missing_ids', set()))
+        return context
+
+
+class RequsiteZajonUpdateView(StaffOnlyPerm, UpdateView):
+    model = RequsiteZajon
+    form_class = RequsiteZajonForm
+    template_name = 'deposit/requsite_zajon_form.html'
+    success_url = reverse_lazy('deposit:requisite_zajon_list')
+
+    def dispatch(self, request, *args, **kwargs):
+        if not _has_requisite_access(request.user):
+            return redirect('deposit:index')
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        changed_fields = form.changed_data
+        self.object = form.save(commit=False)
+
+        payload = dict(self.object.payload or {})
+        payload['card_number'] = self.object.card_number
+        self.object.payload = payload
+
+        sync_result = None
+        if 'card_number' in changed_fields:
+            sync_result = update_payment_requisite_data(
+                self.object.pk,
+                name=self.object.name,
+                agent_id=self.object.agent_id,
+                weight=self.object.weight,
+                card_number=self.object.card_number,
+                refill_method_types=self.object.refill_method_types,
+                users=self.object.users,
+                payment_requisite_filter_id=self.object.payment_requisite_filter_id,
+            )
+
+        self.object.save(update_fields=['card_number', 'active', 'payload'])
+
+        status_code = sync_result.get('status_code') if sync_result else None
+        if status_code and status_code >= 400:
+            messages.warning(
+                self.request,
+                f"Реквизит обновлён только локально. Ошибка Birpay: {sync_result.get('data')}",
+            )
+        else:
+            messages.success(self.request, 'Реквизит обновлён')
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['method_name'] = REQUIRED_REFILL_METHOD_NAME
+        return context
+
+
+class RequsiteZajonToggleActiveView(StaffOnlyPerm, View):
+    def post(self, request, pk):
+        if not _has_requisite_access(request.user):
+            return redirect('deposit:index')
+        requisite = get_object_or_404(RequsiteZajon, pk=pk)
+        new_active = request.POST.get('set_active')
+        if new_active is None:
+            new_active_bool = not requisite.active
+        else:
+            new_active_bool = new_active == '1'
+
+        result = set_payment_requisite_active(
+            requisite.pk,
+            new_active_bool,
+            name=requisite.name,
+            agent_id=requisite.agent_id,
+            weight=requisite.weight,
+            card_number=requisite.card_number,
+            refill_method_types=requisite.refill_method_types,
+            users=requisite.users,
+            payment_requisite_filter_id=requisite.payment_requisite_filter_id,
+        )
+        status_code = result.get('status_code') if result else None
+        if status_code and status_code >= 400:
+            messages.warning(
+                request,
+                f"Не удалось изменить активность в Birpay: {result.get('data')}",
+            )
+        else:
+            requisite.active = new_active_bool
+            requisite.save(update_fields=['active'])
+            messages.success(
+                request,
+                f"Активность реквизита {requisite.name} изменена на {'включено' if new_active_bool else 'выключено'}.",
+            )
+
+        redirect_url = request.POST.get('next') or reverse('deposit:requisite_zajon_list')
+        return HttpResponseRedirect(redirect_url)
 
 
 def make_page_obj(request, objects, numbers_of_posts=settings.PAGINATE):

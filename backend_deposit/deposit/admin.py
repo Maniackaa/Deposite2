@@ -5,8 +5,22 @@ from django.forms import TextInput, Textarea
 from rangefilter.filters import DateRangeFilterBuilder, DateRangeQuickSelectListFilterBuilder, \
     NumericRangeFilterBuilder, DateTimeRangeFilterBuilder
 
-from deposit.models import Incoming, BadScreen, ColorBank, TrashIncoming, IncomingChange, CreditCard, Message, \
-    MessageRead, RePattern, IncomingCheck, BirpayOrder, CardMonitoringStatus, Bank
+from deposit.models import (
+    Incoming,
+    BadScreen,
+    ColorBank,
+    TrashIncoming,
+    IncomingChange,
+    CreditCard,
+    Message,
+    MessageRead,
+    RePattern,
+    IncomingCheck,
+    BirpayOrder,
+    CardMonitoringStatus,
+    Bank,
+    RequsiteZajon,
+)
 
 
 class TrashIncomingAdmin(admin.ModelAdmin):
@@ -108,6 +122,25 @@ class BankAdmin(admin.ModelAdmin):
     bins_count.short_description = 'Количество BIN-ов'
 
 
+class RequsiteZajonAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'name',
+        'agent_name',
+        'card_number',
+        'active',
+        'weight',
+        'updated_at',
+    )
+    list_filter = (
+        'active',
+        ('updated_at', DateRangeFilterBuilder()),
+    )
+    search_fields = ('name', 'card_number', 'agent_name')
+    readonly_fields = ('created_at', 'updated_at', 'refill_method_types', 'payload', 'users')
+    ordering = ('-updated_at', '-weight')
+
+
 admin.site.register(BirpayOrder, BirpayOrderAdmin)
 admin.site.register(Bank, BankAdmin)
 admin.site.register(Incoming, IncomingAdmin)
@@ -121,3 +154,4 @@ admin.site.register(MessageRead)
 admin.site.register(IncomingCheck, IncomingCheckAdmin)
 admin.site.register(RePattern, RePatternAdmin)
 admin.site.register(CardMonitoringStatus, CardMonitoringStatusAdmin)
+admin.site.register(RequsiteZajon, RequsiteZajonAdmin)
