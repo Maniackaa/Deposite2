@@ -41,6 +41,8 @@ pip-delete-this-directory.txt
 *.log
 *.log.*
 logs/
+backend_deposit/logs/
+core/logs/
 
 ./backend_deposit/collected_static/
 backend_deposit/collected_static/
