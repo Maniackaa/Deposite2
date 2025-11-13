@@ -284,6 +284,25 @@ class OperatorStatsDayForm(forms.Form):
     date = forms.DateField(label='День', widget=forms.DateInput(attrs={'type': 'date'}))
 
 
+def luhn_check(card_number):
+    """
+    Проверка номера карты по алгоритму Луна (Luhn algorithm).
+    Возвращает True, если номер валиден.
+    """
+    def digits_of(n):
+        return [int(d) for d in str(n)]
+    
+    digits = digits_of(card_number)
+    odd_digits = digits[-1::-2]  # Цифры на нечетных позициях (справа налево)
+    even_digits = digits[-2::-2]  # Цифры на четных позициях (справа налево)
+    
+    checksum = sum(odd_digits)
+    for d in even_digits:
+        checksum += sum(digits_of(d * 2))
+    
+    return checksum % 10 == 0
+
+
 class RequsiteZajonForm(forms.ModelForm):
     class Meta:
         model = RequsiteZajon
@@ -291,3 +310,28 @@ class RequsiteZajonForm(forms.ModelForm):
         widgets = {
             'card_number': forms.TextInput(attrs={'class': 'form-control'}),
         }
+    
+    def clean_card_number(self):
+        card_number = self.cleaned_data.get('card_number', '').strip()
+        
+        if not card_number:
+            return card_number  # Пустое значение допустимо (blank=True)
+        
+        # Убираем все пробелы и дефисы
+        cleaned = re.sub(r'[\s\-]', '', card_number)
+        
+        # Проверяем, что содержит только цифры
+        if not re.match(r'^\d+$', cleaned):
+            raise forms.ValidationError('Номер карты должен содержать только цифры')
+        
+        # Проверяем длину (должно быть 16 символов)
+        if len(cleaned) != 16:
+            raise forms.ValidationError(
+                f'Номер карты должен содержать ровно 16 цифр. Получено: {len(cleaned)}'
+            )
+        
+        # Проверяем алгоритм Луна
+        if not luhn_check(cleaned):
+            raise forms.ValidationError('Номер карты не прошел проверку по алгоритму Луна')
+        
+        return cleaned
