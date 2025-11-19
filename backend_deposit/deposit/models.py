@@ -5,7 +5,7 @@ import structlog
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from django.db.models import SET_NULL
+from django.db.models import SET_NULL, Q
 
 from django.dispatch import receiver
 
@@ -129,6 +129,7 @@ class BirpayOrder(models.Model):
         gpt_status = auto()
         min_orders = auto()
         user_reputation = auto()
+        balance_match = auto()  # Расчетный баланс соответствует фактическому балансу из SMS
 
     birpay_id = models.IntegerField(verbose_name='Первычный id в birpay', unique=True, db_index=True)
     sended_at = models.DateTimeField(verbose_name='Создалась у нас', auto_now_add=True, null=True, blank=True, db_index=True)
@@ -203,6 +204,8 @@ class Incoming(models.Model):
     birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True, db_index=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
     is_jail = models.BooleanField(default=False)
+    prev_balance = models.FloatField('Предыдущий баланс', null=True, blank=True, db_index=True)
+    check_balance = models.FloatField('Расчетный баланс', null=True, blank=True)
 
     class Meta:
         # ordering = ('id',)
@@ -230,6 +233,92 @@ class Incoming(models.Model):
         if len(from_part) == 2:
             return from_part[1][:-4]
         return 'unknown'
+
+    def calculate_balance_fields(self):
+        """Вычисляет prev_balance и check_balance на основе предыдущих записей для того же получателя"""
+        if not self.recipient:
+            self.prev_balance = None
+            self.check_balance = None
+            return
+
+        # Находим предыдущую запись для того же получателя
+        # Сортировка: response_date DESC, balance DESC, id DESC
+        queryset = Incoming.objects.filter(recipient=self.recipient)
+        
+        # Если запись уже существует, исключаем её из поиска
+        if self.pk:
+            queryset = queryset.exclude(id=self.pk)
+        
+        prev_incoming = queryset.order_by(
+            '-response_date', '-balance', '-id'
+        ).first()
+
+        if prev_incoming and prev_incoming.balance is not None:
+            self.prev_balance = prev_incoming.balance
+            # check_balance = prev_balance + текущий платеж
+            # pay обязательное поле, поэтому всегда вычисляем check_balance (включая pay=0.0)
+            self.check_balance = self.prev_balance + self.pay
+        else:
+            self.prev_balance = None
+            self.check_balance = None
+
+    def save(self, *args, **kwargs):
+        # Сохраняем старые значения для проверки изменений
+        old_balance = None
+        old_recipient = None
+        if self.pk:
+            try:
+                old_instance = Incoming.objects.get(pk=self.pk)
+                old_balance = old_instance.balance
+                old_recipient = old_instance.recipient
+            except Incoming.DoesNotExist:
+                pass
+        
+        # Вычисляем prev_balance и check_balance перед сохранением
+        self.calculate_balance_fields()
+        
+        # Сохраняем текущую запись
+        super().save(*args, **kwargs)
+        
+        # Если изменился баланс или получатель, нужно пересчитать последующие записи
+        # для того же получателя (они могут ссылаться на этот баланс как на prev_balance)
+        if self.pk and self.recipient:
+            balance_changed = old_balance is not None and old_balance != self.balance
+            recipient_changed = old_recipient and old_recipient != self.recipient
+            
+            if balance_changed or recipient_changed:
+                # Пересчитываем последующие записи для текущего получателя
+                # Находим записи, которые идут ПОСЛЕ текущей в отсортированном порядке
+                # (response_date DESC, balance DESC, id DESC)
+                # Это записи с более ранним response_date или с тем же response_date, но меньшим balance/id
+                subsequent_incomings = Incoming.objects.filter(
+                    recipient=self.recipient
+                ).exclude(id=self.pk)
+                
+                # Фильтруем записи, которые идут после текущей в отсортированном порядке
+                if self.response_date:
+                    subsequent_incomings = subsequent_incomings.filter(
+                        Q(response_date__lt=self.response_date) |
+                        Q(response_date=self.response_date, balance__lt=self.balance) |
+                        Q(response_date=self.response_date, balance=self.balance, id__lt=self.pk)
+                    )
+                else:
+                    # Если нет response_date, используем register_date
+                    subsequent_incomings = subsequent_incomings.filter(
+                        register_date__gt=self.register_date
+                    )
+                
+                subsequent_incomings = subsequent_incomings.order_by('-response_date', '-balance', '-id')
+                
+                # Пересчитываем только первые несколько записей для оптимизации
+                # (полный пересчет можно сделать через команду управления)
+                for subsequent in subsequent_incomings[:10]:
+                    try:
+                        subsequent.calculate_balance_fields()
+                        subsequent.save(update_fields=['prev_balance', 'check_balance'])
+                    except Exception:
+                        # Игнорируем ошибки при пересчете последующих записей
+                        pass
 
 
 

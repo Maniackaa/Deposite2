@@ -389,12 +389,12 @@ def incoming_list(request):
     logger.info(request.user.has_perm('users.base2'))
     if request.user.has_perm('users.base2') and not request.user.has_perm('users.all_base'):
         # Опер базы2
+        # Теперь prev_balance и check_balance вычисляются при создании и хранятся в БД
         incoming_q = Incoming.objects.raw(
             """
-            SELECT *,
-            LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
-            LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
-            FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+            SELECT deposit_incoming.*, deposit_colorbank.color_font, deposit_colorbank.color_back
+            FROM deposit_incoming 
+            LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
             WHERE worker = 'base2'
             ORDER BY deposit_incoming.id DESC LIMIT 5000;
             """
@@ -404,10 +404,9 @@ def incoming_list(request):
         # Опер базы не 2
         incoming_q = Incoming.objects.raw(
         """
-        SELECT *,
-        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
-        LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
-        FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+        SELECT deposit_incoming.*, deposit_colorbank.color_font, deposit_colorbank.color_back
+        FROM deposit_incoming 
+        LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
         WHERE worker != 'base2' or worker is NULL
         ORDER BY deposit_incoming.id DESC LIMIT 5000;
         """)
@@ -415,19 +414,11 @@ def incoming_list(request):
     elif request.user.has_perm('users.all_base') or request.user.is_superuser:
         # support
         incoming_q = Incoming.objects.raw(
-        # """
-        # SELECT *,
-        # LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
-        # LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
-        # FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
-        # ORDER BY deposit_incoming.id DESC LIMIT 5000;
-        # """)
         """
-        with short_table as (SELECT * from deposit_incoming ORDER BY id desc limit 5000)
-        SELECT *,
-        LAG(balance, -1) OVER (PARTITION BY short_table.recipient order by response_date desc, balance desc, short_table.id desc) as prev_balance,
-        LAG(balance, -1) OVER (PARTITION BY short_table.recipient order by response_date desc, balance desc, short_table.id desc) + pay as check_balance
-        FROM short_table LEFT JOIN deposit_colorbank ON deposit_colorbank.name = short_table.sender
+        WITH short_table AS (SELECT * FROM deposit_incoming ORDER BY id DESC LIMIT 5000)
+        SELECT short_table.*, deposit_colorbank.color_font, deposit_colorbank.color_back
+        FROM short_table 
+        LEFT JOIN deposit_colorbank ON deposit_colorbank.name = short_table.sender
         ORDER BY short_table.id DESC LIMIT 5000;
         """)
         last_id = Incoming.objects.order_by('id').last()
@@ -461,11 +452,8 @@ class IncomingEmpty(ListView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_staff:
             raise PermissionDenied('Недостаточно прав')
-        # empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-id').all()
-        empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-response_date', '-id').annotate(
-            prev_balance=Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'balance', 'id']),
-            check_balance=F('pay') + Window(expression=Lag('balance', 1), partition_by=[F('recipient')], order_by=['response_date', 'balance', 'id']),
-        ).order_by('-id').all()
+        # Теперь prev_balance и check_balance вычисляются при создании и хранятся в БД
+        empty_incoming = Incoming.objects.filter(Q(birpay_id__isnull=True) | Q(birpay_id='')).order_by('-response_date', '-id').all()
         if not self.request.user.has_perm('users.all_base'):
             if self.request.user.has_perm('users.base2'):
                 empty_incoming = empty_incoming.filter(worker='base2')
@@ -524,22 +512,21 @@ class IncomingFiltered(StaffOnlyPerm, ListView):
         user_filter.extend(user_filter2)
         user_filter.extend(user_filter3)
         if self.request.user.has_perm('users.base2'):
+            # Теперь prev_balance и check_balance вычисляются при создании и хранятся в БД
             filtered_incoming = Incoming.objects.raw(
             """
-            SELECT *,
-            LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
-            LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
-            FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+            SELECT deposit_incoming.*, deposit_colorbank.color_font, deposit_colorbank.color_back
+            FROM deposit_incoming 
+            LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
             WHERE deposit_incoming.recipient = ANY(%s) and deposit_incoming.worker = 'base2'
             ORDER BY deposit_incoming.id DESC
             """, [user_filter])
         else:
             filtered_incoming = Incoming.objects.raw(
                 """
-                SELECT *,
-                LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) as prev_balance,
-                LAG(balance, -1) OVER (PARTITION BY deposit_incoming.recipient order by response_date desc, balance desc, deposit_incoming.id desc) + pay as check_balance
-                FROM deposit_incoming LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
+                SELECT deposit_incoming.*, deposit_colorbank.color_font, deposit_colorbank.color_back
+                FROM deposit_incoming 
+                LEFT JOIN deposit_colorbank ON deposit_colorbank.name = deposit_incoming.sender
                 WHERE deposit_incoming.recipient = ANY(%s) and (deposit_incoming.worker != 'base2' or deposit_incoming.worker is NULL) 
                 ORDER BY deposit_incoming.id DESC
                 """, [user_filter])
@@ -1406,7 +1393,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
                 'status_0': qs.filter(status=0).count(),
                 'status_1': qs.filter(status=1).count(),
                 'status_2': qs.filter(status=2).count(),
-                'gpt_approve': int(qs.filter(gpt_flags=127).count() / total_count * 100) if total_count else 0
+                'gpt_approve': int(qs.filter(gpt_flags=255).count() / total_count * 100) if total_count else 0
             }
             context['birpay_stats'] = stats
 
@@ -1760,161 +1747,161 @@ def test(request):
     return render(request=request, template_name='deposit/moshennik_list.html', context=context)
 
 
-class BirpayMyFilterView(StaffOnlyPerm, ListView):
-    template_name = 'deposit/birpay_panel.html'
-    paginate_by = 100
-    model = BirpayOrder
-    filterset_class = BirpayPanelFilter
-
-    def get_queryset(self):
-        now = timezone.now()
-        if settings.DEBUG:
-            threshold = now - datetime.timedelta(days=50)
-        else:
-            threshold = now - datetime.timedelta(minutes=30)
-        qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal__in=[0, 1]).order_by('-created_at')
-
-        incoming_qs = Incoming.objects.filter(
-            birpay_id=OuterRef('merchant_transaction_id')
-        ).order_by('-register_date')
-        qs = qs.annotate(
-            incoming_pay=Subquery(incoming_qs.values('pay')[:1]),
-            delta=ExpressionWrapper(
-                Subquery(incoming_qs.values('pay')[:1]) - F('amount'),
-                output_field=FloatField()
-            ),
-            incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
-        )
-        
-        # Применяем фильтр по назначенным картам пользователя
-        user_card_numbers = get_user_card_numbers(self.request.user)
-        if user_card_numbers:
-            qs = qs.filter(card_number__in=user_card_numbers)
-        else:
-            qs = qs.none()
-        
-        # Создаем фильтр с предустановленным значением only_my=True
-        modified_get = self.request.GET.copy()
-        modified_get['only_my'] = 'on'
-        
-        self.filterset = BirpayPanelFilter(
-            modified_get,
-            queryset=qs,
-            request=self.request,
-            user_card_numbers=user_card_numbers
-        )
-        return self.filterset.qs
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['search_form'] = self.filterset.form
-        context['selected_card_numbers'] = self.request.GET.getlist('card_number')
-        context['statuses'] = self.request.GET.getlist('status')
-        context['only_my'] = ['on']  # Всегда включен для этой вкладки
-        context['is_my_filter_tab'] = True  # Флаг для шаблона
-        
-        user = self.request.user
-        last_confirmed_order = BirpayOrder.objects.filter(confirmed_operator=user).order_by('-confirmed_time').first()
-        if last_confirmed_order:
-            context['last_confirmed_order_id'] = last_confirmed_order.id
-
-        return context
-
-    def post(self, request, *args, **kwargs):
-        # исходный URL
-        query = []
-        filter_keys = ['card_number', 'status', 'only_my']
-        logger.info(f'{request.POST.dict()}')
-        for key in filter_keys:
-            for value in request.POST.getlist(key):
-                query.append(f"{key}={value}")
-        query_string = '&'.join(query)
-
-        try:
-            logger.info(f'POST: {request.POST.dict()}')
-            post_data = request.POST.dict()
-            new_amount = 0
-            order = None
-            incoming_id = ''
-            action = None
-            for name, value in post_data.items():
-                if name.startswith('orderconfirm'):
-                    order_id = name.split('orderconfirm_')[1]
-                    incoming_id = value.strip()
-                    order = BirpayOrder.objects.get(pk=order_id)
-                    logger.info(f'Для {order} сохраняем смс {incoming_id}')
-                    bind_contextvars(merchant_transaction_id=order.merchant_transaction_id)
-                elif name.startswith('orderamount'):
-                    new_amount = float(value)
-                    logger.info(f'sended_amount: {new_amount}')
-                elif name.startswith('order_action_'):
-                    action = value
-                    logger.info(f'action: {action}')
-
-            update_fields = []
-
-            # смена суммы
-            if order.amount != new_amount:
-                if order.status != 0:
-                    text = f'Не удалось сменить сумму {order} mtx_id {order.merchant_transaction_id}: Статус не pending'
-                    logger.warning(text)
-                    messages.add_message(request, messages.WARNING, text)
-                    raise ValidationError(text)
-                else:
-                    logger.info(f'Меняем amount с {order.amount} на {new_amount}')
-                    response = change_amount_birpay(pk=order.birpay_id, amount=new_amount)
-                    if response.status_code == 200:
-                        order.amount = new_amount
-                        update_fields.append('amount')
-                        logger.info(f'Успешно сменили amount на {new_amount}')
-                    else:
-                        text = f'Не удалось сменить сумму {order} mtx_id {order.merchant_transaction_id}: {response.text}'
-                        logger.warning(text)
-                        messages.add_message(request, messages.WARNING, text)
-                        raise ValidationError(text)
-
-            # привязка смс
-            if incoming_id:
-                try:
-                    incoming = Incoming.objects.get(pk=incoming_id)
-                    order.incoming = incoming
-                    update_fields.append('incoming')
-                    logger.info(f'Привязали смс {incoming_id} к заказу {order}')
-                except Incoming.DoesNotExist:
-                    text = f'СМС с id {incoming_id} не найдена'
-                    logger.warning(text)
-                    messages.add_message(request, messages.WARNING, text)
-                    raise ValidationError(text)
-
-            # смена статуса
-            if action:
-                if action == 'approve':
-                    order.status = 1
-                    order.confirmed_operator = request.user
-                    order.confirmed_time = timezone.now()
-                    update_fields.extend(['status', 'confirmed_operator', 'confirmed_time'])
-                    logger.info(f'Подтвердили заказ {order}')
-                elif action == 'hide':
-                    order.status = 2
-                    order.confirmed_operator = request.user
-                    order.confirmed_time = timezone.now()
-                    update_fields.extend(['status', 'confirmed_operator', 'confirmed_time'])
-                    logger.info(f'Скрыли заказ {order}')
-                elif action == 'pending':
-                    order.status = 0
-                    order.confirmed_operator = None
-                    order.confirmed_time = None
-                    update_fields.extend(['status', 'confirmed_operator', 'confirmed_time'])
-                    logger.info(f'Вернули заказ {order} в pending')
-
-            if update_fields:
-                order.save(update_fields=update_fields)
-                messages.add_message(request, messages.SUCCESS, f'Заказ {order.merchant_transaction_id} обновлен')
-
-        except Exception as e:
-            logger.error(f'Ошибка при обновлении заказа: {e}')
-            messages.add_message(request, messages.ERROR, e)
-            return HttpResponseRedirect(f"{request.path}?{query_string}")
+# class BirpayMyFilterView(StaffOnlyPerm, ListView):
+#     template_name = 'deposit/birpay_panel.html'
+#     paginate_by = 100
+#     model = BirpayOrder
+#     filterset_class = BirpayPanelFilter
+#
+#     def get_queryset(self):
+#         now = timezone.now()
+#         if settings.DEBUG:
+#             threshold = now - datetime.timedelta(days=50)
+#         else:
+#             threshold = now - datetime.timedelta(minutes=30)
+#         qs = super().get_queryset().filter(sended_at__gt=threshold, status_internal__in=[0, 1]).order_by('-created_at')
+#
+#         incoming_qs = Incoming.objects.filter(
+#             birpay_id=OuterRef('merchant_transaction_id')
+#         ).order_by('-register_date')
+#         qs = qs.annotate(
+#             incoming_pay=Subquery(incoming_qs.values('pay')[:1]),
+#             delta=ExpressionWrapper(
+#                 Subquery(incoming_qs.values('pay')[:1]) - F('amount'),
+#                 output_field=FloatField()
+#             ),
+#             incoming_register_date=Subquery(incoming_qs.values('register_date')[:1]),
+#         )
+#
+#         # Применяем фильтр по назначенным картам пользователя
+#         user_card_numbers = get_user_card_numbers(self.request.user)
+#         if user_card_numbers:
+#             qs = qs.filter(card_number__in=user_card_numbers)
+#         else:
+#             qs = qs.none()
+#
+#         # Создаем фильтр с предустановленным значением only_my=True
+#         modified_get = self.request.GET.copy()
+#         modified_get['only_my'] = 'on'
+#
+#         self.filterset = BirpayPanelFilter(
+#             modified_get,
+#             queryset=qs,
+#             request=self.request,
+#             user_card_numbers=user_card_numbers
+#         )
+#         return self.filterset.qs
+#
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         context['search_form'] = self.filterset.form
+#         context['selected_card_numbers'] = self.request.GET.getlist('card_number')
+#         context['statuses'] = self.request.GET.getlist('status')
+#         context['only_my'] = ['on']  # Всегда включен для этой вкладки
+#         context['is_my_filter_tab'] = True  # Флаг для шаблона
+#
+#         user = self.request.user
+#         last_confirmed_order = BirpayOrder.objects.filter(confirmed_operator=user).order_by('-confirmed_time').first()
+#         if last_confirmed_order:
+#             context['last_confirmed_order_id'] = last_confirmed_order.id
+#
+#         return context
+#
+#     def post(self, request, *args, **kwargs):
+#         # исходный URL
+#         query = []
+#         filter_keys = ['card_number', 'status', 'only_my']
+#         logger.info(f'{request.POST.dict()}')
+#         for key in filter_keys:
+#             for value in request.POST.getlist(key):
+#                 query.append(f"{key}={value}")
+#         query_string = '&'.join(query)
+#
+#         try:
+#             logger.info(f'POST: {request.POST.dict()}')
+#             post_data = request.POST.dict()
+#             new_amount = 0
+#             order = None
+#             incoming_id = ''
+#             action = None
+#             for name, value in post_data.items():
+#                 if name.startswith('orderconfirm'):
+#                     order_id = name.split('orderconfirm_')[1]
+#                     incoming_id = value.strip()
+#                     order = BirpayOrder.objects.get(pk=order_id)
+#                     logger.info(f'Для {order} сохраняем смс {incoming_id}')
+#                     bind_contextvars(merchant_transaction_id=order.merchant_transaction_id)
+#                 elif name.startswith('orderamount'):
+#                     new_amount = float(value)
+#                     logger.info(f'sended_amount: {new_amount}')
+#                 elif name.startswith('order_action_'):
+#                     action = value
+#                     logger.info(f'action: {action}')
+#
+#             update_fields = []
+#
+#             # смена суммы
+#             if order.amount != new_amount:
+#                 if order.status != 0:
+#                     text = f'Не удалось сменить сумму {order} mtx_id {order.merchant_transaction_id}: Статус не pending'
+#                     logger.warning(text)
+#                     messages.add_message(request, messages.WARNING, text)
+#                     raise ValidationError(text)
+#                 else:
+#                     logger.info(f'Меняем amount с {order.amount} на {new_amount}')
+#                     response = change_amount_birpay(pk=order.birpay_id, amount=new_amount)
+#                     if response.status_code == 200:
+#                         order.amount = new_amount
+#                         update_fields.append('amount')
+#                         logger.info(f'Успешно сменили amount на {new_amount}')
+#                     else:
+#                         text = f'Не удалось сменить сумму {order} mtx_id {order.merchant_transaction_id}: {response.text}'
+#                         logger.warning(text)
+#                         messages.add_message(request, messages.WARNING, text)
+#                         raise ValidationError(text)
+#
+#             # привязка смс
+#             if incoming_id:
+#                 try:
+#                     incoming = Incoming.objects.get(pk=incoming_id)
+#                     order.incoming = incoming
+#                     update_fields.append('incoming')
+#                     logger.info(f'Привязали смс {incoming_id} к заказу {order}')
+#                 except Incoming.DoesNotExist:
+#                     text = f'СМС с id {incoming_id} не найдена'
+#                     logger.warning(text)
+#                     messages.add_message(request, messages.WARNING, text)
+#                     raise ValidationError(text)
+#
+#             # смена статуса
+#             if action:
+#                 if action == 'approve':
+#                     order.status = 1
+#                     order.confirmed_operator = request.user
+#                     order.confirmed_time = timezone.now()
+#                     update_fields.extend(['status', 'confirmed_operator', 'confirmed_time'])
+#                     logger.info(f'Подтвердили заказ {order}')
+#                 elif action == 'hide':
+#                     order.status = 2
+#                     order.confirmed_operator = request.user
+#                     order.confirmed_time = timezone.now()
+#                     update_fields.extend(['status', 'confirmed_operator', 'confirmed_time'])
+#                     logger.info(f'Скрыли заказ {order}')
+#                 elif action == 'pending':
+#                     order.status = 0
+#                     order.confirmed_operator = None
+#                     order.confirmed_time = None
+#                     update_fields.extend(['status', 'confirmed_operator', 'confirmed_time'])
+#                     logger.info(f'Вернули заказ {order} в pending')
+#
+#             if update_fields:
+#                 order.save(update_fields=update_fields)
+#                 messages.add_message(request, messages.SUCCESS, f'Заказ {order.merchant_transaction_id} обновлен')
+#
+#         except Exception as e:
+#             logger.error(f'Ошибка при обновлении заказа: {e}')
+#             messages.add_message(request, messages.ERROR, e)
+#             return HttpResponseRedirect(f"{request.path}?{query_string}")
 
 
 @staff_member_required()

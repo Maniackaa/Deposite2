@@ -73,11 +73,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     STAFF = "staff"
     ADMIN = "admin"
     MODERATOR = "editor"
+    AGENT = "agent"
     ROLES = (
         (USER, "Пользователь"),
         (ADMIN, "Администратор"),
         (STAFF, "Оператор"),
         (MODERATOR, "Корректировщик"),
+        (AGENT, "Агент")
     )
 
     USERNAME_FIELD = 'username'

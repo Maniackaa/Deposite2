@@ -596,8 +596,27 @@ def send_image_to_gpt_task(self, birpay_id):
                 logger.info(f'Ни одна смс не подходит')
             if len(incomings_with_correct_card_and_order_amount) == 1:
                 # Найдена однозначная СМС
-                logger.info(f'Найдена однозначная СМС: {incomings_with_correct_card_and_order_amount[0]}')
+                incoming_sms = incomings_with_correct_card_and_order_amount[0]
+                logger.info(f'Найдена однозначная СМС: {incoming_sms}')
                 gpt_imho_result |= BirpayOrder.GPTIMHO.sms
+                
+                # Проверка баланса: расчетный баланс должен соответствовать фактическому балансу из SMS
+                # Вычисляем check_balance если он еще не вычислен
+                if incoming_sms.check_balance is None:
+                    incoming_sms.calculate_balance_fields()
+                    incoming_sms.save(update_fields=['prev_balance', 'check_balance'])
+                
+                if incoming_sms.check_balance is not None and incoming_sms.balance is not None:
+                    # Сравниваем с учетом возможных погрешностей округления (до 0.01)
+                    balance_match = abs(incoming_sms.check_balance - incoming_sms.balance) < 0.01
+                    logger.info(f'Проверка баланса: check_balance={incoming_sms.check_balance}, balance={incoming_sms.balance}, совпадают={balance_match}')
+                    if balance_match:
+                        gpt_imho_result |= BirpayOrder.GPTIMHO.balance_match
+                        logger.info(f'balance_match: ✅')
+                    else:
+                        logger.info(f'balance_match: ❌ (расчетный {incoming_sms.check_balance} != фактический {incoming_sms.balance})')
+                else:
+                    logger.info(f'balance_match: ❌ (нет данных: check_balance={incoming_sms.check_balance}, balance={incoming_sms.balance})')
             else:
                 logger.info(f'Однозначная смс не найдена')
             
@@ -630,8 +649,8 @@ def send_image_to_gpt_task(self, birpay_id):
             order.gpt_flags = gpt_imho_result.value
             Options = apps.get_model('users', 'Options')
             gpt_auto_approve = Options.load().gpt_auto_approve
-            # Автоматическое подтверждение только если ВСЕ 7 флагов установлены (127 = 0b1111111)
-            if not order.is_moshennik() and not order.is_painter() and gpt_auto_approve and order.gpt_flags == 127:
+            # Автоматическое подтверждение только если ВСЕ 8 флагов установлены (255 = 0b11111111)
+            if not order.is_moshennik() and not order.is_painter() and gpt_auto_approve and order.gpt_flags == 255:
                 # Автоматическое подтверждение
                 incoming_sms = incomings_with_correct_card_and_order_amount[0]
                 logger.info(
