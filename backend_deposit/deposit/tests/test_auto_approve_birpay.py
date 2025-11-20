@@ -513,7 +513,7 @@ class TestAutoApproveBirpayOrder(TestCase):
     @patch('deposit.tasks.approve_birpay_refill')
     @patch('deposit.tasks.requests.post')
     def test_auto_approve_fails_balance_mismatch(self, mock_post, mock_approve):
-        """Тест: автоподтверждение не срабатывает при несовпадении расчетного и фактического баланса"""
+        """Тест: автоподтверждение не срабатывает при несовпадении расчетного и фактического баланса (баланс изменен после создания)"""
         
         # Изменяем баланс в SMS так, чтобы он не совпадал с расчетным
         # check_balance = prev_balance (900.0) + pay (100.0) = 1000.0
@@ -543,6 +543,110 @@ class TestAutoApproveBirpayOrder(TestCase):
         # Проверяем, что флаг balance_match не установлен
         # Должны быть установлены все флаги кроме balance_match
         # Просто проверяем, что не все флаги установлены (не 255)
+        self.assertNotEqual(self.order.gpt_flags, 255)
+    
+    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.requests.post')
+    def test_auto_approve_fails_balance_mismatch_on_creation(self, mock_post, mock_approve):
+        """Тест: автоподтверждение не срабатывает при несовпадении расчетного и фактического баланса (изначально при создании)"""
+        
+        # Удаляем текущий incoming и создаем новый с изначально несовпадающим балансом
+        self.incoming.delete()
+        
+        # Создаем SMS с балансом, который НЕ совпадает с расчетным
+        # check_balance = prev_balance (900.0) + pay (100.0) = 1000.0
+        # Но balance = 1500.0 (не совпадает изначально)
+        sms_time = self.gpt_time
+        incoming_with_mismatch = Incoming.objects.create(
+            register_date=sms_time,
+            response_date=sms_time,
+            recipient='1234****5678',  # Совпадает с card_number
+            sender='Bank',
+            pay=100.0,  # Совпадает с order.amount
+            balance=1500.0,  # НЕ совпадает с check_balance (1000.0)
+            transaction=111111,
+            type='sms',
+            worker='manual',
+            birpay_id=None
+        )
+        # check_balance должен быть вычислен автоматически при создании: 900.0 + 100.0 = 1000.0
+        incoming_with_mismatch.refresh_from_db()
+        self.assertEqual(incoming_with_mismatch.check_balance, 1000.0)
+        self.assertEqual(incoming_with_mismatch.balance, 1500.0)
+        self.assertNotEqual(incoming_with_mismatch.check_balance, incoming_with_mismatch.balance)
+        
+        # Мокируем GPT API
+        mock_post.return_value = self.create_gpt_response()
+        
+        # Мокируем approve_birpay_refill
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '{"success": true}'
+        mock_approve.return_value = mock_response
+        
+        # Вызываем задачу
+        send_image_to_gpt_task(self.order.birpay_id)
+        
+        # Проверяем результаты
+        self.order.refresh_from_db()
+        
+        # Проверяем, что заказ НЕ привязан к SMS (не все флаги установлены)
+        self.assertIsNone(self.order.incoming)
+        mock_approve.assert_not_called()
+        
+        # Проверяем, что флаг balance_match не установлен
+        self.assertNotEqual(self.order.gpt_flags, 255)
+    
+    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.requests.post')
+    def test_auto_approve_fails_when_check_balance_is_none(self, mock_post, mock_approve):
+        """Тест: автоподтверждение не срабатывает, если check_balance не вычислен (None)"""
+        
+        # Сохраняем ID для исключения
+        incoming_id = self.incoming.id
+        # Удаляем текущий incoming и предыдущую SMS, чтобы check_balance был None
+        self.incoming.delete()
+        # Удаляем предыдущую SMS, чтобы check_balance был None
+        Incoming.objects.filter(recipient='1234****5678').exclude(id=incoming_id).delete()
+        
+        # Создаем SMS без предыдущей SMS (check_balance будет None)
+        sms_time = self.gpt_time
+        incoming_without_prev = Incoming.objects.create(
+            register_date=sms_time,
+            response_date=sms_time,
+            recipient='1234****5678',  # Совпадает с card_number
+            sender='Bank',
+            pay=100.0,  # Совпадает с order.amount
+            balance=1000.0,
+            transaction=111111,
+            type='sms',
+            worker='manual',
+            birpay_id=None
+        )
+        # check_balance должен быть None, так как нет предыдущей SMS
+        incoming_without_prev.refresh_from_db()
+        self.assertIsNone(incoming_without_prev.check_balance)
+        
+        # Мокируем GPT API
+        mock_post.return_value = self.create_gpt_response()
+        
+        # Мокируем approve_birpay_refill
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '{"success": true}'
+        mock_approve.return_value = mock_response
+        
+        # Вызываем задачу
+        send_image_to_gpt_task(self.order.birpay_id)
+        
+        # Проверяем результаты
+        self.order.refresh_from_db()
+        
+        # Проверяем, что заказ НЕ привязан к SMS (не все флаги установлены)
+        self.assertIsNone(self.order.incoming)
+        mock_approve.assert_not_called()
+        
+        # Проверяем, что флаг balance_match не установлен
         self.assertNotEqual(self.order.gpt_flags, 255)
     
     @patch('deposit.tasks.approve_birpay_refill')
