@@ -122,3 +122,29 @@ def join_newline(cards):
 @register.filter
 def is_pdf(url):
     return str(url).lower().endswith('.pdf')
+
+@register.filter
+def round_to_tenth(value):
+    """Округляет значение до 0.1"""
+    try:
+        if value is None:
+            return None
+        return round(float(value) * 10) / 10
+    except (ValueError, TypeError):
+        return None
+
+@register.filter
+def balance_mismatch(incoming):
+    """Проверяет, не совпадают ли балансы после округления до 0.1"""
+    try:
+        if not incoming:
+            return False
+        check_balance = getattr(incoming, 'check_balance', None)
+        balance = getattr(incoming, 'balance', None)
+        if check_balance is None or balance is None:
+            return False
+        check_rounded = round(float(check_balance) * 10) / 10
+        balance_rounded = round(float(balance) * 10) / 10
+        return check_rounded != balance_rounded
+    except (ValueError, TypeError, AttributeError):
+        return False

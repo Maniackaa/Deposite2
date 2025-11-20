@@ -24,7 +24,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import F, Q, OuterRef, Window, Exists, Value, Sum, Count, Subquery, ExpressionWrapper, FloatField, \
-    Max, DurationField
+    Max, DurationField, Case, When, BooleanField
 from django.http import HttpResponseForbidden, JsonResponse, HttpResponseBadRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy, reverse
@@ -36,6 +36,21 @@ from rest_framework.views import APIView
 from structlog.contextvars import bind_contextvars
 
 from core.asu_pay_func import create_asu_withdraw
+
+
+def add_balance_mismatch_flag(incoming):
+    """Добавляет атрибут balance_mismatch к объекту incoming для проверки несовпадения баланса после округления до 0.1"""
+    try:
+        if incoming.check_balance is not None and incoming.balance is not None:
+            check_rounded = round(float(incoming.check_balance) * 10) / 10
+            balance_rounded = round(float(incoming.balance) * 10) / 10
+            incoming.balance_mismatch = check_rounded != balance_rounded
+        else:
+            incoming.balance_mismatch = False
+    except (ValueError, TypeError, AttributeError) as e:
+        incoming.balance_mismatch = False
+        logger.error(f'add_balance_mismatch_flag: ошибка для incoming.id={incoming.id}: {e}')
+    return incoming
 from core.birpay_func import (
     get_birpay_withdraw,
     get_new_token,
@@ -49,7 +64,7 @@ from core.birpay_func import (
     set_payment_requisite_active,
 )
 from core.birpay_new_func import get_um_transactions, send_transaction_action
-from core.global_func import TZ, mask_compare
+from core.global_func import TZ, mask_compare, send_message_tg
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
     day_reports_orm
 from deposit import tasks
@@ -362,13 +377,110 @@ def incoming_list(request):
         value = request.POST.get(input_name) or ''
         incoming = Incoming.objects.get(pk=pk)
         if isinstance(incoming.birpay_id, NoneType):
-            incoming.birpay_id = value
+            # Валидация: если значение не пустое, проверяем существование BirpayOrder
+            if value and value.strip():
+                value = value.strip()
+                order_exists = BirpayOrder.objects.filter(merchant_transaction_id=value).exists()
+                if not order_exists:
+                    error_msg = f'BirpayOrder с MerchTxID "{value}" не найден. Проверьте правильность номера.'
+                    logger.warning(f'Попытка привязать несуществующий MerchTxID {value} к Incoming {incoming.id}')
+                    messages.add_message(request, messages.ERROR, error_msg)
+                    if 'filter' in options:
+                        return redirect('deposit:incomings_filter')
+                    else:
+                        return redirect('deposit:incomings')
+                
+                # Проверяем, что этот merchant_transaction_id не привязан к другому Incoming
+                existing_incoming = Incoming.objects.filter(birpay_id=value).exclude(pk=incoming.pk).first()
+                if existing_incoming:
+                    error_msg = f'MerchTxID "{value}" уже привязан к Incoming ID {existing_incoming.id}. Нельзя привязывать один номер к нескольким записям.'
+                    logger.warning(f'Попытка привязать уже используемый MerchTxID {value} к Incoming {incoming.id} (уже привязан к {existing_incoming.id})')
+                    messages.add_message(request, messages.ERROR, error_msg)
+                    if 'filter' in options:
+                        return redirect('deposit:incomings_filter')
+                    else:
+                        return redirect('deposit:incomings')
+                
+                # Проверяем, что BirpayOrder не привязан к другому Incoming
+                order = BirpayOrder.objects.filter(merchant_transaction_id=value).first()
+                if order and order.incoming and order.incoming.pk != incoming.pk:
+                    error_msg = f'BirpayOrder с MerchTxID "{value}" уже привязан к Incoming ID {order.incoming.id}. Нельзя привязывать один заказ к нескольким записям.'
+                    logger.warning(f'Попытка привязать BirpayOrder {value} к Incoming {incoming.id} (уже привязан к {order.incoming.id})')
+                    messages.add_message(request, messages.ERROR, error_msg)
+                    if 'filter' in options:
+                        return redirect('deposit:incomings_filter')
+                    else:
+                        return redirect('deposit:incomings')
+            
+            # Проверяем несовпадение баланса перед привязкой
+            # Если check_balance не вычислен, вычисляем его (на случай, если запись была создана до добавления этой логики)
+            if incoming.check_balance is None and incoming.recipient:
+                incoming.calculate_balance_fields()
+                incoming.save(update_fields=['prev_balance', 'check_balance'])
+                logger.info(f'Вычислен check_balance для Incoming {incoming.id}: check_balance={incoming.check_balance}')
+            
+            # Проверяем баланс только если введено непустое значение
+            # Пустое значение используется для удаления привязки (убрать SMS из поиска)
+            if value and value.strip():
+                add_balance_mismatch_flag(incoming)
+                logger.info(f'Проверка баланса для Incoming {incoming.id}: check_balance={incoming.check_balance}, balance={incoming.balance}, balance_mismatch={incoming.balance_mismatch}')
+                
+                # Проверяем несовпадение баланса
+                balance_mismatch = False
+                if incoming.check_balance is not None and incoming.balance is not None:
+                    check_rounded = round(float(incoming.check_balance) * 10) / 10
+                    balance_rounded = round(float(incoming.balance) * 10) / 10
+                    balance_mismatch = check_rounded != balance_rounded
+                    logger.info(f'Проверка баланса для Incoming {incoming.id}: check_rounded={check_rounded}, balance_rounded={balance_rounded}, не совпадают={balance_mismatch}')
+                
+                # Если баланс не совпадает и нет подтверждения оператора - блокируем привязку
+                # Подтверждение устанавливается через JavaScript confirm dialog
+                confirm_balance_mismatch = request.POST.get(f'confirm_balance_mismatch_{pk}', '') == '1'
+                if balance_mismatch and not confirm_balance_mismatch:
+                    error_msg = (
+                        f'⚠️ ВНИМАНИЕ: Несовпадение баланса для Incoming ID {incoming.id}!\n'
+                        f'Баланс из SMS: {incoming.balance}\n'
+                        f'Расчетный баланс: {incoming.check_balance}\n'
+                        f'Привязка заблокирована. Подтвердите привязку во всплывающем окне.'
+                    )
+                    logger.warning(f'Блокировка привязки BirpayOrder {value} к Incoming {incoming.id} из-за несовпадения баланса (не подтверждено)')
+                    messages.add_message(request, messages.ERROR, error_msg)
+                    if 'filter' in options:
+                        return redirect('deposit:incomings_filter')
+                    else:
+                        return redirect('deposit:incomings')
+                
+                # Если баланс не совпадает, но есть подтверждение - отправляем уведомление в Telegram
+                if balance_mismatch and confirm_balance_mismatch:
+                    msg = (
+                        f'⚠️ ВНИМАНИЕ: Привязка BirpayOrder к Incoming с несовпадающим балансом (подтверждено оператором)!\n'
+                        f'Incoming ID: {incoming.id}\n'
+                        f'MerchTxID: {value}\n'
+                        f'Баланс из SMS: {incoming.balance}\n'
+                        f'Расчетный баланс: {incoming.check_balance}\n'
+                        f'Получатель: {incoming.recipient}\n'
+                        f'Платеж: {incoming.pay}\n'
+                        f'Пользователь: {request.user.username}'
+                    )
+                    logger.warning(f'Привязка BirpayOrder {value} к Incoming {incoming.id} с несовпадающим балансом (подтверждено оператором)')
+                    try:
+                        if settings.ALARM_IDS:
+                            send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
+                            logger.info(f'Alarm-сообщение отправлено успешно в чаты: {settings.ALARM_IDS}')
+                        else:
+                            logger.error(f'ALARM_IDS не настроен! Уведомление не может быть отправлено.')
+                    except Exception as e:
+                        logger.error(f'Ошибка при отправке alarm-сообщения: {e}', exc_info=True)
+            
+            # Сохраняем привязку
+            incoming.birpay_id = value.strip() if value else ''
             incoming.birpay_confirm_time = datetime.datetime.now(tz=pytz.timezone(settings.TIME_ZONE))
             incoming.save()
-            order = BirpayOrder.objects.filter(merchant_transaction_id=value).first()
-            if order:
-                order.incoming = incoming
-                order.save()
+            if value and value.strip():
+                order = BirpayOrder.objects.filter(merchant_transaction_id=value.strip()).first()
+                if order:
+                    order.incoming = incoming
+                    order.save()
             #Сохраняем историю
             new_history = IncomingChange(
                 incoming=incoming,
@@ -437,7 +549,22 @@ def incoming_list(request):
     # last_bad = BadScreen.objects.order_by('-id').first()
     last_bad = Message.objects.filter(type='macros').order_by('-id').first()
     last_bad_id = last_bad.id if last_bad else last_bad
-    context = {'page_obj': make_page_obj(request, incoming_q),
+    # Обрабатываем raw queryset и добавляем флаг несовпадения баланса
+    incoming_list = list(incoming_q)
+    
+    # Обрабатываем все объекты перед пагинацией
+    for incoming in incoming_list:
+        add_balance_mismatch_flag(incoming)
+    
+    # Создаем page_obj после обработки
+    page_obj = make_page_obj(request, incoming_list)
+    
+    # Обрабатываем объекты в page_obj еще раз (на случай, если Paginator создал новые объекты)
+    if hasattr(page_obj, 'object_list'):
+        for incoming in page_obj.object_list:
+            add_balance_mismatch_flag(incoming)
+    
+    context = {'page_obj': page_obj,
                'last_id': last_id,
                'last_bad_id': last_bad_id}
     return render(request, template, context)
@@ -460,6 +587,13 @@ class IncomingEmpty(ListView):
             else:
                 empty_incoming = empty_incoming.exclude(worker='base2')
         return empty_incoming
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Добавляем флаг несовпадения баланса для каждого объекта
+        for incoming in context['object_list']:
+            add_balance_mismatch_flag(incoming)
+        return context
 
 
 class IncomingCheckList(SuperuserOnlyPerm, ListView):
@@ -549,6 +683,13 @@ class IncomingFiltered(StaffOnlyPerm, ListView):
         last_bad = Message.objects.filter(type='macros').order_by('-id').first()
         last_bad_id = last_bad.id if last_bad else last_bad
         context['last_bad_id'] = last_bad_id
+        # Добавляем флаг несовпадения баланса для каждого объекта (raw queryset)
+        if 'page_obj' in context and hasattr(context['page_obj'], 'object_list'):
+            for incoming in context['page_obj'].object_list:
+                add_balance_mismatch_flag(incoming)
+        elif 'object_list' in context:
+            for incoming in context['object_list']:
+                add_balance_mismatch_flag(incoming)
         return context
 
 
@@ -599,6 +740,11 @@ class IncomingMyCardsView(StaffOnlyPerm, ListView):
         if profile and profile.assigned_card_numbers:
             assigned_cards = profile.assigned_card_numbers
         context['assigned_cards'] = assigned_cards
+        
+        # Добавляем флаг несовпадения баланса для каждого объекта
+        if 'object_list' in context:
+            for incoming in context['object_list']:
+                add_balance_mismatch_flag(incoming)
         
         # Последний id среди отфильтрованных (для уведомлений)
         last_filtered = self.object_list.first()
@@ -687,6 +833,10 @@ class IncomingSearch(ListView):
 
     def get_context_data(self, **kwargs):
         context = super(IncomingSearch, self).get_context_data(**kwargs)
+        # Добавляем флаг несовпадения баланса для каждого объекта
+        if 'object_list' in context:
+            for incoming in context['object_list']:
+                add_balance_mismatch_flag(incoming)
         request_dict = self.request.GET.dict()
         begin_0 = request_dict.get('begin_0')
         begin_1 = request_dict.get('begin_1')
@@ -1330,6 +1480,10 @@ class IncomingStatSearchView(ListView):
             total_pay=Sum('pay'),
             count=Count('id')
         )
+        # Добавляем флаг несовпадения баланса для каждого объекта
+        if 'object_list' in context:
+            for incoming in context['object_list']:
+                add_balance_mismatch_flag(incoming)
         return context
 
 
@@ -1703,6 +1857,44 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                             messages.add_message(request, messages.ERROR, text)
                             logger.error(text)
                             raise ValidationError(text)
+                        
+                        # Проверяем несовпадение баланса перед привязкой
+                        # Если check_balance не вычислен, вычисляем его
+                        if incoming_to_approve.check_balance is None and incoming_to_approve.recipient:
+                            incoming_to_approve.calculate_balance_fields()
+                            incoming_to_approve.save(update_fields=['prev_balance', 'check_balance'])
+                            logger.info(f'Вычислен check_balance для Incoming {incoming_to_approve.id}: check_balance={incoming_to_approve.check_balance}')
+                        
+                        add_balance_mismatch_flag(incoming_to_approve)
+                        if incoming_to_approve.balance_mismatch:
+                            # Проверяем подтверждение оператора через скрытое поле
+                            # Если JavaScript прошел проверку, флаг должен быть установлен
+                            confirm_balance_mismatch = request.POST.get(f'confirm_balance_mismatch_{order.id}', '') == '1'
+                            
+                            # Если баланс не совпадает и есть подтверждение - отправляем alarm-сообщение
+                            # JavaScript уже проверил баланс и показал диалог, поэтому здесь только отправляем уведомление
+                            if confirm_balance_mismatch:
+                                msg = (
+                                    f'⚠️ ВНИМАНИЕ: Привязка BirpayOrder к Incoming с несовпадающим балансом (подтверждено оператором)!\n'
+                                    f'Incoming ID: {incoming_to_approve.id}\n'
+                                    f'BirpayOrder ID: {order.id}\n'
+                                    f'MerchTxID: {order.merchant_transaction_id}\n'
+                                    f'Баланс из SMS: {incoming_to_approve.balance}\n'
+                                    f'Расчетный баланс: {incoming_to_approve.check_balance}\n'
+                                    f'Получатель: {incoming_to_approve.recipient}\n'
+                                    f'Платеж: {incoming_to_approve.pay}\n'
+                                    f'Пользователь: {request.user.username}'
+                                )
+                                try:
+                                    if settings.ALARM_IDS:
+                                        send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
+                                        logger.info(f'Alarm-сообщение отправлено успешно в чаты: {settings.ALARM_IDS}')
+                                    else:
+                                        logger.error(f'ALARM_IDS не настроен! Уведомление не может быть отправлено.')
+                                except Exception as e:
+                                    logger.error(f'Ошибка при отправке alarm-сообщения: {e}', exc_info=True)
+                                logger.warning(f'Привязка BirpayOrder {order.merchant_transaction_id} к Incoming {incoming_to_approve.id} с несовпадающим балансом (подтверждено оператором)')
+                        
                         logger.info('Апрувнем заявку')
                         response = approve_birpay_refill(pk=order.birpay_id)
                         if response.status_code != 200:
@@ -1734,6 +1926,70 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
             logger.error(e, exc_info=True)
             messages.add_message(request, messages.ERROR, e)
             return HttpResponseRedirect(f"{request.path}?{query_string}")
+
+@staff_member_required()
+def get_incoming_balance_info(request, incoming_id):
+    """API endpoint для получения информации о балансе Incoming по ID"""
+    try:
+        incoming = Incoming.objects.get(pk=incoming_id)
+        # Если check_balance не вычислен, вычисляем его
+        if incoming.check_balance is None and incoming.recipient:
+            incoming.calculate_balance_fields()
+            incoming.save(update_fields=['prev_balance', 'check_balance'])
+        
+        add_balance_mismatch_flag(incoming)
+        
+        balance_mismatch = False
+        if incoming.check_balance is not None and incoming.balance is not None:
+            check_rounded = round(float(incoming.check_balance) * 10) / 10
+            balance_rounded = round(float(incoming.balance) * 10) / 10
+            balance_mismatch = check_rounded != balance_rounded
+        
+        return JsonResponse({
+            'id': incoming.id,
+            'balance': incoming.balance,
+            'check_balance': incoming.check_balance,
+            'balance_mismatch': balance_mismatch,
+            'pay': incoming.pay,
+            'recipient': incoming.recipient
+        })
+    except Incoming.DoesNotExist:
+        return JsonResponse({'error': 'Incoming not found'}, status=404)
+    except Exception as e:
+        logger.error(f'Ошибка при получении информации о балансе Incoming {incoming_id}: {e}', exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
+
+@staff_member_required()
+def get_incoming_balance_info(request, incoming_id):
+    """API endpoint для получения информации о балансе Incoming по ID"""
+    try:
+        incoming = Incoming.objects.get(pk=incoming_id)
+        # Если check_balance не вычислен, вычисляем его
+        if incoming.check_balance is None and incoming.recipient:
+            incoming.calculate_balance_fields()
+            incoming.save(update_fields=['prev_balance', 'check_balance'])
+        
+        add_balance_mismatch_flag(incoming)
+        
+        balance_mismatch = False
+        if incoming.check_balance is not None and incoming.balance is not None:
+            check_rounded = round(float(incoming.check_balance) * 10) / 10
+            balance_rounded = round(float(incoming.balance) * 10) / 10
+            balance_mismatch = check_rounded != balance_rounded
+        
+        return JsonResponse({
+            'id': incoming.id,
+            'balance': incoming.balance,
+            'check_balance': incoming.check_balance,
+            'balance_mismatch': balance_mismatch,
+            'pay': incoming.pay,
+            'recipient': incoming.recipient
+        })
+    except Incoming.DoesNotExist:
+        return JsonResponse({'error': 'Incoming not found'}, status=404)
+    except Exception as e:
+        logger.error(f'Ошибка при получении информации о балансе Incoming {incoming_id}: {e}', exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
 
 @staff_member_required()
 def test(request):

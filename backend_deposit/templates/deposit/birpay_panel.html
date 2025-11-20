@@ -150,7 +150,8 @@
                             {{ order.card_number|slice:"-4:" }}
                         </td>
                         <td>
-                            <input name="orderconfirm_{{ order.id }}" value="{{ order.incoming.id|default_if_none:"" }}" class="my-input button">
+                            <input name="orderconfirm_{{ order.id }}" value="{{ order.incoming.id|default_if_none:"" }}" class="my-input button incoming-id-input" data-order-id="{{ order.id }}">
+                            <input type="hidden" name="confirm_balance_mismatch_{{ order.id }}" value="0" class="confirm-balance-mismatch">
                         </td>
                         <td class="text-nowrap">
                           <select name="order_action_{{ order.id }}" {% if order.status != 0 %}disabled{% endif %}>
@@ -158,7 +159,7 @@
                             <option value="approve" {% if order.status == 1 %}selected{% endif %}>approve</option>
                             <option value="hide" {% if order.status == 2 %}selected{% endif %}>hide</option>
                           </select>
-                        <button  class="my-button btn btn-warning btn-sm {% if order.status != 0 or order.is_moshennik %}disabled{% endif %}">Ok</button>
+                        <button type="button" class="my-button btn btn-warning btn-sm {% if order.status != 0 or order.is_moshennik %}disabled{% endif %}" data-order-id="{{ order.id }}">Ok</button>
                         </td>
                     </form>
 
@@ -271,5 +272,168 @@ function toggleRawData(birpayId, el) {
             document.body.removeChild(textArea);
         }
     }
+</script>
+
+<script>
+    // Проверка баланса при смене статуса на approve
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Birpay panel balance check script loaded');
+        
+        // Обрабатываем клики по кнопкам Ok
+        document.addEventListener('click', function(e) {
+            var button = e.target;
+            
+            // Проверяем, что это кнопка Ok
+            if (!button || !button.classList.contains('my-button')) {
+                return; // Не наша кнопка
+            }
+            
+            console.log('Button clicked:', button);
+            
+            // Проверяем, что кнопка не отключена
+            if (button.disabled || button.classList.contains('disabled')) {
+                console.log('Button is disabled');
+                return; // Кнопка отключена
+            }
+            
+            // Ищем форму - она может быть не прямым родителем
+            // Ищем форму - она находится внутри <tr>, но начинается раньше <td>
+            var tr = button.closest('tr');
+            if (!tr) {
+                console.log('TR not found');
+                return;
+            }
+            
+            var form = tr.querySelector('form');
+            if (!form) {
+                console.log('Form not found in TR');
+                return; // Форма не найдена
+            }
+            
+            console.log('Form found:', form.action);
+            
+            // Находим поле ввода ID Incoming и select действия
+            var orderId = button.getAttribute('data-order-id');
+            
+            // Ищем поля в той же строке таблицы (tr), где находится кнопка
+            var tr = button.closest('tr');
+            if (!tr) {
+                console.log('TR not found for button');
+                form.submit();
+                return;
+            }
+            
+            // Ищем поля по точному имени с orderId в этой строке
+            var incomingInput = tr.querySelector('input[name="orderconfirm_' + orderId + '"]');
+            var actionSelect = tr.querySelector('select[name="order_action_' + orderId + '"]');
+            var confirmInput = tr.querySelector('input[name="confirm_balance_mismatch_' + orderId + '"]');
+            
+            // Если не нашли, пробуем найти через классы
+            if (!incomingInput) {
+                incomingInput = tr.querySelector('.incoming-id-input[data-order-id="' + orderId + '"]');
+            }
+            
+            console.log('Order ID:', orderId);
+            console.log('Incoming input:', incomingInput);
+            console.log('Incoming input name:', incomingInput ? incomingInput.name : 'none');
+            console.log('Incoming input value:', incomingInput ? incomingInput.value : 'none');
+            console.log('Action select:', actionSelect);
+            console.log('Action select name:', actionSelect ? actionSelect.name : 'none');
+            console.log('Action value:', actionSelect ? actionSelect.value : 'none');
+            
+            // Проверяем, что выбрано действие "approve"
+            if (!actionSelect || actionSelect.value !== 'approve') {
+                console.log('Not approve action, submitting form');
+                form.submit();
+                return; // Не действие approve, отправляем форму без проверки
+            }
+            
+            // Проверяем, что введен ID Incoming
+            if (!incomingInput || !incomingInput.value.trim()) {
+                console.log('No incoming ID, submitting form');
+                form.submit();
+                return; // Пустое значение, отправляем форму без проверки
+            }
+            
+            var incomingId = incomingInput.value.trim();
+            console.log('Incoming ID:', incomingId);
+            
+            // Если уже подтверждено, отправляем форму
+            if (confirmInput && confirmInput.value === '1') {
+                console.log('Already confirmed, submitting form');
+                form.submit();
+                return; // Уже подтверждено, отправляем форму
+            }
+            
+            // Блокируем отправку формы до проверки баланса
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('Checking balance for incoming:', incomingId);
+            
+            // Получаем CSRF токен из формы
+            var csrfToken = form.querySelector('[name=csrfmiddlewaretoken]');
+            var csrfTokenValue = csrfToken ? csrfToken.value : '';
+            
+            // Делаем AJAX запрос для получения информации о балансе
+            fetch('/api/incoming_balance_info/' + incomingId + '/', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': csrfTokenValue
+                },
+                credentials: 'same-origin'
+            })
+                .then(function(response) {
+                    console.log('Response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error('Ошибка при получении информации о балансе: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    console.log('Balance data:', data);
+                    if (data.balance_mismatch) {
+                        // Баланс не совпадает, показываем ALERT с предупреждением
+                        var alertMessage = '⚠️ ВНИМАНИЕ: Несовпадение баланса!\n\n' +
+                                         'Incoming ID: ' + data.id + '\n' +
+                                         'Баланс из SMS: ' + data.balance + '\n' +
+                                         'Расчетный баланс: ' + data.check_balance + '\n\n' +
+                                         'Внимательно проверьте баланс перед подтверждением!';
+                        alert(alertMessage);
+                        
+                        // Показываем confirm dialog для подтверждения
+                        var confirmMessage = '⚠️ ВНИМАНИЕ: Несовпадение баланса!\n\n' +
+                                           'Incoming ID: ' + data.id + '\n' +
+                                           'Баланс из SMS: ' + data.balance + '\n' +
+                                           'Расчетный баланс: ' + data.check_balance + '\n\n' +
+                                           'Вы уверены, что хотите подтвердить заказ с несовпадающим балансом?';
+                        
+                        if (confirm(confirmMessage)) {
+                            // Устанавливаем флаг подтверждения
+                            if (confirmInput) {
+                                confirmInput.value = '1';
+                            }
+                            console.log('Confirmed, submitting form');
+                            // Отправляем форму при подтверждении
+                            form.submit();
+                        } else {
+                            console.log('Cancelled, not submitting form');
+                        }
+                        // Если отменено, форма не отправляется
+                    } else {
+                        console.log('Balance matches, submitting form');
+                        // Баланс совпадает, отправляем форму
+                        form.submit();
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Ошибка при проверке баланса:', error);
+                    // В случае ошибки показываем alert и спрашиваем, продолжать ли
+                    if (confirm('Ошибка при проверке баланса: ' + error.message + '\n\nПродолжить отправку формы?')) {
+                        form.submit();
+                    }
+                });
+        });
+    });
 </script>
 {% endblock %}

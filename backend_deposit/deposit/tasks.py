@@ -603,9 +603,11 @@ def send_image_to_gpt_task(self, birpay_id):
                 # Проверка баланса: расчетный баланс должен соответствовать фактическому балансу из SMS
                 # Используем уже рассчитанные значения из БД (check_balance вычисляется только при создании Incoming)
                 if incoming_sms.check_balance is not None and incoming_sms.balance is not None:
-                    # Сравниваем с учетом возможных погрешностей округления (до 0.01)
-                    balance_match = abs(incoming_sms.check_balance - incoming_sms.balance) < 0.01
-                    logger.info(f'Проверка баланса: check_balance={incoming_sms.check_balance}, balance={incoming_sms.balance}, совпадают={balance_match}')
+                    # Округляем до 0.1 перед сравнением для учета погрешностей округления
+                    check_balance_rounded = round(incoming_sms.check_balance * 10) / 10
+                    balance_rounded = round(incoming_sms.balance * 10) / 10
+                    balance_match = check_balance_rounded == balance_rounded
+                    logger.info(f'Проверка баланса: check_balance={incoming_sms.check_balance} (округлено {check_balance_rounded}), balance={incoming_sms.balance} (округлено {balance_rounded}), совпадают={balance_match}')
                     if balance_match:
                         gpt_imho_result |= BirpayOrder.GPTIMHO.balance_match
                         logger.info(f'balance_match: ✅')

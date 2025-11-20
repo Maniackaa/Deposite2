@@ -391,8 +391,8 @@ class TestPrevBalanceCalculation(TestCase):
         # Если pay = 0, check_balance = prev_balance + 0 = prev_balance
         self.assertEqual(second_incoming.check_balance, 1000.0)
     
-    def test_update_incoming_recalculates_balance(self):
-        """Тест: при обновлении записи пересчитываются prev_balance и check_balance"""
+    def test_update_incoming_does_not_recalculate_balance(self):
+        """Тест: при обновлении записи НЕ пересчитываются prev_balance и check_balance (балансы вычисляются только при создании)"""
         # Создаем первую запись
         first_incoming = Incoming.objects.create(
             register_date=self.base_time,
@@ -419,7 +419,7 @@ class TestPrevBalanceCalculation(TestCase):
             worker='manual'
         )
         
-        # Проверяем начальные значения
+        # Проверяем начальные значения (вычислены при создании)
         self.assertEqual(second_incoming.prev_balance, 1000.0)
         self.assertEqual(second_incoming.check_balance, 1200.0)
         
@@ -430,10 +430,10 @@ class TestPrevBalanceCalculation(TestCase):
         # Обновляем вторую запись
         second_incoming.save()
         
-        # Вторая запись должна иметь обновленный prev_balance
+        # Вторая запись НЕ должна иметь обновленный prev_balance (балансы не пересчитываются при обновлении)
         second_incoming.refresh_from_db()
-        self.assertEqual(second_incoming.prev_balance, 1500.0)
-        self.assertEqual(second_incoming.check_balance, 1500.0 + 200.0)
+        self.assertEqual(second_incoming.prev_balance, 1000.0)  # Остается прежним
+        self.assertEqual(second_incoming.check_balance, 1200.0)  # Остается прежним
     
     def test_multiple_incomings_chain(self):
         """Тест: цепочка из нескольких записей для одного получателя"""

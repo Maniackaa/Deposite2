@@ -4,6 +4,7 @@
 
 {% block content %}
 {% load l10n %}
+{% load filters %}
 {% localize off %}
 {% include 'includes/operator_menu.html' %}
 <div class="container-fluid ">
@@ -85,10 +86,10 @@
             {% else %}
                 <td>{{ incoming.worker|default_if_none:'' }}</td>
             {% endif %}
-            <td>{{ incoming.pay }}</td>
-            <td>
+            <td>{% if incoming.balance_mismatch %}<span style="color: #C20000">{{ incoming.pay }}</span>{% else %}{{ incoming.pay }}{% endif %}</td>
+            <td{% if incoming.balance_mismatch %} style="background-color: #FFF9C4;"{% endif %}>
                 {% if incoming.balance %}
-                    {{ incoming.balance|floatformat:0  }}{% if incoming.balance %} (<span {% if incoming.check_balance|floatformat:0 != incoming.balance|floatformat:0 %}style="color: #C20000" {% endif %}>{{ incoming.prev_balance|floatformat:0 }}</span>){% endif %}
+                    {{ incoming.balance|floatformat:0  }}{% if incoming.balance and incoming.check_balance is not None and incoming.prev_balance is not None %} (<span {% if incoming.balance_mismatch %}style="color: #C20000" {% endif %}>{{ incoming.prev_balance|floatformat:0 }}</span>){% endif %}
                 {% elif incoming.image %}
                     <a target="_blank" href="/media/{{ incoming.image }}">Чек</a>
                 {% endif %}
@@ -99,15 +100,21 @@
          {% load l10n %}
          {% localize off %}
             <td class="text-nowrap">
-                <form action="{% url 'deposit:incomings' %}" method="post">
+                <form action="{% url 'deposit:incomings' %}" method="post" class="birpay-link-form"
+                      data-incoming-id="{{ incoming.id }}"
+                      data-balance="{{ incoming.balance|default_if_none:'' }}"
+                      data-check-balance="{{ incoming.check_balance|default_if_none:'' }}"
+                      data-prev-balance="{{ incoming.prev_balance|default_if_none:'' }}"
+                      data-pay="{{ incoming.pay|default_if_none:'' }}"
+                      data-balance-mismatch="{% if incoming.balance_mismatch %}true{% else %}false{% endif %}">
                                     {% csrf_token %}
                     <input type="tel" style="margin-bottom: -10px; margin-top: -10px; font-size: 14px; height: 20px" minlength="0" maxlength="12" size="10" pattern="[0-9]+" value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
-
                     {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-' %}
                       <button disabled style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-success btn-sm">---</button>
                     {% else %}
                       <button style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-warning btn-sm">Ok</button>
                     {% endif %}
+                    <input type="hidden" name="confirm_balance_mismatch_{{ incoming.id }}" value="0" class="confirm-balance-mismatch">
                 </form>
             </td>
          {% endlocalize %}
@@ -166,4 +173,55 @@
     </script>
     {% endif %}
     {% endwith %}
+
+<script>
+    // Проверка баланса перед привязкой BirpayOrder
+    document.addEventListener('DOMContentLoaded', function() {
+        var forms = document.querySelectorAll('.birpay-link-form');
+        forms.forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                var balanceMismatch = form.getAttribute('data-balance-mismatch') === 'true';
+                var balance = form.getAttribute('data-balance');
+                var checkBalance = form.getAttribute('data-check-balance');
+                var incomingId = form.getAttribute('data-incoming-id');
+                var confirmInput = form.querySelector('.confirm-balance-mismatch');
+                
+                // Проверяем, что форма не отключена (кнопка не disabled)
+                var submitButton = form.querySelector('button[type="submit"]');
+                if (submitButton && submitButton.disabled) {
+                    return; // Форма уже обработана, не проверяем
+                }
+                
+                // Проверяем, что введено значение (не пустое)
+                var input = form.querySelector('input[type="tel"]');
+                if (!input || !input.value.trim()) {
+                    return; // Пустое значение, не проверяем
+                }
+                
+                // Если баланс не совпадает и еще не подтверждено
+                if (balanceMismatch && confirmInput && confirmInput.value === '0') {
+                    var prevBalance = form.getAttribute('data-prev-balance');
+                    var pay = form.getAttribute('data-pay');
+                    var message = '⚠️ ВНИМАНИЕ: Несовпадение баланса!\n\n' +
+                                  'Incoming ID: ' + incomingId + '\n' +
+                                  (prevBalance ? 'Было: ' + prevBalance + '\n' : '') +
+                                  (pay ? 'Плюс: ' + pay + '\n' : '') +
+                                  (checkBalance ? 'Должно быть: ' + checkBalance + '\n' : '') +
+                                  'А по факту: ' + balance + '\n\n' +
+                                  'Вы уверены, что хотите привязать BirpayOrder с несовпадающим балансом?';
+                    
+                    if (!confirm(message)) {
+                        e.preventDefault(); // Отменяем отправку формы
+                        return false;
+                    } else {
+                        // Устанавливаем флаг подтверждения
+                        if (confirmInput) {
+                            confirmInput.value = '1';
+                        }
+                    }
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

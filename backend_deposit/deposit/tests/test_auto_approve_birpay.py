@@ -651,6 +651,256 @@ class TestAutoApproveBirpayOrder(TestCase):
     
     @patch('deposit.tasks.approve_birpay_refill')
     @patch('deposit.tasks.requests.post')
+    def test_auto_approve_balance_match_with_rounding_tolerance(self, mock_post, mock_approve):
+        """Тест: автоподтверждение работает при округлении до 0.1 - значения округляются одинаково"""
+        
+        # Удаляем текущий incoming и создаем новый с небольшой погрешностью округления
+        self.incoming.delete()
+        
+        # Создаем SMS с балансом, который при округлении до 0.1 совпадает с расчетным
+        # check_balance = prev_balance (900.0) + pay (100.0) = 1000.0 → округляется до 1000.0
+        # balance = 1000.05 → округляется до 1000.0 (round(1000.05 * 10) / 10 = 1000.0)
+        # Округленные значения совпадают, должна пройти проверку
+        sms_time = self.gpt_time
+        incoming_with_small_diff = Incoming.objects.create(
+            register_date=sms_time,
+            response_date=sms_time,
+            recipient='1234****5678',  # Совпадает с card_number
+            sender='Bank',
+            pay=100.0,  # Совпадает с order.amount
+            balance=1000.05,  # При округлении до 0.1 = 1000.0, совпадает с check_balance
+            transaction=111111,
+            type='sms',
+            worker='manual',
+            birpay_id=None
+        )
+        # check_balance должен быть вычислен автоматически при создании: 900.0 + 100.0 = 1000.0
+        incoming_with_small_diff.refresh_from_db()
+        self.assertEqual(incoming_with_small_diff.check_balance, 1000.0)
+        self.assertEqual(incoming_with_small_diff.balance, 1000.05)
+        # Проверяем округление: оба значения округляются до 1000.0
+        check_balance_rounded = round(incoming_with_small_diff.check_balance * 10) / 10
+        balance_rounded = round(incoming_with_small_diff.balance * 10) / 10
+        self.assertEqual(check_balance_rounded, balance_rounded)
+        
+        # Мокируем GPT API
+        mock_post.return_value = self.create_gpt_response()
+        
+        # Мокируем approve_birpay_refill
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '{"success": true}'
+        mock_approve.return_value = mock_response
+        
+        # Вызываем задачу
+        send_image_to_gpt_task(self.order.birpay_id)
+        
+        # Проверяем результаты
+        self.order.refresh_from_db()
+        
+        # Проверяем, что заказ привязан к SMS (все флаги установлены, включая balance_match)
+        self.assertIsNotNone(self.order.incoming, "Заказ должен быть привязан к SMS при небольшой погрешности округления")
+        self.assertEqual(self.order.incoming, incoming_with_small_diff)
+        # Проверяем, что все 8 флагов установлены
+        self.assertEqual(self.order.gpt_flags, 255)
+        # Проверяем, что автоподтверждение произошло
+        mock_approve.assert_called_once()
+    
+    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.requests.post')
+    def test_auto_approve_balance_match_with_rounding_both_up(self, mock_post, mock_approve):
+        """Тест: автоподтверждение работает когда оба значения округляются вверх до 0.1"""
+        
+        # Удаляем текущий incoming и prev_incoming из setUp, чтобы создать новые с нужными значениями
+        self.incoming.delete()
+        # Находим и удаляем prev_incoming из setUp (если он существует)
+        prev_incoming_from_setup = Incoming.objects.filter(
+            recipient='1234****5678',
+            transaction=111110
+        ).first()
+        if prev_incoming_from_setup:
+            prev_incoming_from_setup.delete()
+        
+        # Создаем SMS с балансом, который при округлении до 0.1 совпадает с расчетным
+        # check_balance = prev_balance (900.07) + pay (100.0) = 1000.07 → округляется до 1000.1
+        # balance = 1000.13 → округляется до 1000.1 (round(1000.13 * 10) / 10 = 1000.1)
+        # Округленные значения совпадают, должна пройти проверку
+        
+        # Сначала создаем предыдущую SMS с балансом 900.07
+        prev_sms_time = self.gpt_time - datetime.timedelta(minutes=10)
+        prev_incoming = Incoming.objects.create(
+            register_date=prev_sms_time,
+            response_date=prev_sms_time,
+            recipient='1234****5678',
+            sender='Bank',
+            pay=50.0,
+            balance=900.07,
+            transaction=999990,  # Уникальный transaction ID
+            type='sms',
+            worker='manual',
+            birpay_id=None
+        )
+        
+        sms_time = self.gpt_time
+        incoming_with_rounding = Incoming.objects.create(
+            register_date=sms_time,
+            response_date=sms_time,
+            recipient='1234****5678',  # Совпадает с card_number
+            sender='Bank',
+            pay=100.0,  # Совпадает с order.amount
+            balance=1000.13,  # При округлении до 0.1 = 1000.1
+            transaction=999991,  # Уникальный transaction ID
+            type='sms',
+            worker='manual',
+            birpay_id=None
+        )
+        # check_balance должен быть вычислен автоматически: 900.07 + 100.0 = 1000.07
+        incoming_with_rounding.refresh_from_db()
+        self.assertEqual(incoming_with_rounding.check_balance, 1000.07)
+        self.assertEqual(incoming_with_rounding.balance, 1000.13)
+        # Проверяем округление: оба значения округляются до 1000.1
+        check_balance_rounded = round(incoming_with_rounding.check_balance * 10) / 10
+        balance_rounded = round(incoming_with_rounding.balance * 10) / 10
+        self.assertEqual(check_balance_rounded, balance_rounded)
+        self.assertEqual(check_balance_rounded, 1000.1)
+        
+        # Мокируем GPT API
+        mock_post.return_value = self.create_gpt_response()
+        
+        # Мокируем approve_birpay_refill
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '{"success": true}'
+        mock_approve.return_value = mock_response
+        
+        # Вызываем задачу
+        send_image_to_gpt_task(self.order.birpay_id)
+        
+        # Проверяем результаты
+        self.order.refresh_from_db()
+        
+        # Проверяем, что заказ привязан к SMS (все флаги установлены, включая balance_match)
+        self.assertIsNotNone(self.order.incoming, "Заказ должен быть привязан к SMS при совпадении округленных значений")
+        self.assertEqual(self.order.incoming, incoming_with_rounding)
+        # Проверяем, что все 8 флагов установлены
+        self.assertEqual(self.order.gpt_flags, 255)
+        # Проверяем, что автоподтверждение произошло
+        mock_approve.assert_called_once()
+    
+    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.requests.post')
+    def test_auto_approve_balance_match_fails_at_0_1_threshold(self, mock_post, mock_approve):
+        """Тест: автоподтверждение не работает при разнице 0.1 - округленные значения не совпадают"""
+        
+        # Удаляем текущий incoming и создаем новый с разницей ровно 0.1
+        self.incoming.delete()
+        
+        # Создаем SMS с балансом, который при округлении до 0.1 НЕ совпадает с расчетным
+        # check_balance = prev_balance (900.0) + pay (100.0) = 1000.0 → округляется до 1000.0
+        # balance = 1000.1 → округляется до 1000.1 (round(1000.1 * 10) / 10 = 1000.1)
+        # Округленные значения не совпадают (1000.0 != 1000.1), не должна пройти проверку
+        sms_time = self.gpt_time
+        incoming_with_exact_diff = Incoming.objects.create(
+            register_date=sms_time,
+            response_date=sms_time,
+            recipient='1234****5678',  # Совпадает с card_number
+            sender='Bank',
+            pay=100.0,  # Совпадает с order.amount
+            balance=1000.1,  # При округлении до 0.1 = 1000.1, не совпадает с check_balance (1000.0)
+            transaction=111111,
+            type='sms',
+            worker='manual',
+            birpay_id=None
+        )
+        # check_balance должен быть вычислен автоматически при создании: 900.0 + 100.0 = 1000.0
+        incoming_with_exact_diff.refresh_from_db()
+        self.assertEqual(incoming_with_exact_diff.check_balance, 1000.0)
+        self.assertEqual(incoming_with_exact_diff.balance, 1000.1)
+        # Проверяем округление: значения округляются по-разному
+        check_balance_rounded = round(incoming_with_exact_diff.check_balance * 10) / 10
+        balance_rounded = round(incoming_with_exact_diff.balance * 10) / 10
+        self.assertNotEqual(check_balance_rounded, balance_rounded)
+        
+        # Мокируем GPT API
+        mock_post.return_value = self.create_gpt_response()
+        
+        # Мокируем approve_birpay_refill
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '{"success": true}'
+        mock_approve.return_value = mock_response
+        
+        # Вызываем задачу
+        send_image_to_gpt_task(self.order.birpay_id)
+        
+        # Проверяем результаты
+        self.order.refresh_from_db()
+        
+        # Проверяем, что заказ НЕ привязан к SMS (флаг balance_match не установлен)
+        self.assertIsNone(self.order.incoming)
+        mock_approve.assert_not_called()
+        
+        # Проверяем, что флаг balance_match не установлен (не все флаги установлены)
+        self.assertNotEqual(self.order.gpt_flags, 255)
+    
+    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.requests.post')
+    def test_auto_approve_balance_match_fails_above_0_1_threshold(self, mock_post, mock_approve):
+        """Тест: автоподтверждение не работает при разнице больше 0.1 - округленные значения не совпадают"""
+        
+        # Удаляем текущий incoming и создаем новый с разницей больше 0.1
+        self.incoming.delete()
+        
+        # Создаем SMS с балансом, который при округлении до 0.1 НЕ совпадает с расчетным
+        # check_balance = prev_balance (900.0) + pay (100.0) = 1000.0 → округляется до 1000.0
+        # balance = 1000.15 → округляется до 1000.2 (round(1000.15 * 10) / 10 = 1000.2)
+        # Округленные значения не совпадают (1000.0 != 1000.2), не должна пройти проверку
+        sms_time = self.gpt_time
+        incoming_with_large_diff = Incoming.objects.create(
+            register_date=sms_time,
+            response_date=sms_time,
+            recipient='1234****5678',  # Совпадает с card_number
+            sender='Bank',
+            pay=100.0,  # Совпадает с order.amount
+            balance=1000.15,  # При округлении до 0.1 = 1000.2, не совпадает с check_balance (1000.0)
+            transaction=111111,
+            type='sms',
+            worker='manual',
+            birpay_id=None
+        )
+        # check_balance должен быть вычислен автоматически при создании: 900.0 + 100.0 = 1000.0
+        incoming_with_large_diff.refresh_from_db()
+        self.assertEqual(incoming_with_large_diff.check_balance, 1000.0)
+        self.assertEqual(incoming_with_large_diff.balance, 1000.15)
+        # Проверяем округление: значения округляются по-разному
+        check_balance_rounded = round(incoming_with_large_diff.check_balance * 10) / 10
+        balance_rounded = round(incoming_with_large_diff.balance * 10) / 10
+        self.assertNotEqual(check_balance_rounded, balance_rounded)
+        
+        # Мокируем GPT API
+        mock_post.return_value = self.create_gpt_response()
+        
+        # Мокируем approve_birpay_refill
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '{"success": true}'
+        mock_approve.return_value = mock_response
+        
+        # Вызываем задачу
+        send_image_to_gpt_task(self.order.birpay_id)
+        
+        # Проверяем результаты
+        self.order.refresh_from_db()
+        
+        # Проверяем, что заказ НЕ привязан к SMS (флаг balance_match не установлен)
+        self.assertIsNone(self.order.incoming)
+        mock_approve.assert_not_called()
+        
+        # Проверяем, что флаг balance_match не установлен (не все флаги установлены)
+        self.assertNotEqual(self.order.gpt_flags, 255)
+    
+    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.requests.post')
     def test_auto_approve_handles_api_error(self, mock_post, mock_approve):
         """Тест: обработка ошибки API при автоподтверждении"""
         
