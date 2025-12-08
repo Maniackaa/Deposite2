@@ -10,14 +10,20 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAdminUser
+from rest_framework.pagination import PageNumberPagination
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django_filters.rest_framework import DjangoFilterBackend
 
 from backend_deposit.settings import TIME_ZONE
 from core.global_func import send_message_tg
 from deposit import tasks
 from ocr.ocr_func import bytes_to_str, make_after_incoming_save, response_text_from_image
-from deposit.models import BadScreen, Incoming, TrashIncoming, Setting
+from deposit.models import BadScreen, Incoming, TrashIncoming, Setting, BirpayOrder
 from ocr.screen_response import screen_text_to_pay
-from deposit.serializers import IncomingSerializer
+from deposit.serializers import IncomingSerializer, BirpayOrderSerializer
+from deposit.filters import BirpayOrderAPIFilter
 from ocr.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
     response_sms6, response_sms7, response_sms8, response_sms9, response_sms10, response_sms11, response_sms12, \
     response_sms13, response_sms14, response_sms15, response_sms16, response_sms17, response_sms18, response_sms1b, \
@@ -532,3 +538,34 @@ def sms_forwarder(request: Request):
         if errors:
             msg = f'Ошибки при распознавании sms:\n{errors}\n\n{text}'
             send_message_tg(message=msg, chat_ids=settings.ALARM_IDS)
+
+
+class BirpayOrderPagination(PageNumberPagination):
+    """
+    Пагинация для BirpayOrder API
+    """
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
+
+class BirpayOrderListAPIView(ListAPIView):
+    """
+    API endpoint для получения списка BirpayOrder.
+    Требует права is_staff.
+    
+    Фильтры:
+    - created_at__gte, created_at__gt, created_at__lte, created_at__lt - фильтрация по дате создания
+    - status, status__in - фильтрация по статусу
+    - amount__gte, amount__gt, amount__lte, amount__lt - фильтрация по сумме
+    
+    Аутентификация:
+    - Требуется JWT токен в заголовке Authorization: Bearer <token>
+    """
+    queryset = BirpayOrder.objects.all()
+    serializer_class = BirpayOrderSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAdminUser]  # IsAdminUser проверяет is_staff
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = BirpayOrderAPIFilter
+    pagination_class = BirpayOrderPagination

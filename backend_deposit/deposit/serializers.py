@@ -3,7 +3,7 @@ import re
 from django.core.validators import MinValueValidator, RegexValidator
 from rest_framework import serializers
 
-from .models import Incoming
+from .models import Incoming, BirpayOrder
 
 
 class IncomingSerializer(serializers.ModelSerializer):
@@ -15,6 +15,20 @@ class IncomingSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         incoming = Incoming.objects.create(**validated_data)
         return incoming
+
+
+class BirpayOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BirpayOrder
+        fields = [
+            'created_at',
+            'updated_at',
+            'merchant_transaction_id',
+            'merchant_user_id',
+            'status',
+            'amount',
+            'gpt_data',
+        ]
 
 
 # class DepositSerializer(serializers.ModelSerializer):

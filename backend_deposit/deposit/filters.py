@@ -272,3 +272,67 @@ class BirpayOrderFilter(django_filters.FilterSet):
             # аннотированные поля НЕ указывать здесь
         ]
 
+
+class BirpayOrderAPIFilter(django_filters.FilterSet):
+    """
+    FilterSet для API BirpayOrder с поддержкой фильтров по created_at, status, amount
+    """
+    # Фильтры по created_at
+    created_at__gte = django_filters.DateTimeFilter(
+        field_name='created_at',
+        lookup_expr='gte',
+        label='Created at >='
+    )
+    created_at__gt = django_filters.DateTimeFilter(
+        field_name='created_at',
+        lookup_expr='gt',
+        label='Created at >'
+    )
+    created_at__lte = django_filters.DateTimeFilter(
+        field_name='created_at',
+        lookup_expr='lte',
+        label='Created at <='
+    )
+    created_at__lt = django_filters.DateTimeFilter(
+        field_name='created_at',
+        lookup_expr='lt',
+        label='Created at <'
+    )
+    
+    # Фильтры по status
+    status = django_filters.NumberFilter(
+        field_name='status',
+        lookup_expr='exact',
+        label='Status'
+    )
+    status__in = django_filters.BaseInFilter(
+        field_name='status',
+        lookup_expr='in',
+        label='Status in (передавайте значения через запятую, например: ?status__in=1,2,3)'
+    )
+    
+    # Фильтры по amount
+    amount__gte = django_filters.NumberFilter(
+        field_name='amount',
+        lookup_expr='gte',
+        label='Amount >='
+    )
+    amount__gt = django_filters.NumberFilter(
+        field_name='amount',
+        lookup_expr='gt',
+        label='Amount >'
+    )
+    amount__lte = django_filters.NumberFilter(
+        field_name='amount',
+        lookup_expr='lte',
+        label='Amount <='
+    )
+    amount__lt = django_filters.NumberFilter(
+        field_name='amount',
+        lookup_expr='lt',
+        label='Amount <'
+    )
+    
+    class Meta:
+        model = BirpayOrder
+        fields = []
