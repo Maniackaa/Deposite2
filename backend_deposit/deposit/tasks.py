@@ -14,6 +14,7 @@ from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from urllib3 import Retry, PoolManager
@@ -649,24 +650,67 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_auto_approve = Options.load().gpt_auto_approve
             # Автоматическое подтверждение только если ВСЕ 8 флагов установлены (255 = 0b11111111)
             if not order.is_moshennik() and not order.is_painter() and gpt_auto_approve and order.gpt_flags == 255:
-                # Автоматическое подтверждение
+                # Автоматическое подтверждение с защитой от race condition
                 incoming_sms = incomings_with_correct_card_and_order_amount[0]
                 logger.info(
-                    f'Автоматическое подтверждение {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
-                order.incomingsms_id = incoming_sms.id
-                update_fields.append("incomingsms_id")
-                order.incoming = incoming_sms
-                order.confirmed_time = timezone.now()
-                update_fields.append("incoming")
-                update_fields.append("confirmed_time")
-                incoming_sms.birpay_id = order.merchant_transaction_id
-                incoming_sms.save()
-                # Апрувнем заявку
-                response = approve_birpay_refill(pk=order.birpay_id)
-                if response.status_code != 200:
-                    text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
-                    logger.warning(text)
-                    send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
+                    f'Попытка автоматического подтверждения {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
+                
+                # Используем транзакцию с блокировкой для предотвращения race condition
+                sms_bound_successfully = False
+                try:
+                    with transaction.atomic():
+                        # Блокируем SMS для обновления и проверяем, что она все еще свободна
+                        Incoming = apps.get_model('deposit', 'Incoming')
+                        locked_incoming = Incoming.objects.select_for_update().filter(
+                            id=incoming_sms.id,
+                            birpay_id__isnull=True
+                        ).first()
+                        
+                        if locked_incoming is None:
+                            # SMS уже привязана к другому заказу
+                            logger.warning(
+                                f'SMS {incoming_sms.id} уже привязана к другому заказу. '
+                                f'Автоматическое подтверждение {order} {order.merchant_transaction_id} отменено.')
+                            # Не устанавливаем флаги привязки, но сохраняем gpt_flags
+                            # Сохраняем order с gpt_flags без привязки к SMS
+                            order.save(update_fields=update_fields)
+                            sms_bound_successfully = False
+                        else:
+                            # SMS свободна, привязываем
+                            order.incomingsms_id = locked_incoming.id
+                            update_fields.append("incomingsms_id")
+                            order.incoming = locked_incoming
+                            order.confirmed_time = timezone.now()
+                            update_fields.append("incoming")
+                            update_fields.append("confirmed_time")
+                            locked_incoming.birpay_id = order.merchant_transaction_id
+                            locked_incoming.save()
+                            
+                            # Сохраняем order в транзакции
+                            order.save(update_fields=update_fields)
+                            
+                            logger.info(
+                                f'Автоматическое подтверждение {order} {order.merchant_transaction_id}: смс{locked_incoming.id} успешно привязана')
+                            sms_bound_successfully = True
+                            
+                except IntegrityError as e:
+                    # Защита на случай, если IntegrityError все же произошел
+                    logger.error(
+                        f'IntegrityError при привязке SMS {incoming_sms.id} к заказу {order} {order.merchant_transaction_id}: {e}. '
+                        f'Возможно, SMS уже привязана к другому заказу.')
+                    # Не вызываем approve_birpay_refill при ошибке привязки
+                    # Обновляем только gpt_flags без привязки
+                    order.save(update_fields=update_fields)
+                    sms_bound_successfully = False
+                
+                # Вызываем approve_birpay_refill только после успешной привязки SMS (вне транзакции)
+                # Это гарантирует, что только один поток сможет подтвердить заказ в Birpay API
+                if sms_bound_successfully:
+                    response = approve_birpay_refill(pk=order.birpay_id)
+                    if response.status_code != 200:
+                        text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
+                        logger.warning(text)
+                        send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
             if order.is_moshennik():
                 logger.info(f'Обработка мошенника')
                 if len(incomings_with_correct_card_and_order_amount) == 1:

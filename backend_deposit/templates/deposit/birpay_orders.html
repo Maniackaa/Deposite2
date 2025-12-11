@@ -13,7 +13,7 @@
 </script>
 
 {% include 'includes/operator_menu.html' %}
-<div class="container-fluid ">
+<div class="container-fluid">
     {% include 'includes/switcher2.html' %}
 
 <div class="row mb-3">
@@ -60,8 +60,8 @@
 
 
     {% include 'includes/paginator.html' %}
-     <div class="container">
-         <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
+    <div class="table-responsive">
+        <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
             <thead>
                 <tr>
                     <th>наш incoming</th>
@@ -98,7 +98,7 @@
                         {{ order.incoming.id|default_if_none:"" }} {{ order.incoming.pay|default_if_none:"" }}
                     </td>
                     <td>{{ order.delta|default_if_none:"" }}</td>
-                    <td {% if order.check_is_double %} style="background: red" {% endif %}>{{ order.merchant_transaction_id }}</td>
+                    <td {% if order.check_is_double %} style="background: red" {% endif %}><span style="font-size: 12px; word-break: break-all; max-width: 200px; display: inline-block;">{{ order.merchant_transaction_id }}</span></td>
                     <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.status }}</td>
@@ -142,9 +142,9 @@
 
             {% endfor %}
             </tbody>
-         </table>
-     </div>
-   {% include 'includes/paginator.html' %}
+        </table>
+    </div>
+    {% include 'includes/paginator.html' %}
 
 </div>
 {% endlocalize %}
