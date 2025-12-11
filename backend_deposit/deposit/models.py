@@ -135,7 +135,7 @@ class BirpayOrder(models.Model):
     sended_at = models.DateTimeField(verbose_name='Создалась у нас', auto_now_add=True, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(db_index=True)
     updated_at = models.DateTimeField(db_index=True)
-    merchant_transaction_id = models.CharField(max_length=16, db_index=True)
+    merchant_transaction_id = models.CharField(max_length=50, db_index=True)
     merchant_user_id = models.CharField(max_length=16, db_index=True)
     merchant_name = models.CharField(max_length=64, null=True, blank=True)
     customer_name = models.CharField(max_length=128, null=True, blank=True)
@@ -201,7 +201,7 @@ class Incoming(models.Model):
     birpay_confirm_time = models.DateTimeField('Время подтверждения', null=True, blank=True)
     birpay_edit_time = models.DateTimeField('Время ручной корректировки', null=True, blank=True)
     # confirmed_deposit = models.OneToOneField('Deposit', null=True, blank=True, on_delete=models.SET_NULL)
-    birpay_id = models.CharField('id платежа с birpay', max_length=15, null=True, blank=True, db_index=True)
+    birpay_id = models.CharField('id платежа с birpay', max_length=50, null=True, blank=True, db_index=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
     is_jail = models.BooleanField(default=False)
     prev_balance = models.FloatField('Предыдущий баланс', null=True, blank=True, db_index=True)
@@ -239,11 +239,23 @@ class Incoming(models.Model):
         if not self.recipient:
             self.prev_balance = None
             self.check_balance = None
+            logger.debug(f'calculate_balance_fields: recipient пустой для Incoming {self.id}')
+            return
+
+        # Нормализуем recipient (убираем лишние пробелы)
+        recipient_normalized = self.recipient.strip() if self.recipient else None
+        if not recipient_normalized:
+            self.prev_balance = None
+            self.check_balance = None
+            logger.debug(f'calculate_balance_fields: recipient пустой после нормализации для Incoming {self.id}')
             return
 
         # Находим предыдущую запись для того же получателя
+        # Используем __iexact для поиска без учета регистра и нормализуем recipient в запросе
         # Сортировка: response_date DESC, balance DESC, id DESC
-        queryset = Incoming.objects.filter(recipient=self.recipient)
+        queryset = Incoming.objects.filter(
+            recipient__iexact=recipient_normalized
+        ).exclude(balance__isnull=True)
         
         # Если запись уже существует, исключаем её из поиска
         if self.pk:
@@ -253,16 +265,39 @@ class Incoming(models.Model):
             '-response_date', '-balance', '-id'
         ).first()
 
+        logger.info(
+            f'calculate_balance_fields: Incoming {self.id if self.pk else "NEW"}, recipient={recipient_normalized}, '
+            f'найдено предыдущих записей с балансом: {queryset.count()}, prev_incoming={prev_incoming.id if prev_incoming else None}, '
+            f'prev_balance={prev_incoming.balance if prev_incoming else None}'
+        )
+
         if prev_incoming and prev_incoming.balance is not None:
             self.prev_balance = prev_incoming.balance
             # check_balance = prev_balance + текущий платеж
             # pay обязательное поле, поэтому всегда вычисляем check_balance (включая pay=0.0)
             self.check_balance = self.prev_balance + self.pay
+            logger.info(
+                f'calculate_balance_fields: Incoming {self.id if self.pk else "NEW"}, установлен prev_balance={self.prev_balance}, '
+                f'check_balance={self.check_balance} (pay={self.pay})'
+            )
         else:
             self.prev_balance = None
             self.check_balance = None
+            if prev_incoming:
+                logger.warning(
+                    f'calculate_balance_fields: Incoming {self.id if self.pk else "NEW"}, найдена предыдущая запись {prev_incoming.id}, '
+                    f'но balance={prev_incoming.balance} (None или пустой)'
+                )
+            else:
+                logger.info(
+                    f'calculate_balance_fields: Incoming {self.id if self.pk else "NEW"}, предыдущая запись не найдена для recipient={recipient_normalized}'
+                )
 
     def save(self, *args, **kwargs):
+        # Нормализуем recipient перед сохранением (убираем лишние пробелы)
+        if self.recipient:
+            self.recipient = self.recipient.strip()
+        
         # Вычисляем prev_balance и check_balance ТОЛЬКО при создании новой записи
         # При изменении существующей записи баланс не пересчитывается
         is_new_record = self.pk is None

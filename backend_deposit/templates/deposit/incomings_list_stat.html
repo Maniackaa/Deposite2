@@ -108,7 +108,7 @@
                       data-pay="{{ incoming.pay|default_if_none:'' }}"
                       data-balance-mismatch="{% if incoming.balance_mismatch %}true{% else %}false{% endif %}">
                                     {% csrf_token %}
-                    <input type="tel" style="margin-bottom: -10px; margin-top: -10px; font-size: 14px; height: 20px" minlength="0" maxlength="12" size="10" pattern="[0-9]+" value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
+                    <input type="text" style="margin-bottom: -10px; margin-top: -10px; font-size: 14px; height: 20px" minlength="0" maxlength="50" size="20" value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
                     {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-' %}
                       <button disabled style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-success btn-sm">---</button>
                     {% else %}

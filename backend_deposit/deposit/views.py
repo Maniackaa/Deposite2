@@ -1960,38 +1960,6 @@ def get_incoming_balance_info(request, incoming_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 @staff_member_required()
-def get_incoming_balance_info(request, incoming_id):
-    """API endpoint для получения информации о балансе Incoming по ID"""
-    try:
-        incoming = Incoming.objects.get(pk=incoming_id)
-        # Если check_balance не вычислен, вычисляем его
-        if incoming.check_balance is None and incoming.recipient:
-            incoming.calculate_balance_fields()
-            incoming.save(update_fields=['prev_balance', 'check_balance'])
-        
-        add_balance_mismatch_flag(incoming)
-        
-        balance_mismatch = False
-        if incoming.check_balance is not None and incoming.balance is not None:
-            check_rounded = round(float(incoming.check_balance) * 10) / 10
-            balance_rounded = round(float(incoming.balance) * 10) / 10
-            balance_mismatch = check_rounded != balance_rounded
-        
-        return JsonResponse({
-            'id': incoming.id,
-            'balance': incoming.balance,
-            'check_balance': incoming.check_balance,
-            'balance_mismatch': balance_mismatch,
-            'pay': incoming.pay,
-            'recipient': incoming.recipient
-        })
-    except Incoming.DoesNotExist:
-        return JsonResponse({'error': 'Incoming not found'}, status=404)
-    except Exception as e:
-        logger.error(f'Ошибка при получении информации о балансе Incoming {incoming_id}: {e}', exc_info=True)
-        return JsonResponse({'error': str(e)}, status=500)
-
-@staff_member_required()
 def test(request):
     options = Options.load()
     o = BirpayOrder.objects.first()
