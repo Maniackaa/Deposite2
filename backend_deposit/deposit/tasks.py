@@ -439,7 +439,9 @@ def download_birpay_check_file(self, order_id, check_file_url):
 def process_birpay_order(data):
     birpay_id = data['id']
     bind_contextvars(birpay_id=birpay_id)
-    check_file_url = data.get('payload', {}).get('check_file')
+    # Проверяем оба варианта: check_file и receipt
+    payload = data.get('payload', {})
+    check_file_url = payload.get('check_file') or payload.get('receipt')
 
     card_number = None
     paymentRequisite = data.get('paymentRequisite')
