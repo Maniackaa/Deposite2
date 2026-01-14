@@ -33,7 +33,7 @@ from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, TemplateView
 from matplotlib import pyplot as plt
 from rest_framework.views import APIView
-from structlog.contextvars import bind_contextvars
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from core.asu_pay_func import create_asu_withdraw
 
@@ -481,9 +481,18 @@ def incoming_list(request):
             if value and value.strip():
                 order = BirpayOrder.objects.filter(merchant_transaction_id=value.strip()).first()
                 if order:
+                    # Устанавливаем контекст со всеми идентификаторами BirpayOrder при связывании
+                    bind_contextvars(
+                        birpay_id=order.birpay_id,
+                        merchant_transaction_id=order.merchant_transaction_id,
+                        birpay_order_id=order.id
+                    )
                     order.incoming = incoming
                     order.confirmed_time = confirm_time  # Используем то же время
                     order.save(update_fields=['incoming', 'confirmed_time'])
+                    logger.info(f'Привязан BirpayOrder {order.merchant_transaction_id} к Incoming {incoming.id} в incoming_list')
+                    # Очищаем контекст после связывания
+                    clear_contextvars()
             #Сохраняем историю
             new_history = IncomingChange(
                 incoming=incoming,
@@ -1007,18 +1016,34 @@ class IncomingEdit(UpdateView, ):
                 if old_birpay_id:
                     old_order = BirpayOrder.objects.filter(merchant_transaction_id=old_birpay_id).first()
                     if old_order and old_order.incoming and old_order.incoming.pk == incoming.pk:
+                        # Устанавливаем контекст со всеми идентификаторами BirpayOrder при отвязывании
+                        bind_contextvars(
+                            birpay_id=old_order.birpay_id,
+                            merchant_transaction_id=old_order.merchant_transaction_id,
+                            birpay_order_id=old_order.id
+                        )
                         old_order.incoming = None
                         old_order.save(update_fields=['incoming'])
                         logger.info(f'Отвязан старый BirpayOrder {old_birpay_id} от Incoming {incoming.id}')
+                        # Очищаем контекст после отвязывания
+                        clear_contextvars()
                 
                 # Привязываем новый BirpayOrder (если существует и не пустой)
                 if new_birpay_id:
                     new_order = BirpayOrder.objects.filter(merchant_transaction_id=new_birpay_id).first()
                     if new_order:
+                        # Устанавливаем контекст со всеми идентификаторами BirpayOrder при связывании
+                        bind_contextvars(
+                            birpay_id=new_order.birpay_id,
+                            merchant_transaction_id=new_order.merchant_transaction_id,
+                            birpay_order_id=new_order.id
+                        )
                         new_order.incoming = incoming
                         new_order.confirmed_time = confirm_time  # Используем то же время
                         new_order.save(update_fields=['incoming', 'confirmed_time'])
                         logger.info(f'Привязан новый BirpayOrder {new_birpay_id} к Incoming {incoming.id}')
+                        # Очищаем контекст после связывания
+                        clear_contextvars()
                 else:
                     logger.info(f'BirpayOrder отвязан от Incoming {incoming.id} (birpay_id очищен)')
             elif not incoming.birpay_confirm_time:
@@ -1848,6 +1873,8 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
         query_string = '&'.join(query)
 
         try:
+            # Очищаем контекст в начале обработки POST запроса
+            clear_contextvars()
             logger.info(f'POST: {request.POST.dict()}')
             post_data = request.POST.dict()
             new_amount = 0
@@ -1860,7 +1887,12 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                     incoming_id = value.strip()
                     order = BirpayOrder.objects.get(pk=order_id)
                     logger.info(f'Для {order} сохраняем смс {incoming_id}')
-                    bind_contextvars(merchant_transaction_id=order.merchant_transaction_id)
+                    # Устанавливаем контекст со всеми идентификаторами BirpayOrder
+                    bind_contextvars(
+                        birpay_id=order.birpay_id,
+                        merchant_transaction_id=order.merchant_transaction_id,
+                        birpay_order_id=order.id
+                    )
                 elif name.startswith('orderamount'):
                     new_amount = float(value)
                     logger.info(f'sended_amount: {new_amount}')
@@ -1986,8 +2018,12 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                                 incoming_to_approve.save()
                                 logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')
 
+            # Очищаем контекст после завершения обработки заказа
+            clear_contextvars()
             return HttpResponseRedirect(f"{request.path}?{query_string}")
         except Exception as e:
+            # Очищаем контекст при ошибке
+            clear_contextvars()
             logger.error(e, exc_info=True)
             messages.add_message(request, messages.ERROR, e)
             return HttpResponseRedirect(f"{request.path}?{query_string}")

@@ -64,6 +64,7 @@
         <table id="table" class="table table-bordered table-hover table-sm" style="font-size: 14px; line-height: 100%; padding: .1rem .1rem .1rem .1rem">
             <thead>
                 <tr>
+                    <th>ID</th>
                     <th>наш incoming</th>
                     <th>Дельта</th>
                     <th>Merchant Tx ID</th>
@@ -94,6 +95,7 @@
             <tbody>
             {% for order in page_obj %}
                 <tr>
+                    <td>{{ order.id }}</td>
                     <td>
                         {{ order.incoming.id|default_if_none:"" }} {{ order.incoming.pay|default_if_none:"" }}
                     </td>
@@ -183,17 +185,17 @@ function toggleRawData(birpayId, el) {
     // Показываем лоадер
     var loaderRow = document.createElement('tr');
     loaderRow.className = 'rawdata-row';
-    loaderRow.innerHTML = '<td colspan="18">Загрузка...</td>';
+    loaderRow.innerHTML = '<td colspan="19">Загрузка...</td>';
     tr.parentNode.insertBefore(loaderRow, tr.nextSibling);
 
     // Делаем AJAX-запрос
     fetch('/birpay_orders/info/' + birpayId + '/')
         .then(response => response.text())
         .then(html => {
-            loaderRow.innerHTML = '<td colspan="18">' + html + '</td>';
+            loaderRow.innerHTML = '<td colspan="19">' + html + '</td>';
         })
         .catch(error => {
-            loaderRow.innerHTML = '<td colspan="18">Ошибка загрузки</td>';
+            loaderRow.innerHTML = '<td colspan="19">Ошибка загрузки</td>';
         });
 }
 </script>

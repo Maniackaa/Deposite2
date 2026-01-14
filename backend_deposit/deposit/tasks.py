@@ -18,6 +18,7 @@ from django.db import transaction, IntegrityError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from urllib3 import Retry, PoolManager
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from core.asu_pay_func import create_asu_withdraw, create_payment_v2, \
     send_sms_code_v2
@@ -91,9 +92,26 @@ def check_incoming(self, pk, count=0):
     """Функция проверки incoming в birpay"""
     check = {}
     try:
+        # Очищаем контекст в начале задачи
+        clear_contextvars()
         logger.info(f'Проверка опера. Попытка {count + 1}')
         IncomingCheck = apps.get_model('deposit', 'IncomingCheck')
         incoming_check = IncomingCheck.objects.get(pk=pk)
+        # Устанавливаем контекст с birpay_id из incoming_check
+        bind_contextvars(birpay_id=incoming_check.birpay_id)
+        # Если есть связанный BirpayOrder, добавляем его идентификаторы в контекст
+        if incoming_check.incoming and incoming_check.incoming.birpay_id:
+            BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
+            try:
+                order = BirpayOrder.objects.filter(merchant_transaction_id=incoming_check.incoming.birpay_id).first()
+                if order:
+                    bind_contextvars(
+                        birpay_id=order.birpay_id,
+                        merchant_transaction_id=order.merchant_transaction_id,
+                        birpay_order_id=order.id
+                    )
+            except Exception:
+                pass
         check = find_birpay_from_id(birpay_id=incoming_check.birpay_id)
     except Exception as err:
         logger.error(f'Ошибка проверки incoming в birpay: {err}')
@@ -395,7 +413,15 @@ def send_new_transactions_from_birpay_to_asu():
 def download_birpay_check_file(self, order_id, check_file_url):
     from deposit.models import BirpayOrder
     try:
+        # Очищаем контекст в начале задачи
+        clear_contextvars()
         order = BirpayOrder.objects.get(id=order_id)
+        # Устанавливаем контекст со всеми идентификаторами BirpayOrder
+        bind_contextvars(
+            birpay_id=order.birpay_id,
+            merchant_transaction_id=order.merchant_transaction_id,
+            birpay_order_id=order.id
+        )
         response = requests.get(check_file_url)
         if response.ok:
             file_content = response.content
@@ -421,10 +447,13 @@ def download_birpay_check_file(self, order_id, check_file_url):
                     update_fields.append('gpt_processing')
                     send_image_to_gpt_task.delay(order.birpay_id)
             order.save(update_fields=update_fields)
+            # Очищаем контекст после успешного завершения
+            clear_contextvars()
             return f"OK: {filename}"
         else:
             order.check_file_failed = True
             order.save(update_fields=['check_file_failed'])
+            clear_contextvars()
             raise Exception(f"Failed: status={response.status_code}")
     except Exception as exc:
         try:
@@ -433,12 +462,15 @@ def download_birpay_check_file(self, order_id, check_file_url):
             order = BirpayOrder.objects.get(id=order_id)
             order.check_file_failed = True
             order.save(update_fields=['check_file_failed'])
+            clear_contextvars()
             return f"Error after max retries: {exc}"
 
 
 def process_birpay_order(data):
     birpay_id = data['id']
-    bind_contextvars(birpay_id=birpay_id)
+    merchant_transaction_id = data['merchantTransactionId']
+    # Устанавливаем контекст с birpay_id и merchant_transaction_id до получения/создания заказа
+    bind_contextvars(birpay_id=birpay_id, merchant_transaction_id=merchant_transaction_id)
     # Проверяем оба варианта: check_file и receipt
     payload = data.get('payload', {})
     check_file_url = payload.get('check_file') or payload.get('receipt')
@@ -454,7 +486,7 @@ def process_birpay_order(data):
         'created_at': parse_datetime(data['createdAt']),
         'updated_at': parse_datetime(data['updatedAt']),
         'birpay_id': birpay_id,
-        'merchant_transaction_id': data['merchantTransactionId'],
+        'merchant_transaction_id': merchant_transaction_id,
         'merchant_user_id': data['merchantUserId'],
         'merchant_name': data['merchant']['name'] if 'merchant' in data and data['merchant'] else None,
         'customer_name': data.get('customerName'),
@@ -473,6 +505,9 @@ def process_birpay_order(data):
 
     BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     order, created = BirpayOrder.objects.get_or_create(birpay_id=birpay_id, defaults=order_data)
+
+    # Обновляем контекст с order.id после получения/создания заказа
+    bind_contextvars(birpay_id=birpay_id, merchant_transaction_id=merchant_transaction_id, birpay_order_id=order.id)
 
     updated = False
 
@@ -498,13 +533,19 @@ def process_birpay_order(data):
 @shared_task(bind=True, max_retries=2)
 def send_image_to_gpt_task(self, birpay_id):
     logger = structlog.get_logger('deposit')
+    # Устанавливаем контекст с birpay_id до получения заказа
     bind_contextvars(birpay_id=birpay_id)
     logger.info(f'send_image_to_gpt_task {birpay_id}')
     BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     try:
         order = BirpayOrder.objects.get(birpay_id=birpay_id)
         logger.debug(f'Найден BirpayOrder: {order}')
-        bind_contextvars(merchant_transaction_id=order.merchant_transaction_id, birpay_id=birpay_id)
+        # Обновляем контекст со всеми идентификаторами после получения заказа
+        bind_contextvars(
+            birpay_id=birpay_id,
+            merchant_transaction_id=order.merchant_transaction_id,
+            birpay_order_id=order.id
+        )
     except BirpayOrder.DoesNotExist:
         logger.error(f"BirpayOrder {birpay_id} не найден")
         return f"BirpayOrder {birpay_id} не найден"
@@ -679,6 +720,7 @@ def send_image_to_gpt_task(self, birpay_id):
                             sms_bound_successfully = False
                         else:
                             # SMS свободна, привязываем
+                            # Контекст уже установлен в начале функции со всеми идентификаторами
                             order.incomingsms_id = locked_incoming.id
                             update_fields.append("incomingsms_id")
                             order.incoming = locked_incoming
@@ -727,6 +769,9 @@ def send_image_to_gpt_task(self, birpay_id):
             logger.warning(e)
         except Exception as e:
             logger.error(f'Не смог обработать авто подтверждение BirpayOrder {birpay_id}: {e}', exc_info=True)
+        finally:
+            # Очищаем контекст после завершения обработки заказа
+            clear_contextvars()
 
         return result_str
 
@@ -751,8 +796,9 @@ def refresh_birpay_data():
 def check_cards_activity():
     """Периодическая задача для проверки активности карт"""
     try:
-        logger.info('Запуск проверки активности карт')
+        # Очищаем контекст в начале задачи, чтобы не попадали данные из предыдущих задач
         clear_contextvars()
+        logger.info('Запуск проверки активности карт')
         # Получаем настройки
         options = Options.load()
         monitoring_minutes = options.card_monitoring_minutes
