@@ -474,13 +474,16 @@ def incoming_list(request):
             
             # Сохраняем привязку
             incoming.birpay_id = value.strip() if value else ''
-            incoming.birpay_confirm_time = datetime.datetime.now(tz=pytz.timezone(settings.TIME_ZONE))
+            # Используем одно и то же время для синхронизации
+            confirm_time = timezone.now()
+            incoming.birpay_confirm_time = confirm_time
             incoming.save()
             if value and value.strip():
                 order = BirpayOrder.objects.filter(merchant_transaction_id=value.strip()).first()
                 if order:
                     order.incoming = incoming
-                    order.save()
+                    order.confirmed_time = confirm_time  # Используем то же время
+                    order.save(update_fields=['incoming', 'confirmed_time'])
             #Сохраняем историю
             new_history = IncomingChange(
                 incoming=incoming,
@@ -957,9 +960,71 @@ class IncomingEdit(UpdateView, ):
         if form.is_valid():
             old_incoming = Incoming.objects.get(pk=self.object.id)
             incoming: Incoming = self.object
+            
+            # Нормализуем старое значение для сравнения
+            old_birpay_id = old_incoming.birpay_id or ''
+            old_birpay_id = str(old_birpay_id).strip() if old_birpay_id else ''
+            
+            # Получаем новое значение из формы (может быть int или str)
+            # В форме birpay_id определен как IntegerField, но в модели это CharField
+            new_birpay_id_raw = form.cleaned_data.get('birpay_id')
+            new_birpay_id = str(new_birpay_id_raw).strip() if new_birpay_id_raw is not None and new_birpay_id_raw != '' else ''
+            
+            # Валидация нового birpay_id (если не пустой)
+            if new_birpay_id:
+                # Проверяем существование BirpayOrder
+                order_exists = BirpayOrder.objects.filter(merchant_transaction_id=new_birpay_id).exists()
+                if not order_exists:
+                    form.add_error('birpay_id', f'BirpayOrder с MerchTxID "{new_birpay_id}" не найден. Проверьте правильность номера.')
+                    return super(IncomingEdit, self).form_invalid(form)
+                
+                # Проверяем, что этот merchant_transaction_id не привязан к другому Incoming
+                existing_incoming = Incoming.objects.filter(birpay_id=new_birpay_id).exclude(pk=incoming.pk).first()
+                if existing_incoming:
+                    form.add_error('birpay_id', f'MerchTxID "{new_birpay_id}" уже привязан к Incoming ID {existing_incoming.id}. Нельзя привязывать один номер к нескольким записям.')
+                    return super(IncomingEdit, self).form_invalid(form)
+                
+                # Проверяем, что BirpayOrder не привязан к другому Incoming
+                new_order = BirpayOrder.objects.filter(merchant_transaction_id=new_birpay_id).first()
+                if new_order and new_order.incoming and new_order.incoming.pk != incoming.pk:
+                    form.add_error('birpay_id', f'BirpayOrder с MerchTxID "{new_birpay_id}" уже привязан к Incoming ID {new_order.incoming.id}. Нельзя привязывать один заказ к нескольким записям.')
+                    return super(IncomingEdit, self).form_invalid(form)
+            
+            # Обновление временных меток
             incoming.birpay_edit_time = datetime.datetime.now(tz=pytz.timezone(settings.TIME_ZONE))
-            if not incoming.birpay_confirm_time:
-                incoming.birpay_confirm_time = datetime.datetime.now(tz=pytz.timezone(settings.TIME_ZONE))
+            
+            # Сохраняем birpay_id (может быть пустой строкой или None)
+            incoming.birpay_id = new_birpay_id if new_birpay_id else None
+            
+            # Обновление связи с BirpayOrder для консистентности
+            if old_birpay_id != new_birpay_id:
+                # Используем одно и то же время для синхронизации birpay_confirm_time и order.confirmed_time
+                # Обновляем время только если birpay_id изменился
+                confirm_time = timezone.now()
+                incoming.birpay_confirm_time = confirm_time
+                
+                # Отвязываем старый BirpayOrder (если был привязан)
+                if old_birpay_id:
+                    old_order = BirpayOrder.objects.filter(merchant_transaction_id=old_birpay_id).first()
+                    if old_order and old_order.incoming and old_order.incoming.pk == incoming.pk:
+                        old_order.incoming = None
+                        old_order.save(update_fields=['incoming'])
+                        logger.info(f'Отвязан старый BirpayOrder {old_birpay_id} от Incoming {incoming.id}')
+                
+                # Привязываем новый BirpayOrder (если существует и не пустой)
+                if new_birpay_id:
+                    new_order = BirpayOrder.objects.filter(merchant_transaction_id=new_birpay_id).first()
+                    if new_order:
+                        new_order.incoming = incoming
+                        new_order.confirmed_time = confirm_time  # Используем то же время
+                        new_order.save(update_fields=['incoming', 'confirmed_time'])
+                        logger.info(f'Привязан новый BirpayOrder {new_birpay_id} к Incoming {incoming.id}')
+                else:
+                    logger.info(f'BirpayOrder отвязан от Incoming {incoming.id} (birpay_id очищен)')
+            elif not incoming.birpay_confirm_time:
+                # Если birpay_id не изменился, но birpay_confirm_time не установлен, устанавливаем его
+                incoming.birpay_confirm_time = timezone.now()
+            
             incoming.save()
 
             # Сохраняем историю

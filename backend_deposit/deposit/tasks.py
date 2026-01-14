@@ -752,7 +752,7 @@ def check_cards_activity():
     """Периодическая задача для проверки активности карт"""
     try:
         logger.info('Запуск проверки активности карт')
-        
+        clear_contextvars()
         # Получаем настройки
         options = Options.load()
         monitoring_minutes = options.card_monitoring_minutes
