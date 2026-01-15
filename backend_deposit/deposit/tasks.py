@@ -728,6 +728,8 @@ def send_image_to_gpt_task(self, birpay_id):
                             update_fields.append("incoming")
                             update_fields.append("confirmed_time")
                             locked_incoming.birpay_id = order.merchant_transaction_id
+                            # Автоматически заполняем merchant_user_id из BirpayOrder
+                            locked_incoming.merchant_user_id = order.merchant_user_id
                             locked_incoming.save()
                             
                             # Сохраняем order в транзакции

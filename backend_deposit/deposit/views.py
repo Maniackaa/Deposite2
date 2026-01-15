@@ -477,10 +477,11 @@ def incoming_list(request):
             # Используем одно и то же время для синхронизации
             confirm_time = timezone.now()
             incoming.birpay_confirm_time = confirm_time
-            incoming.save()
             if value and value.strip():
                 order = BirpayOrder.objects.filter(merchant_transaction_id=value.strip()).first()
                 if order:
+                    # Автоматически заполняем merchant_user_id из BirpayOrder
+                    incoming.merchant_user_id = order.merchant_user_id
                     # Устанавливаем контекст со всеми идентификаторами BirpayOrder при связывании
                     bind_contextvars(
                         birpay_id=order.birpay_id,
@@ -493,6 +494,7 @@ def incoming_list(request):
                     logger.info(f'Привязан BirpayOrder {order.merchant_transaction_id} к Incoming {incoming.id} в incoming_list')
                     # Очищаем контекст после связывания
                     clear_contextvars()
+            incoming.save()
             #Сохраняем историю
             new_history = IncomingChange(
                 incoming=incoming,
@@ -798,6 +800,7 @@ class IncomingSearch(ListView):
         only_empty = self.request.GET.get('only_empty', '')
         pay = self.request.GET.get('pay', 0)
         pk = self.request.GET.get('pk', 0)
+        merchant_user_id = self.request.GET.get('merchant_user_id', '')
         sort_by_sms_time = self.request.GET.get('sort_by_sms_time', 1)
         end_time = None
         tz = pytz.timezone(settings.TIME_ZONE)
@@ -805,6 +808,15 @@ class IncomingSearch(ListView):
 
         if pk:
             return Incoming.objects.filter(birpay_id__contains=pk)
+        
+        if merchant_user_id:
+            all_incoming = Incoming.objects.filter(merchant_user_id=merchant_user_id)
+            if not self.request.user.has_perm('users.all_base'):
+                if self.request.user.has_perm('users.base2'):
+                    all_incoming = all_incoming.filter(worker='base2')
+                else:
+                    all_incoming = all_incoming.exclude(worker='base2')
+            return all_incoming
 
         if sort_by_sms_time:
             all_incoming = Incoming.objects.order_by('-response_date').all()
@@ -838,7 +850,7 @@ class IncomingSearch(ListView):
         if pay:
             all_incoming = all_incoming.filter(pay=pay)
 
-        if not begin0 and not end0 and not only_empty and not pay:
+        if not begin0 and not end0 and not only_empty and not pay and not merchant_user_id:
             return all_incoming[:0]
 
         return all_incoming
@@ -1024,6 +1036,8 @@ class IncomingEdit(UpdateView, ):
                         )
                         old_order.incoming = None
                         old_order.save(update_fields=['incoming'])
+                        # При отвязывании очищаем merchant_user_id
+                        incoming.merchant_user_id = None
                         logger.info(f'Отвязан старый BirpayOrder {old_birpay_id} от Incoming {incoming.id}')
                         # Очищаем контекст после отвязывания
                         clear_contextvars()
@@ -1032,6 +1046,8 @@ class IncomingEdit(UpdateView, ):
                 if new_birpay_id:
                     new_order = BirpayOrder.objects.filter(merchant_transaction_id=new_birpay_id).first()
                     if new_order:
+                        # Автоматически заполняем merchant_user_id из BirpayOrder
+                        incoming.merchant_user_id = new_order.merchant_user_id
                         # Устанавливаем контекст со всеми идентификаторами BirpayOrder при связывании
                         bind_contextvars(
                             birpay_id=new_order.birpay_id,
@@ -1045,6 +1061,8 @@ class IncomingEdit(UpdateView, ):
                         # Очищаем контекст после связывания
                         clear_contextvars()
                 else:
+                    # При отвязывании очищаем merchant_user_id
+                    incoming.merchant_user_id = None
                     logger.info(f'BirpayOrder отвязан от Incoming {incoming.id} (birpay_id очищен)')
             elif not incoming.birpay_confirm_time:
                 # Если birpay_id не изменился, но birpay_confirm_time не установлен, устанавливаем его
@@ -2015,6 +2033,8 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                                 order.incoming = incoming_to_approve
                                 order.save()
                                 incoming_to_approve.birpay_id = order.merchant_transaction_id
+                                # Автоматически заполняем merchant_user_id из BirpayOrder
+                                incoming_to_approve.merchant_user_id = order.merchant_user_id
                                 incoming_to_approve.save()
                                 logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')
 

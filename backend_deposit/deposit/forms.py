@@ -183,16 +183,18 @@ class IncomingForm(forms.ModelForm):
     # birpay_edit_time = forms.DateTimeField(disabled=True, required=False)
     # confirmed_deposit = forms.Select()
     birpay_id = forms.IntegerField(required=False)
+    merchant_user_id = forms.CharField(max_length=16, required=False, label='ID пользователя мерчанта')
     comment = forms.CharField(widget=forms.Textarea, required=False)
 
     class Meta:
         model = Incoming
-        fields = ('birpay_id', 'comment')
+        fields = ('birpay_id', 'merchant_user_id', 'comment')
         # exclude = ('birpay_confirm_time', 'worker', 'type')
 
 
 class IncomingSearchForm(forms.Form):
     pk = forms.IntegerField(required=False, label='id')
+    merchant_user_id = forms.CharField(max_length=16, required=False, label='ID пользователя мерчанта')
     search_in = forms.ChoiceField(choices=[
         ('response_date', 'Время в смс/чеке'),
         ('register_date', 'Время поступления'),

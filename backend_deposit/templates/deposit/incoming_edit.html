@@ -73,6 +73,10 @@
                 <td>{{ incoming.birpay_id|default_if_none:"---" }}</td>
             </tr>
             <tr>
+                <td>ID пользователя мерчанта</td>
+                <td>{{ incoming.merchant_user_id|default_if_none:"---" }}</td>
+            </tr>
+            <tr>
                 <td>Депозит</td>
                 <td>{{ incoming.confirmed_deposit|default_if_none:"---" }}</td>
             </tr>
