@@ -122,6 +122,8 @@
                     <td>
                         {% if order.check_file %}
                             <a href="{{ order.check_file.url }}" target="_blank">Чек</a>
+                        {% elif order.check_file_url %}
+                            <a href="{{ order.check_file_url }}" target="_blank" title="Скачивается...">Чек (URL)</a>
                         {% else %}
                             -
                         {% endif %}

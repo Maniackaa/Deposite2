@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Управление Z-ASU{% endblock %}
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+<div class="container mt-4">
+    <h1 class="mb-4">Управление Z-ASU</h1>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Действия</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{% url 'deposit:birpay_order_create' %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">Создание заявки</h5>
+                            </div>
+                            <p class="mb-1">Создать новую тестовую заявку BirpayOrder</p>
+                            <small class="text-muted">Только для суперюзера</small>
+                        </a>
+                        <a href="{% url 'deposit:requisite_zajon_list' %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">Реквизиты Zajon</h5>
+                            </div>
+                            <p class="mb-1">Управление реквизитами Zajon</p>
+                            <small class="text-muted">Просмотр и редактирование реквизитов</small>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

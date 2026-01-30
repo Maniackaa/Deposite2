@@ -35,7 +35,7 @@ from matplotlib import pyplot as plt
 from rest_framework.views import APIView
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from core.asu_pay_func import create_asu_withdraw
+from core.asu_pay_func import create_asu_withdraw, should_send_to_z_asu, send_birpay_order_to_z_asu, confirm_z_asu_transaction
 
 
 def add_balance_mismatch_flag(incoming):
@@ -79,6 +79,7 @@ from deposit.forms import (
     AssignCardsToUserForm,
     MoshennikListForm,
     PainterListForm,
+    BirpayOrderCreateForm,
     OperatorStatsDayForm,
     RequsiteZajonForm,
 )
@@ -1633,33 +1634,53 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
             incoming_pay=F('incoming__pay'),
             delta=ExpressionWrapper(F('incoming__pay') - F('amount'), output_field=FloatField()),
         )
+        # Оптимизация: загружаем связанные объекты одним запросом
+        qs = qs.select_related('incoming', 'confirmed_operator')
         self.filterset = BirpayOrderFilter(self.request.GET, queryset=qs)
         return self.filterset.qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_form'] = self.filterset.form
-        gpt_auto_approve = Options.load().gpt_auto_approve
-        context['gpt_auto_approve'] = gpt_auto_approve
+        
+        # Загружаем Options один раз для всего контекста
+        options = Options.load()
+        context['gpt_auto_approve'] = options.gpt_auto_approve
+        
+        # Кэшируем списки для проверки is_moshennik/is_painter без запросов к БД
+        birpay_moshennik_list = set(options.birpay_moshennik_list)
+        birpay_painter_list = set(options.birpay_painter_list)
 
         show_stat = self.filterset.form.cleaned_data.get('show_stat')
         if show_stat:
             qs = self.filterset.qs
-            total_count = qs.count()
+            # Оптимизация: используем один запрос с агрегацией вместо множественных count()
+            stats_agg = qs.aggregate(
+                total=Count('id'),
+                with_incoming=Count('id', filter=Q(incoming__isnull=False)),
+                sum_incoming_pay=Sum('incoming_pay'),
+                sum_amount=Sum('amount'),
+                sum_delta=Sum('delta'),
+                status_0=Count('id', filter=Q(status=0)),
+                status_1=Count('id', filter=Q(status=1)),
+                status_2=Count('id', filter=Q(status=2)),
+                gpt_approve_count=Count('id', filter=Q(gpt_flags=255)),
+            )
+            total_count = stats_agg['total'] or 0
             stats = {
                 'total': total_count,
-                'with_incoming': qs.exclude(incoming__isnull=True).count(),
-                'sum_incoming_pay': qs.aggregate(sum=Sum('incoming_pay'))['sum'] or 0,
-                'sum_amount': qs.aggregate(sum=Sum('amount'))['sum'] or 0,
-                'sum_delta': qs.aggregate(sum=Sum('delta'))['sum'] or 0,
-                'status_0': qs.filter(status=0).count(),
-                'status_1': qs.filter(status=1).count(),
-                'status_2': qs.filter(status=2).count(),
-                'gpt_approve': int(qs.filter(gpt_flags=255).count() / total_count * 100) if total_count else 0
+                'with_incoming': stats_agg['with_incoming'] or 0,
+                'sum_incoming_pay': stats_agg['sum_incoming_pay'] or 0,
+                'sum_amount': stats_agg['sum_amount'] or 0,
+                'sum_delta': stats_agg['sum_delta'] or 0,
+                'status_0': stats_agg['status_0'] or 0,
+                'status_1': stats_agg['status_1'] or 0,
+                'status_2': stats_agg['status_2'] or 0,
+                'gpt_approve': int(stats_agg['gpt_approve_count'] / total_count * 100) if total_count else 0
             }
             context['birpay_stats'] = stats
 
-
+        # Предвычисляем is_moshennik и is_painter для каждого заказа, чтобы избежать вызовов Options.load() в шаблоне
         for order in context['page_obj']:
             if hasattr(order, 'raw_data'):
                 try:
@@ -1668,7 +1689,10 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
                     order.raw_data_json = '{}'
             else:
                 order.raw_data_json = '{}'
-
+            
+            # Предвычисляем флаги для избежания запросов в свойствах модели
+            order._is_moshennik = order.merchant_user_id in birpay_moshennik_list
+            order._is_painter = order.merchant_user_id in birpay_painter_list
 
         return context
 
@@ -2011,7 +2035,14 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                                 logger.warning(f'Привязка BirpayOrder {order.merchant_transaction_id} к Incoming {incoming_to_approve.id} с несовпадающим балансом (подтверждено оператором)')
                         
                         logger.info('Апрувнем заявку')
-                        response = approve_birpay_refill(pk=order.birpay_id)
+                        
+                        # Логика Z-ASU: если DEBUG=True, не отправляем запрос, считаем успешным
+                        if settings.DEBUG:
+                            logger.info(f'DEBUG=True: пропускаем отправку approve_birpay_refill для {order.birpay_id}, считаем успешным')
+                            response = type('MockResponse', (), {'status_code': 200, 'text': 'OK (DEBUG mode)'})()
+                        else:
+                            response = approve_birpay_refill(pk=order.birpay_id)
+                        
                         if response.status_code != 200:
                             text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
                             messages.add_message(request, messages.ERROR, text)
@@ -2020,6 +2051,35 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                             # Апрувнем заявку
                             text = f"Заявка {order} mtx_id {order.merchant_transaction_id} подтверждена в birpay с суммой {order.amount}"
                             logger.info(text)
+                            
+                            # Логика Z-ASU: после успешного подтверждения в birpay апрувим на ASU
+                            asu_approve_success = None
+                            asu_approve_message = ''
+                            if should_send_to_z_asu(order.card_number):
+                                logger.info(f'Логика Z-ASU: заявка {order.merchant_transaction_id} требует подтверждения на ASU')
+                                try:
+                                    # Подтверждаем транзакцию на ASU через новый endpoint
+                                    # Endpoint сам найдет Payment через ORM по merchant_transaction_id
+                                    confirm_result = confirm_z_asu_transaction(order.merchant_transaction_id)
+                                    if confirm_result.get('success'):
+                                        asu_approve_success = True
+                                        payment_id = confirm_result.get('payment_id', 'N/A')
+                                        asu_approve_message = f' успешно апрувнуто на ASU (Payment {payment_id})'
+                                        logger.info(f'Логика Z-ASU: транзакция {order.merchant_transaction_id} успешно подтверждена на ASU (Payment {payment_id})')
+                                    else:
+                                        asu_approve_success = False
+                                        error_msg = confirm_result.get('error', 'Unknown error')
+                                        asu_approve_message = f' ошибка апрува на ASU: {error_msg}'
+                                        logger.error(f'Логика Z-ASU: ошибка подтверждения транзакции {order.merchant_transaction_id} на ASU: {error_msg}')
+                                except Exception as e:
+                                    asu_approve_success = False
+                                    asu_approve_message = f' исключение при апруве на ASU: {str(e)}'
+                                    logger.error(f'Логика Z-ASU: исключение при подтверждении на ASU: {e}', exc_info=True)
+                            
+                            # Добавляем информацию об апруве на ASU в сообщение
+                            if asu_approve_message:
+                                text += asu_approve_message
+                            
                             messages.add_message(request, messages.INFO, text)
                             order.status = 1
                             order.status_internal = 1
@@ -2364,3 +2424,53 @@ def show_birpay_order_log(request, query_string):
         return HttpResponse(html_log)
 
 
+class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
+    """Представление для ручного создания тестовых BirpayOrder (только для суперюзера)"""
+    model = BirpayOrder
+    form_class = BirpayOrderCreateForm
+    template_name = 'deposit/birpay_order_create.html'
+    success_url = reverse_lazy('deposit:birpay_orders')
+    
+    def form_valid(self, form):
+        # Сохраняем форму (это создаст объект и присвоит ему ID)
+        response = super().form_valid(form)
+        order = form.instance
+        
+        # Если указан URL чека и файл еще не скачан, запускаем задачу скачивания
+        if order.check_file_url and not order.check_file and not order.check_file_failed:
+            # Обновляем флаг перед запуском задачи
+            BirpayOrder.objects.filter(id=order.id).update(check_file_failed=True)
+            # Запускаем задачу скачивания чека
+            download_birpay_check_file.delay(order.id, order.check_file_url)
+            logger.info(f'Задача на скачивание файла для заказа {order.birpay_id} отправлена в celery.')
+        
+        # Логика Z-ASU: проверка условия и отправка на ASU
+        logger.debug(f"Проверка Z-ASU для BirpayOrder {order.birpay_id}: card_number={order.card_number}")
+        if order.card_number:
+            should_send = should_send_to_z_asu(order.card_number)
+            logger.debug(f"should_send_to_z_asu({order.card_number}) = {should_send}")
+            if should_send:
+                logger.info(f"BirpayOrder {order.birpay_id} соответствует условию Z-ASU, отправляем на ASU")
+                try:
+                    result = send_birpay_order_to_z_asu(order)
+                    if result.get('success'):
+                        logger.info(f"BirpayOrder {order.birpay_id} успешно отправлен на Z-ASU, payment_id={result.get('payment_id')}")
+                        messages.success(self.request, f'Заявка отправлена на Z-ASU! Payment ID: {result.get("payment_id")}')
+                    else:
+                        logger.error(f"Ошибка отправки BirpayOrder {order.birpay_id} на Z-ASU: {result.get('error')}")
+                        messages.error(self.request, f'Ошибка отправки на Z-ASU: {result.get("error")}')
+                except Exception as err:
+                    logger.error(f"Исключение при отправке BirpayOrder {order.birpay_id} на Z-ASU: {err}", exc_info=True)
+                    messages.error(self.request, f'Ошибка отправки на Z-ASU: {str(err)}')
+            else:
+                logger.debug(f"BirpayOrder {order.birpay_id} не соответствует условию Z-ASU (card_number={order.card_number})")
+        else:
+            logger.debug(f"BirpayOrder {order.birpay_id} не имеет card_number, пропускаем Z-ASU")
+        
+        messages.success(self.request, f'BirpayOrder успешно создан! ID: {order.id}, birpay_id: {order.birpay_id}')
+        return response
+
+
+class ZASUManagementView(SuperuserOnlyPerm, TemplateView):
+    """Страница управления Z-ASU (только для суперюзера)"""
+    template_name = 'deposit/z_asu_management.html'

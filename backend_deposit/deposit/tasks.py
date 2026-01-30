@@ -21,7 +21,7 @@ from urllib3 import Retry, PoolManager
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from core.asu_pay_func import create_asu_withdraw, create_payment_v2, \
-    send_sms_code_v2
+    send_sms_code_v2, should_send_to_z_asu, send_birpay_order_to_z_asu
 from core.birpay_func import get_birpay_withdraw, find_birpay_from_id, get_birpays, approve_birpay_refill
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ, Timer, mask_compare
@@ -527,6 +527,19 @@ def process_birpay_order(data):
         order.save(update_fields=['check_file_failed'])
         download_birpay_check_file.delay(order.id, check_file_url)
         logger.info(f"Задача на скачивание файла для заказа {birpay_id} отправлена в celery.")
+    
+    # Логика Z-ASU: проверка условия и отправка на ASU
+    if created and order.card_number and should_send_to_z_asu(order.card_number):
+        logger.info(f"BirpayOrder {birpay_id} соответствует условию Z-ASU, отправляем на ASU")
+        try:
+            result = send_birpay_order_to_z_asu(order)
+            if result.get('success'):
+                logger.info(f"BirpayOrder {birpay_id} успешно отправлен на Z-ASU, payment_id={result.get('payment_id')}")
+            else:
+                logger.error(f"Ошибка отправки BirpayOrder {birpay_id} на Z-ASU: {result.get('error')}")
+        except Exception as err:
+            logger.error(f"Исключение при отправке BirpayOrder {birpay_id} на Z-ASU: {err}", exc_info=True)
+    
     return order, created, updated
 
 

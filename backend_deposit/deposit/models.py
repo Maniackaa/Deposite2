@@ -172,11 +172,17 @@ class BirpayOrder(models.Model):
             pass
 
     def is_moshennik(self):
+        # Проверяем предвычисленное значение, если оно есть (для оптимизации в списках)
+        if hasattr(self, '_is_moshennik'):
+            return self._is_moshennik
         options = Options.load()
         birpay_moshennik_list = options.birpay_moshennik_list
         return self.merchant_user_id in birpay_moshennik_list
     
     def is_painter(self):
+        # Проверяем предвычисленное значение, если оно есть (для оптимизации в списках)
+        if hasattr(self, '_is_painter'):
+            return self._is_painter
         options = Options.load()
         birpay_painter_list = options.birpay_painter_list
         return self.merchant_user_id in birpay_painter_list

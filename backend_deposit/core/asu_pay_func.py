@@ -9,170 +9,221 @@ from users.models import Options
 log = structlog.get_logger('deposit')
 
 
-data = {
-    'refresh': '',
-    'access': ''
-}
+class ASUAccountManager:
+    """
+    Менеджер для работы с разными аккаунтами ASU (ASU и Z-ASU).
+    Управляет токенами для каждого аккаунта отдельно.
+    """
+    
+    # Типы аккаунтов
+    ACCOUNT_ASU = 'asu'
+    ACCOUNT_Z_ASU = 'z_asu'
+    
+    def __init__(self, account_type: str = ACCOUNT_ASU):
+        """
+        Инициализация менеджера аккаунта.
+        
+        Args:
+            account_type: Тип аккаунта ('asu' или 'z_asu'). По умолчанию 'asu'.
+        """
+        if account_type not in [self.ACCOUNT_ASU, self.ACCOUNT_Z_ASU]:
+            raise ValueError(f"Неизвестный тип аккаунта: {account_type}. Используйте '{self.ACCOUNT_ASU}' или '{self.ACCOUNT_Z_ASU}'")
+        
+        self.account_type = account_type
+        self.token_file = settings.BASE_DIR / f'token_{account_type}.txt'
+        self.logger = log.bind(account_type=account_type)
+    
+    def _get_credentials(self):
+        """Получает логин и пароль для текущего аккаунта."""
+        options = Options.load()
+        if self.account_type == self.ACCOUNT_ASU:
+            return options.asu_login, options.asu_password
+        elif self.account_type == self.ACCOUNT_Z_ASU:
+            return options.z_asu_login, options.z_asu_password
+    
+    def get_new_token(self) -> str:
+        """
+        Получение нового токена по логину и паролю.
+        
+        Returns:
+            str: Access токен
+        """
+        self.logger.info('Получение первичного токена по логину')
+        try:
+            login, password = self._get_credentials()
+            url = f"{settings.ASU_HOST}/api/v1/token/"
+            payload = json.dumps({
+                "username": login,
+                "password": password
+            })
+            headers = {'Content-Type': 'application/json'}
+            response = requests.request("POST", url, headers=headers, data=payload, timeout=5)
+            self.logger.info(f'response.status_code: {response.status_code}')
+            
+            if response.status_code != 200:
+                raise Exception(f"Ошибка получения токена: {response.status_code} {response.text}")
+            
+            token_dict = response.json()
+            token_data = {
+                'refresh': token_dict.get('refresh', ''),
+                'access': token_dict.get('access', '')
+            }
+            token = token_dict.get('access')
+            
+            with open(self.token_file, 'w') as file:
+                file.write(json.dumps(token_data))
+            
+            self.logger.info(f'Токен успешно получен и сохранен')
+            return token
+        except Exception as err:
+            self.logger.error(f'Ошибка получения токена по логину/паролю: {err}')
+            raise err
+    
+    def get_token(self) -> str:
+        """
+        Получение токена. Если токен не существует, получает новый.
+        
+        Returns:
+            str: Access токен
+        """
+        if not self.token_file.exists():
+            return self.get_new_token()
+        
+        try:
+            with open(self.token_file, 'r') as file:
+                token_data = json.loads(file.read())
+                token = token_data.get('access', '')
+                if not token:
+                    return self.get_new_token()
+                return token
+        except (json.JSONDecodeError, FileNotFoundError, KeyError):
+            return self.get_new_token()
+    
+    def get_headers(self) -> dict:
+        """
+        Получает заголовки с токеном для запросов.
+        
+        Returns:
+            dict: Заголовки с Authorization Bearer токеном
+        """
+        token = self.get_token()
+        return {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json'
+        }
+    
+    def make_request(self, method: str, url: str, json_data: dict = None, **kwargs) -> requests.Response:
+        """
+        Выполняет HTTP запрос с автоматическим обновлением токена при 401 ошибке.
+        
+        Args:
+            method: HTTP метод ('GET', 'POST', 'PUT', 'DELETE')
+            url: URL для запроса
+            json_data: JSON данные для отправки
+            **kwargs: Дополнительные параметры для requests
+            
+        Returns:
+            requests.Response: Ответ от сервера
+        """
+        headers = self.get_headers()
+        
+        if json_data:
+            kwargs['json'] = json_data
+        
+        response = requests.request(method, url, headers=headers, timeout=kwargs.get('timeout', 10), **kwargs)
+        
+        # Если получили 401, обновляем токен и повторяем запрос
+        if response.status_code == 401:
+            self.logger.warning('Получен 401, обновляем токен и повторяем запрос')
+            headers = {
+                'Authorization': f'Bearer {self.get_new_token()}',
+                'Content-Type': 'application/json'
+            }
+            response = requests.request(method, url, headers=headers, timeout=kwargs.get('timeout', 10), **kwargs)
+        
+        return response
 
 
-token_file = settings.BASE_DIR / 'token_asu.txt'
-token_birpay_file = settings.BASE_DIR / 'token_asu_birpay.txt'
+# Глобальные экземпляры менеджеров для обратной совместимости
+_default_manager = ASUAccountManager(ASUAccountManager.ACCOUNT_ASU)
+_z_asu_manager = ASUAccountManager(ASUAccountManager.ACCOUNT_Z_ASU)
+
+
+# ============================================================================
+# Функции для обратной совместимости (используют ASU аккаунт по умолчанию)
+# ============================================================================
 
 def get_new_asu_token():
-    logger = log
-    logger.info(f'Получение первичного токена по логину')
-    try:
-        # login = settings.ASUPAY_LOGIN
-        # password = settings.ASUPAY_PASSWORD
-        options = Options.load()
-        login = options.asu_login
-        password = options.asu_password
-        url = f"{settings.ASU_HOST}/api/v1/token/"
-        payload = json.dumps({
-            "username": login,
-            "password": password
-        })
-        headers = {'Content-Type': 'application/json'}
-        response = requests.request("POST", url, headers=headers, data=payload, timeout=5)
-        logger.info(response.status_code)
-        token_dict = response.json()
-        data['refresh'] = token_dict.get('refresh')
-        data['access'] = token_dict.get('access')
-        token = token_dict.get('access')
-        with open(token_file, 'w') as file:
-            file.write(json.dumps(data))
-        logger.info(f'data: {data}')
-        return token
-    except Exception as err:
-        logger.error(f'Ошибка получения токена по логину/паролю: {err}')
-        raise err
-
-# def get_new_asu_birpay_token():
-#     logger = log
-#     logger.info(f'Получение первичного токена по логину для BirPayShop')
-#     try:
-#         options = Options.load()
-#         login = options.asu_birshop_login
-#         password = options.asu_birshop_password
-#         url = f"{settings.ASU_HOST}/api/v1/token/"
-#         payload = json.dumps({
-#             "username": login,
-#             "password": password
-#         })
-#         headers = {'Content-Type': 'application/json'}
-#         response = requests.request("POST", url, headers=headers, data=payload, timeout=5)
-#         logger.info(response.status_code)
-#         token_dict = response.json()
-#         token = token_dict.get('access')
-#         with open(token_birpay_file, 'w') as file:
-#             file.write(json.dumps(data))
-#         logger.info(f'data: {data}')
-#         return token
-#     except Exception as err:
-#         logger.error(f'Ошибка получения токена по логину/паролю: {err}')
-#         raise err
+    """
+    Получение нового токена для ASU аккаунта.
+    Сохранена для обратной совместимости.
+    """
+    return _default_manager.get_new_token()
 
 
 def get_asu_token() -> str:
-    if not token_file.exists():
-        get_new_asu_token()
-    with open(token_file, 'r') as file:
-        token_data = json.loads(file.read())
-        token = token_data.get('access', '')
-        print(f'read token: {token}')
-        return token
+    """
+    Получение токена для ASU аккаунта.
+    Сохранена для обратной совместимости.
+    """
+    return _default_manager.get_token()
 
 
-# def get_asu_birpay_token() -> str:
-#     # Для BirPayShop
-#     if not token_birpay_file.exists():
-#         get_new_asu_birpay_token()
-#     with open(token_birpay_file, 'r') as file:
-#         token_data = json.loads(file.read())
-#         token = token_data.get('access', '')
-#         print(f'read token: {token}')
-#         return token
-
-
-# def create_payment(payment_data):
-#     logger = log
-#     try:
-#         logger.debug(f'Создание заявки Payment на asu-pay: {payment_data}')
-#         # {'merchant': 34, 'order_id': 1586, 'amount': 1560.0, 'user_login': '119281059', 'pay_type': 'card_2'}
-#         token = get_asu_token()
-#         headers = {
-#             'Authorization': f'Bearer {token}'
-#         }
-#         url = f'{settings.ASU_HOST}/api/v1/payment/'
-#         response = requests.post(url, json=payment_data, headers=headers)
-#         if response.status_code == 401:
-#             headers = {
-#                 'Authorization': f'Bearer {get_new_asu_token()}'
-#             }
-#             response = requests.post(url, json=payment_data, headers=headers)
-#
-#         logger.debug(f'response: {response} {response.reason} {response.text}')
-#         if response.status_code == 201:
-#             return response.json()['id']
-#         else:
-#             text = f'Ошибка создания платежа на АСУ. response: {response} {response.reason} {response.text}'
-#             logger.error(text)
-#             send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
-#     except Exception as err:
-#         logger.debug(f'Ошибка при создании payment: {err}')
-#
-#
-# def send_card_data(payment_id, card_data) -> dict:
-#     logger = log.bind(payment_id=payment_id)
-#     try:
-#         logger.debug(f'Передача card_data {payment_id} на asu-pay')
-#         token = get_asu_token()
-#         headers = {
-#             'Authorization': f'Bearer {token}'
-#         }
-#         url = f'{settings.ASU_HOST}/api/v1/payment/{payment_id}/send_card_data/'
-#         response = requests.put(url, json=card_data, headers=headers)
-#         if response.status_code == 401:
-#             headers = {'Authorization': f'Bearer {get_new_asu_token()}'}
-#             response = requests.put(url, json=card_data, headers=headers)
-#         logger.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
-#         if response.status_code == 200:
-#             return response.json()
-#     except Exception as err:
-#         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
-
-
-def send_sms_code(payment_id, sms_code, transaction_id=None) -> dict:
+def send_sms_code(payment_id, sms_code, transaction_id=None, account_type: str = None) -> dict:
+    """
+    Отправка SMS-кода через API v1.
+    
+    Args:
+        payment_id: ID платежа
+        sms_code: SMS код
+        transaction_id: ID транзакции (опционально)
+        account_type: Тип аккаунта ('asu' или 'z_asu'). По умолчанию 'asu'.
+    
+    Returns:
+        dict: Ответ от сервера или None при ошибке
+    """
+    manager = _default_manager if account_type is None else ASUAccountManager(account_type)
+    
     if transaction_id:
-        logger = log.bind(transaction_id=transaction_id, payment_id=payment_id)
+        logger = manager.logger.bind(transaction_id=transaction_id, payment_id=payment_id)
     else:
-        logger = log.bind(payment_id=payment_id)
+        logger = manager.logger.bind(payment_id=payment_id)
+    
     try:
-
         logger.debug(f'Передача sms_code {payment_id} на asu-pay')
-        token = get_asu_token()
-        headers = {
-            'Authorization': f'Bearer {token}'
-        }
         url = f'{settings.ASU_HOST}/api/v1/payment/{payment_id}/send_sms_code/'
         json_data = {'sms_code': sms_code}
-        response = requests.put(url, json=json_data, headers=headers)
-        if response.status_code == 401:
-            headers = {'Authorization': f'Bearer {get_new_asu_token()}'}
-            response = requests.put(url, json=json_data, headers=headers)
-        logger.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
+        
+        response = manager.make_request('PUT', url, json_data=json_data)
+        
+        logger.debug(f'response {payment_id}: {response.status_code} {response.reason} {response.text}')
+        
         if response.status_code == 200:
             return response.json()
+        else:
+            logger.error(f'Ошибка отправки SMS-кода: {response.status_code} {response.text}')
+            return None
     except Exception as err:
-        logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
+        logger.debug(f'Ошибка при передачи sms_code {payment_id}: {err}')
+        return None
 
 
-def create_payment_v2(payment_data, card_data=None):
+def create_payment_v2(payment_data, card_data=None, account_type: str = None):
     """
-    Создание платежа через API v2 с данными карты
-    Объединяет функциональность create_payment и send_card_data из v1
+    Создание платежа через API v2 с данными карты.
+    Объединяет функциональность create_payment и send_card_data из v1.
+    
+    Args:
+        payment_data: Данные платежа
+        card_data: Данные карты (опционально)
+        account_type: Тип аккаунта ('asu' или 'z_asu'). По умолчанию 'asu'.
+    
+    Returns:
+        dict: Результат создания платежа или None при ошибке
     """
-    logger = log
+    manager = _default_manager if account_type is None else ASUAccountManager(account_type)
+    logger = manager.logger
+    
     try:
         logger.debug(f'Создание заявки Payment на asu-pay v2: {payment_data}')
 
@@ -190,23 +241,10 @@ def create_payment_v2(payment_data, card_data=None):
         if card_data:
             v2_payment_data['card_data'] = card_data
 
-        token = get_asu_token()
-        headers = {
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json'
-        }
         url = f'{settings.ASU_HOST}/api/v2/payment/'
+        response = manager.make_request('POST', url, json_data=v2_payment_data)
 
-        response = requests.post(url, json=v2_payment_data, headers=headers)
-
-        if response.status_code == 401:
-            headers = {
-                'Authorization': f'Bearer {get_new_asu_token()}',
-                'Content-Type': 'application/json'
-            }
-            response = requests.post(url, json=v2_payment_data, headers=headers)
-
-        logger.debug(f'response: {response} {response.reason} {response.text}')
+        logger.debug(f'response: {response.status_code} {response.reason} {response.text}')
 
         if response.status_code == 201:
             response_data = response.json()
@@ -216,7 +254,7 @@ def create_payment_v2(payment_data, card_data=None):
                 'instruction': response_data.get('instruction', '')
             }
         else:
-            text = f'Ошибка создания платежа на АСУ v2. response: {response} {response.reason} {response.text}'
+            text = f'Ошибка создания платежа на АСУ v2. response: {response.status_code} {response.reason} {response.text}'
             logger.error(text)
             send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
             return None
@@ -226,36 +264,35 @@ def create_payment_v2(payment_data, card_data=None):
         return None
 
 
-def send_sms_code_v2(payment_id, sms_code, transaction_id=None):
+def send_sms_code_v2(payment_id, sms_code, transaction_id=None, account_type: str = None):
     """
-    Отправка SMS-кода через API v2
+    Отправка SMS-кода через API v2.
+    
+    Args:
+        payment_id: ID платежа
+        sms_code: SMS код
+        transaction_id: ID транзакции (опционально)
+        account_type: Тип аккаунта ('asu' или 'z_asu'). По умолчанию 'asu'.
+    
+    Returns:
+        dict: Ответ от сервера или None при ошибке
     """
+    manager = _default_manager if account_type is None else ASUAccountManager(account_type)
+    
     if transaction_id:
-        logger = log.bind(transaction_id=transaction_id, payment_id=payment_id)
+        logger = manager.logger.bind(transaction_id=transaction_id, payment_id=payment_id)
     else:
-        logger = log.bind(payment_id=payment_id)
+        logger = manager.logger.bind(payment_id=payment_id)
 
     try:
         logger.debug(f'Передача sms_code {payment_id} на asu-pay v2')
 
-        token = get_asu_token()
-        headers = {
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json'
-        }
         url = f'{settings.ASU_HOST}/api/v2/payment/{payment_id}/send_sms_code/'
-
         json_data = {'sms_code': sms_code}
-        response = requests.put(url, json=json_data, headers=headers)
+        
+        response = manager.make_request('PUT', url, json_data=json_data)
 
-        if response.status_code == 401:
-            headers = {
-                'Authorization': f'Bearer {get_new_asu_token()}',
-                'Content-Type': 'application/json'
-            }
-            response = requests.put(url, json=json_data, headers=headers)
-
-        logger.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
+        logger.debug(f'response {payment_id}: {response.status_code} {response.reason} {response.text}')
 
         if response.status_code == 200:
             return response.json()
@@ -268,203 +305,291 @@ def send_sms_code_v2(payment_id, sms_code, transaction_id=None):
         return None
 
 
-# def create_birpay_payment(payment_data):
-#     logger = log
-#     try:
-#         logger.debug(f'Создание заявки Payment на asu-pay: {payment_data}')
-#         # {'merchant': 34, 'order_id': 1586, 'amount': 1560.0, 'user_login': '119281059', 'pay_type': 'card_2'}
-#         token = get_asu_birpay_token()
-#         headers = {
-#             'Authorization': f'Bearer {token}'
-#         }
-#         url = f'{settings.ASU_HOST}/api/v1/payment/'
-#         response = requests.post(url, json=payment_data, headers=headers)
-#         if response.status_code == 401:
-#             headers = {
-#                 'Authorization': f'Bearer {get_new_asu_birpay_token()}'
-#             }
-#             response = requests.post(url, json=payment_data, headers=headers)
-#
-#         logger.debug(f'response: {response} {response.reason} {response.text}')
-#         if response.status_code == 201:
-#             return response.json()['id']
-#     except Exception as err:
-#         logger.debug(f'Ошибка при создании payment: {err}')
-
-
-# def send_card_data_birshop(payment_id, card_data) -> dict:
-#     logger = log.bind(payment_id=payment_id)
-#     try:
-#         logger.debug(f'Передача card_data {payment_id} на asu-pay от BirShop')
-#         token = get_asu_birpay_token()
-#         headers = {
-#             'Authorization': f'Bearer {token}'
-#         }
-#         url = f'{settings.ASU_HOST}/api/v1/payment/{payment_id}/send_card_data/'
-#         response = requests.put(url, json=card_data, headers=headers)
-#         if response.status_code == 401:
-#             headers = {'Authorization': f'Bearer {get_new_asu_birpay_token()}'}
-#             response = requests.put(url, json=card_data, headers=headers)
-#         logger.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
-#         if response.status_code == 200:
-#             return response.json()
-#     except Exception as err:
-#         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
-
-
-# def send_sms_code_birpay(payment_id, sms_code, transaction_id=None) -> dict:
-#     if transaction_id:
-#         logger = log.bind(transaction_id=transaction_id, payment_id=payment_id)
-#     else:
-#         logger = log.bind(payment_id=payment_id)
-#     try:
-#
-#         logger.debug(f'Передача sms_code {payment_id} на asu-pay')
-#         token = get_asu_birpay_token()
-#         headers = {
-#             'Authorization': f'Bearer {token}'
-#         }
-#         url = f'{settings.ASU_HOST}/api/v1/payment/{payment_id}/send_sms_code/'
-#         json_data = {'sms_code': sms_code}
-#         response = requests.put(url, json=json_data, headers=headers)
-#         if response.status_code == 401:
-#             headers = {'Authorization': f'Bearer {get_new_asu_birpay_token()}'}
-#             response = requests.put(url, json=json_data, headers=headers)
-#         logger.debug(f'response {payment_id}: {response} {response.reason} {response.text}')
-#         if response.status_code == 200:
-#             return response.json()
-#     except Exception as err:
-#         logger.debug(f'Ошибка при передачи card_data {payment_id}: {err}')
-
-
-def create_asu_withdraw(withdraw_id, amount, card_data, target_phone, payload: dict):
-    """{'amount': '198.0000',
-    'createdAt': '2025-02-15T15:56:11+03:00',
-    'currency': 'AZN',
-    'customerName': 'KAJEN PRASASTA',
-    'customerWalletId': '4169738808592590',
-    'id': 12099262,
-    'merchant': {'id': 2,
-               'name': '8billing',
-               'uid': '348d92c9-cdbd-48b8-ae62-4d66c200b878'},
-              'merchantTransactionId': '43903147',
-              'operatorTransactionId': '',
-              'payload': {'card_date': '03/2026'},
-              'payoutMethodType': {'id': 22, 'name': 'AZN_azcashier'},
-              'status': 0,
-              'uid': 'b3429f24-432b-4796-a8e2-986c39fbbdf7',
-              'updatedAt': '2025-02-15T15:56:11+03:00'}"""
+def create_asu_withdraw(withdraw_id, amount, card_data, target_phone, payload: dict, account_type: str = None):
+    """
+    Создание выплаты через ASU API.
+    
+    Args:
+        withdraw_id: ID выплаты
+        amount: Сумма
+        card_data: Данные карты
+        target_phone: Телефон получателя
+        payload: Дополнительные данные
+        account_type: Тип аккаунта ('asu' или 'z_asu'). По умолчанию 'asu'.
+    
+    Returns:
+        dict: Результат создания выплаты
+    """
+    manager = _default_manager if account_type is None else ASUAccountManager(account_type)
+    logger = manager.logger.bind(birpay_withdraw_id=withdraw_id)
+    
     result = {}
-    log = structlog.get_logger('deposit')
-    logger = log.bind(birpay_withdraw_id=withdraw_id)
+    
     try:
-
         options = Options.load()
+        
+        # Для Z-ASU может потребоваться отдельный merchant_id и secret
+        # Пока используем те же, что и для ASU
         merchant_id = options.asu_merchant_id
         text = f'{merchant_id}{target_phone or card_data.get("card_number")}{int(round(amount, 0))}'
         secret = options.asu_secret
         signature = hash_gen(text, secret)
+        
         withdraw_data = {
             "merchant": f'{merchant_id}',
             "withdraw_id": withdraw_id,
-            # "payload": {"merchant_transaction_id": merchant_transaction_id},
             "payload": payload,
             "amount": f'{amount}',
             "currency_code": "AZN",
             "signature": signature,
         }
+        
         if card_data:
             withdraw_data['card_data'] = card_data
         if target_phone:
             withdraw_data['target_phone'] = target_phone
-        asu_token = get_asu_token()
-        headers = {
-            'Authorization': f'Bearer {asu_token}'
-        }
+        
         url = f'{settings.ASU_HOST}/api/v1/withdraw/'
         logger.info(f'Отправка на асупэй birpay_withdraw_data: {withdraw_data}')
-        response = requests.post(url, json=withdraw_data, headers=headers)
-        logger.debug(f'response: {response} {response.reason} {response.text}')
-        if response.status_code == 401:
-            headers = {
-                'Authorization': f'Bearer {get_new_asu_token()}'
-            }
-            response = requests.post(url, json=withdraw_data, headers=headers)
+        
+        response = manager.make_request('POST', url, json_data=withdraw_data)
+        
+        logger.debug(f'response: {response.status_code} {response.reason} {response.text}')
+        
         if response.status_code == 201:
-
             result = response.json()
             logger.debug(f'Успешно создан на Asupay')
         else:
-            logger.warning(f'response: {response} {response.reason} {response.text}')
+            logger.warning(f'response: {response.status_code} {response.reason} {response.text}')
+        
         logger.info(f'Результат: {result}')
         return result
+        
     except Exception as err:
-        result = {'withdraw_id': withdraw_id, 'status': 'error', 'error': err}
+        result = {'withdraw_id': withdraw_id, 'status': 'error', 'error': str(err)}
         logger.debug(f'Ошибка при создании withdraw: {err}')
         return result
 
-# def check_asu_payment_for_card(card_number: str, status=(0, 1, 2, 3, 4, 5, 6, 7, 8), amount=''):
-#     """
-#     Возвращает список платежей с указанной картой, статусом и суммой
-#
-#     Parameters
-#     ----------
-#     card_number
-#     status
-#     amount
-#
-#     Returns
-#     -------
-#
-#     """
-#
-#     logger = log
-#     try:
-#         logger.debug(f'Проверка активных платежей по карте')
-#         token = get_asu_birpay_token()
-#         headers = {
-#             'Authorization': f'Bearer {token}'
-#         }
-#         status_query = ','.join([str(x) for x in status])
-#
-#         url = f'{settings.ASU_HOST}/api/v1/payments_archive/?pay_type=card_2&card_number={card_number}&status={status_query}&amount={amount}'
-#         logger.debug(f'url: {url}')
-#         response = requests.get(url, headers=headers)
-#         if response.status_code == 401:
-#             headers = {
-#                 'Authorization': f'Bearer {get_new_asu_birpay_token()}'
-#             }
-#             response = requests.get(url, headers=headers)
-#         logger.debug(f'активных платежей по карте response: {response} {response.reason} {response.text}')
-#         return response
-#     except Exception as err:
-#         logger.debug(f'Ошибка при создании payment: {err}')
 
-#
-# def gpt_response_check(data):
-#     logger = log
-#     try:
-#         logger.debug(f'Запрос GPT на asu-pay: {data}')
-#         token = get_asu_token()
-#         headers = {
-#             'Authorization': f'Bearer {token}'
-#         }
-#         url = f'{settings.ASU_HOST}/api/v2/gpt/check/'
-#         response = requests.post(url, json=data, headers=headers)
-#         if response.status_code == 401:
-#             headers = {
-#                 'Authorization': f'Bearer {get_new_asu_token()}'
-#             }
-#             response = requests.post(url, json=data, headers=headers)
-#
-#         logger.debug(f'response: {response} {response.reason} {response.text}')
-#         if response.status_code == 201:
-#             return response.json()
-#     except Exception as err:
-#         logger.debug(f'Ошибка при Запрос GPT на asu-pay: {err}')
+# ============================================================================
+# Функции для работы с Z-ASU аккаунтом
+# ============================================================================
+
+def get_z_asu_token() -> str:
+    """
+    Получение токена для Z-ASU аккаунта.
+    
+    Returns:
+        str: Access токен
+    """
+    return _z_asu_manager.get_token()
+
+
+def get_new_z_asu_token() -> str:
+    """
+    Получение нового токена для Z-ASU аккаунта.
+    
+    Returns:
+        str: Access токен
+    """
+    return _z_asu_manager.get_new_token()
+
+
+def create_z_asu_payment_v2(payment_data, card_data=None):
+    """
+    Создание платежа через API v2 для Z-ASU аккаунта.
+    
+    Args:
+        payment_data: Данные платежа
+        card_data: Данные карты (опционально)
+    
+    Returns:
+        dict: Результат создания платежа или None при ошибке
+    """
+    return create_payment_v2(payment_data, card_data, account_type=ASUAccountManager.ACCOUNT_Z_ASU)
+
+
+def send_z_asu_sms_code_v2(payment_id, sms_code, transaction_id=None):
+    """
+    Отправка SMS-кода через API v2 для Z-ASU аккаунта.
+    
+    Args:
+        payment_id: ID платежа
+        sms_code: SMS код
+        transaction_id: ID транзакции (опционально)
+    
+    Returns:
+        dict: Ответ от сервера или None при ошибке
+    """
+    return send_sms_code_v2(payment_id, sms_code, transaction_id, account_type=ASUAccountManager.ACCOUNT_Z_ASU)
+
+
+def create_z_asu_withdraw(withdraw_id, amount, card_data, target_phone, payload: dict):
+    """
+    Создание выплаты через ASU API для Z-ASU аккаунта.
+    
+    Args:
+        withdraw_id: ID выплаты
+        amount: Сумма
+        card_data: Данные карты
+        target_phone: Телефон получателя
+        payload: Дополнительные данные
+    
+    Returns:
+        dict: Результат создания выплаты
+    """
+    return create_asu_withdraw(withdraw_id, amount, card_data, target_phone, payload, account_type=ASUAccountManager.ACCOUNT_Z_ASU)
+
+
+# ============================================================================
+# Функции для логики Z-ASU
+# ============================================================================
+
+def should_send_to_z_asu(card_number: str) -> bool:
+    """
+    Проверка условия для отправки BirpayOrder на Z-ASU.
+    Логика Z-ASU: проверяет что номер карты равен 4111 1111 1111 1111.
+    
+    Args:
+        card_number: Номер карты (может содержать пробелы)
+    
+    Returns:
+        bool: True если нужно отправить на Z-ASU, False иначе
+    """
+    if not card_number:
+        return False
+    
+    # Убираем пробелы и дефисы для сравнения
+    cleaned_card = card_number.replace(' ', '').replace('-', '')
+    z_asu_test_card = '4111111111111111'
+    
+    return cleaned_card == z_asu_test_card
+
+
+def send_birpay_order_to_z_asu(birpay_order) -> dict:
+    """
+    Отправка BirpayOrder на ASU для Z-ASU.
+    Логика Z-ASU: отправляет данные BirpayOrder на специальный API endpoint ASU.
+    
+    Args:
+        birpay_order: Объект BirpayOrder
+    
+    Returns:
+        dict: Результат отправки с ключами:
+            - success: bool - успешность операции
+            - payment_id: int - ID созданного Payment (если успешно)
+            - error: str - описание ошибки (если неуспешно)
+    """
+    manager = _z_asu_manager
+    logger = manager.logger.bind(
+        birpay_order_id=birpay_order.id,
+        birpay_id=birpay_order.birpay_id,
+        card_number=birpay_order.card_number
+    )
+    
+    try:
+        logger.info('Отправка BirpayOrder на Z-ASU API')
+        
+        # Подготавливаем данные для отправки
+        request_data = {
+            'birpay_order_id': birpay_order.id,
+            'birpay_id': birpay_order.birpay_id,
+            'merchant_transaction_id': birpay_order.merchant_transaction_id,
+            'merchant_user_id': birpay_order.merchant_user_id,
+            'amount': float(birpay_order.amount),
+            'card_number': birpay_order.card_number,
+            'currency_code': 'AZN',
+        }
+        
+        # Отправляем на специальный endpoint для Z-ASU
+        url = f'{settings.ASU_HOST}/api/v2/z-asu/create-payment/'
+        response = manager.make_request('POST', url, json_data=request_data)
+        
+        logger.debug(f'Z-ASU API response: {response.status_code} {response.reason} {response.text}')
+        
+        if response.status_code == 201:
+            response_data = response.json()
+            payment_id = response_data.get('payment_id')
+            logger.info(f'Успешно создан Payment на Z-ASU: payment_id={payment_id}')
+            return {
+                'success': True,
+                'payment_id': payment_id,
+            }
+        else:
+            error_text = response.text or response.reason or 'Unknown error'
+            logger.error(f'Ошибка создания Payment на Z-ASU: {response.status_code} {error_text}')
+            return {
+                'success': False,
+                'error': f'HTTP {response.status_code}: {error_text}',
+            }
+            
+    except Exception as err:
+        logger.error(f'Исключение при отправке BirpayOrder на Z-ASU: {err}', exc_info=True)
+        return {
+            'success': False,
+            'error': str(err),
+        }
+
+
+def confirm_z_asu_transaction(merchant_transaction_id: str) -> dict:
+    """
+    Подтверждение транзакции на Z-ASU API.
+    Логика Z-ASU: подтверждает транзакцию по merchant_transaction_id через Z-ASU API endpoint.
+    Endpoint сам ищет Payment через ORM и подтверждает его.
+    
+    Args:
+        merchant_transaction_id: merchant_transaction_id (order_id) из BirpayOrder
+    
+    Returns:
+        dict: Результат подтверждения с ключами:
+            - success: bool - успешность операции
+            - payment_id: str - UUID Payment (если успешно)
+            - error: str - описание ошибки (если неуспешно)
+    """
+    manager = _z_asu_manager
+    logger = manager.logger.bind(
+        merchant_transaction_id=merchant_transaction_id,
+        z_asu_api=True
+    )
+    
+    try:
+        logger.info(f'Подтверждение транзакции {merchant_transaction_id} на Z-ASU API')
+        
+        # Подготавливаем данные для подтверждения транзакции
+        request_data = {
+            'merchant_transaction_id': merchant_transaction_id,
+        }
+        
+        # Отправляем на endpoint для подтверждения транзакции
+        # Endpoint сам найдет Payment через ORM по order_id и source='z_asu'
+        url = f'{settings.ASU_HOST}/api/v2/z-asu/confirm-transaction/'
+        response = manager.make_request('POST', url, json_data=request_data)
+        
+        logger.debug(f'Z-ASU API confirm-transaction response: {response.status_code} {response.reason} {response.text}')
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            payment_id = response_data.get('payment_id')
+            logger.info(f'Успешно подтверждена транзакция на Z-ASU: merchant_transaction_id={merchant_transaction_id}, payment_id={payment_id}')
+            return {
+                'success': True,
+                'payment_id': payment_id,
+            }
+        else:
+            error_text = response.text or response.reason or 'Unknown error'
+            logger.error(f'Ошибка подтверждения транзакции на Z-ASU: {response.status_code} {error_text}')
+            return {
+                'success': False,
+                'error': f'HTTP {response.status_code}: {error_text}',
+            }
+            
+    except Exception as err:
+        logger.error(f'Исключение при подтверждении транзакции на Z-ASU: {err}', exc_info=True)
+        return {
+            'success': False,
+            'error': str(err),
+        }
 
 
 if __name__ == '__main__':
     pass
-    # x = check_asu_payment_for_card('4169738826837498')
-    # print(x)

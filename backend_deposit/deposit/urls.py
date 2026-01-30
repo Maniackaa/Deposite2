@@ -9,10 +9,10 @@ app_name = 'deposit'
 urlpatterns = [
     # Главная страница
     path('', views.incoming_list, name='incomings'),
+    path('index/', views.incoming_list, name='index'),  # Алиас для совместимости
     # path('', views.home, name='index'),
     # path('deposit_confirm/<str:phone>/<int:pay>/', views.deposit_confirm, name='deposit_confirm'),
     # path('deposit_confirm/', views.deposit_confirm, name='confirm'),
-    # path('index', views.index, name='index'),
     # path('deposits/', DepositList.as_view(), name='deposits'),
     # path(r'^page(?P<page>\d+)/$', DepositList.as_view(), name='deposits'),
     # path('deposit_created/', views.deposit_created, name='created'),
@@ -81,6 +81,12 @@ urlpatterns = [
     path('requisite-zajon/', views.RequsiteZajonListView.as_view(), name='requisite_zajon_list'),
     path('requisite-zajon/<int:pk>/', views.RequsiteZajonUpdateView.as_view(), name='requisite_zajon_edit'),
     path('requisite-zajon/<int:pk>/toggle-active/', views.RequsiteZajonToggleActiveView.as_view(), name='requisite_zajon_toggle_active'),
+    
+    # Тестовая страница для создания BirpayOrder (только для суперюзера)
+    path('birpay_orders/create/', views.BirpayOrderCreateView.as_view(), name='birpay_order_create'),
+    
+    # Страница управления Z-ASU (только для суперюзера)
+    path('z-asu-management/', views.ZASUManagementView.as_view(), name='z_asu_management'),
 ]
 
 
