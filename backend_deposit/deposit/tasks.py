@@ -21,7 +21,7 @@ from urllib3 import Retry, PoolManager
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from core.asu_pay_func import create_asu_withdraw, create_payment_v2, \
-    send_sms_code_v2, should_send_to_z_asu, send_birpay_order_to_z_asu
+    send_sms_code_v2, should_send_to_z_asu, send_birpay_order_to_z_asu, confirm_z_asu_transaction
 from core.birpay_func import get_birpay_withdraw, find_birpay_from_id, get_birpays, approve_birpay_refill
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ, Timer, mask_compare
@@ -898,3 +898,48 @@ def check_cards_activity():
         logger.error(f'Ошибка при проверке активности карт: {err}')
         send_message_tg(f'Ошибка при проверке активности карт: {err}', settings.ALARM_IDS)
         return f"Ошибка: {err}"
+
+
+@shared_task(priority=2, time_limit=30, max_retries=3)
+def confirm_z_asu_transaction_task(merchant_transaction_id):
+    """
+    Асинхронная задача для подтверждения транзакции на ASU.
+    Логика Z-ASU: подтверждает Payment в системе Payment после успешного подтверждения в birpay.
+    
+    Args:
+        merchant_transaction_id: ID транзакции (order_id) для поиска Payment
+    
+    Returns:
+        dict: Результат подтверждения с ключами success, payment_id или error
+    """
+    try:
+        # Очищаем контекст в начале задачи
+        clear_contextvars()
+        # Устанавливаем контекст с merchant_transaction_id
+        bind_contextvars(merchant_transaction_id=merchant_transaction_id, z_asu_api=True)
+        
+        logger.info(f'Логика Z-ASU: асинхронное подтверждение транзакции {merchant_transaction_id} на ASU')
+        
+        # Вызываем синхронную функцию подтверждения
+        result = confirm_z_asu_transaction(merchant_transaction_id)
+        
+        if result.get('success'):
+            payment_id = result.get('payment_id', 'N/A')
+            logger.info(f'Логика Z-ASU: транзакция {merchant_transaction_id} успешно подтверждена на ASU (Payment {payment_id})')
+        else:
+            error_msg = result.get('error', 'Unknown error')
+            logger.error(f'Логика Z-ASU: ошибка подтверждения транзакции {merchant_transaction_id} на ASU: {error_msg}')
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f'Логика Z-ASU: исключение при подтверждении транзакции {merchant_transaction_id} на ASU: {e}', exc_info=True)
+        # Очищаем контекст при ошибке
+        clear_contextvars()
+        return {
+            'success': False,
+            'error': str(e),
+        }
+    finally:
+        # Очищаем контекст после завершения
+        clear_contextvars()

@@ -2052,34 +2052,6 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                             text = f"Заявка {order} mtx_id {order.merchant_transaction_id} подтверждена в birpay с суммой {order.amount}"
                             logger.info(text)
                             
-                            # Логика Z-ASU: после успешного подтверждения в birpay апрувим на ASU
-                            asu_approve_success = None
-                            asu_approve_message = ''
-                            if should_send_to_z_asu(order.card_number):
-                                logger.info(f'Логика Z-ASU: заявка {order.merchant_transaction_id} требует подтверждения на ASU')
-                                try:
-                                    # Подтверждаем транзакцию на ASU через новый endpoint
-                                    # Endpoint сам найдет Payment через ORM по merchant_transaction_id
-                                    confirm_result = confirm_z_asu_transaction(order.merchant_transaction_id)
-                                    if confirm_result.get('success'):
-                                        asu_approve_success = True
-                                        payment_id = confirm_result.get('payment_id', 'N/A')
-                                        asu_approve_message = f' успешно апрувнуто на ASU (Payment {payment_id})'
-                                        logger.info(f'Логика Z-ASU: транзакция {order.merchant_transaction_id} успешно подтверждена на ASU (Payment {payment_id})')
-                                    else:
-                                        asu_approve_success = False
-                                        error_msg = confirm_result.get('error', 'Unknown error')
-                                        asu_approve_message = f' ошибка апрува на ASU: {error_msg}'
-                                        logger.error(f'Логика Z-ASU: ошибка подтверждения транзакции {order.merchant_transaction_id} на ASU: {error_msg}')
-                                except Exception as e:
-                                    asu_approve_success = False
-                                    asu_approve_message = f' исключение при апруве на ASU: {str(e)}'
-                                    logger.error(f'Логика Z-ASU: исключение при подтверждении на ASU: {e}', exc_info=True)
-                            
-                            # Добавляем информацию об апруве на ASU в сообщение
-                            if asu_approve_message:
-                                text += asu_approve_message
-                            
                             messages.add_message(request, messages.INFO, text)
                             order.status = 1
                             order.status_internal = 1
@@ -2097,6 +2069,31 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                                 incoming_to_approve.merchant_user_id = order.merchant_user_id
                                 incoming_to_approve.save()
                                 logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')
+                            
+                            # Логика Z-ASU: после успешного подтверждения в birpay и сохранения заявки апрувим на ASU
+                            # Выполняем в конце, чтобы не блокировать основную транзакцию при недоступности сервера ASU
+                            asu_approve_message = ''
+                            if should_send_to_z_asu(order.card_number):
+                                logger.info(f'Логика Z-ASU: заявка {order.merchant_transaction_id} требует подтверждения на ASU')
+                                try:
+                                    # Подтверждаем транзакцию на ASU через новый endpoint
+                                    # Endpoint сам найдет Payment через ORM по merchant_transaction_id
+                                    confirm_result = confirm_z_asu_transaction(order.merchant_transaction_id)
+                                    if confirm_result.get('success'):
+                                        payment_id = confirm_result.get('payment_id', 'N/A')
+                                        asu_approve_message = f' успешно апрувнуто на ASU (Payment {payment_id})'
+                                        logger.info(f'Логика Z-ASU: транзакция {order.merchant_transaction_id} успешно подтверждена на ASU (Payment {payment_id})')
+                                    else:
+                                        error_msg = confirm_result.get('error', 'Unknown error')
+                                        asu_approve_message = f' ошибка апрува на ASU: {error_msg}'
+                                        logger.error(f'Логика Z-ASU: ошибка подтверждения транзакции {order.merchant_transaction_id} на ASU: {error_msg}')
+                                except Exception as e:
+                                    asu_approve_message = f' исключение при апруве на ASU: {str(e)}'
+                                    logger.error(f'Логика Z-ASU: исключение при подтверждении на ASU: {e}', exc_info=True)
+                            
+                            # Добавляем информацию об апруве на ASU в сообщение
+                            if asu_approve_message:
+                                messages.add_message(request, messages.INFO, text + asu_approve_message)
 
             # Очищаем контекст после завершения обработки заказа
             clear_contextvars()
