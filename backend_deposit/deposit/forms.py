@@ -389,9 +389,9 @@ class BirpayOrderCreateForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Устанавливаем значения по умолчанию для дат, если форма новая
+        # Устанавливаем значения по умолчанию для дат (+3 часа для тестовой заявки), если форма новая
         if not self.instance.pk:
-            now = timezone.now()
+            now = timezone.now() + datetime.timedelta(hours=3)
             # Форматируем дату для datetime-local input
             now_str = now.strftime('%Y-%m-%dT%H:%M')
             self.fields['created_at'].initial = now_str
@@ -455,11 +455,12 @@ class BirpayOrderCreateForm(forms.ModelForm):
     def save(self, commit=True):
         instance = super().save(commit=False)
         
-        # Если даты не заполнены, устанавливаем текущее время
+        # Если даты не заполнены, устанавливаем текущее время +3 часа (для тестовой заявки)
+        now_plus_3h = timezone.now() + datetime.timedelta(hours=3)
         if not instance.created_at:
-            instance.created_at = timezone.now()
+            instance.created_at = now_plus_3h
         if not instance.updated_at:
-            instance.updated_at = timezone.now()
+            instance.updated_at = now_plus_3h
         
         # Создаем raw_data в формате, похожем на данные от Birpay API
         raw_data = {

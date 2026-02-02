@@ -2544,23 +2544,34 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
     success_url = reverse_lazy('deposit:birpay_orders')
     
     def form_valid(self, form):
-        # Сохраняем форму (это создаст объект и присвоит ему ID)
-        response = super().form_valid(form)
-        order = form.instance
-        
-        # Устанавливаем sended_at и status_internal для отображения в birpay_panel
-        now = timezone.now()
-        update_fields = []
-        if not order.sended_at:
-            order.sended_at = now
-            update_fields.append('sended_at')
-        if order.status_internal is None or order.status_internal not in [0, 1]:
-            order.status_internal = 0
-            update_fields.append('status_internal')
-        if update_fields:
-            order.save(update_fields=update_fields)
-            logger.debug(f'Установлены поля для отображения в birpay_panel: {update_fields}')
-        
+        # Сохраняем заявку в БД в отдельной транзакции, чтобы последующие шаги
+        # (чек, Z-ASU) не могли откатить сохранение при ошибке.
+        with transaction.atomic():
+            response = super().form_valid(form)
+            order = form.instance
+            if not order.pk:
+                messages.error(self.request, 'Ошибка: заявка не была сохранена (нет ID).')
+                return response
+        # Транзакция закоммичена — BirpayOrder уже в БД.
+
+        # Дополнительные шаги не должны откатывать создание заявки — оборачиваем в try/except
+        try:
+            # Устанавливаем sended_at и status_internal для отображения в birpay_panel
+            now = timezone.now()
+            update_fields = []
+            if not order.sended_at:
+                order.sended_at = now
+                update_fields.append('sended_at')
+            if order.status_internal is None or order.status_internal not in [0, 1]:
+                order.status_internal = 0
+                update_fields.append('status_internal')
+            if update_fields:
+                order.save(update_fields=update_fields)
+                logger.debug(f'Установлены поля для отображения в birpay_panel: {update_fields}')
+        except Exception as err:
+            logger.exception('Ошибка при установке sended_at/status_internal для BirpayOrder %s', order.pk, exc_info=True)
+            messages.warning(self.request, f'Заявка создана, но не удалось обновить поля: {err}')
+
         # Если указан URL чека и файл еще не скачан, скачиваем синхронно (для тестовых заявок)
         if order.check_file_url:
             log = logger.bind(
@@ -2571,13 +2582,11 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
                 check_file_failed=order.check_file_failed,
             )
             log.debug('Проверка необходимости скачивания чека')
-            
             if not order.check_file and not order.check_file_failed:
                 try:
                     log.info('Скачивание чека для тестовой заявки синхронно')
                     result = _download_birpay_check_file_sync(order.id, order.check_file_url)
                     log.info('Чек успешно скачан', result=result)
-                    # Обновляем объект из БД, чтобы получить актуальные данные
                     order.refresh_from_db()
                     log.info('Объект обновлен из БД', check_file_exists=bool(order.check_file))
                 except Exception as err:
@@ -2587,7 +2596,7 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
                 log.debug('Чек уже скачан или скачивание уже было неудачным', 
                          has_check_file=bool(order.check_file), 
                          check_file_failed=order.check_file_failed)
-        
+
         # Логика Z-ASU: проверка условия и отправка на ASU
         logger.debug(f"Проверка Z-ASU для BirpayOrder {order.birpay_id}: card_number={order.card_number}")
         if order.card_number:
@@ -2600,7 +2609,6 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
                     if result.get('success'):
                         payment_id = result.get('payment_id')
                         logger.info(f"BirpayOrder {order.birpay_id} успешно отправлен на Z-ASU, payment_id={payment_id}")
-                        # Сохраняем payment_id в BirpayOrder
                         order.payment_id = payment_id
                         order.save(update_fields=['payment_id'])
                         messages.success(self.request, f'Заявка отправлена на Z-ASU! Payment ID: {payment_id}')
@@ -2614,7 +2622,8 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
                 logger.debug(f"BirpayOrder {order.birpay_id} не соответствует условию Z-ASU (card_number={order.card_number})")
         else:
             logger.debug(f"BirpayOrder {order.birpay_id} не имеет card_number, пропускаем Z-ASU")
-        
+
+        # Сообщение об успехе только после гарантированного сохранения в БД
         messages.success(self.request, f'BirpayOrder успешно создан! ID: {order.id}, birpay_id: {order.birpay_id}')
         return response
 
