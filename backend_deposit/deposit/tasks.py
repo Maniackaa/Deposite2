@@ -409,11 +409,14 @@ def send_new_transactions_from_birpay_to_asu():
     return results
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=1, priority=2, soft_time_limit=20)
-def download_birpay_check_file(self, order_id, check_file_url):
+def _download_birpay_check_file_sync(order_id, check_file_url):
+    """
+    Синхронная функция скачивания чека для тестовых заявок.
+    Выполняет ту же логику, что и Celery задача, но без retry и delay.
+    """
     from deposit.models import BirpayOrder
     try:
-        # Очищаем контекст в начале задачи
+        # Очищаем контекст в начале
         clear_contextvars()
         order = BirpayOrder.objects.get(id=order_id)
         # Устанавливаем контекст со всеми идентификаторами BirpayOrder
@@ -427,7 +430,7 @@ def download_birpay_check_file(self, order_id, check_file_url):
             file_content = response.content
             suffix_path = urlparse(check_file_url).path
             ext = PurePosixPath(suffix_path).suffix.lower()
-            suffix =  ext if ext else ".jpg"
+            suffix = ext if ext else ".jpg"
             filename = f'{order.merchant_transaction_id}_{order.amount}_azn.{suffix}'
             order.check_file.save(filename, ContentFile(file_content), save=True)
             order.check_file_failed = False
@@ -456,9 +459,26 @@ def download_birpay_check_file(self, order_id, check_file_url):
             clear_contextvars()
             raise Exception(f"Failed: status={response.status_code}")
     except Exception as exc:
+        order = BirpayOrder.objects.get(id=order_id)
+        order.check_file_failed = True
+        order.save(update_fields=['check_file_failed'])
+        clear_contextvars()
+        raise exc
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=1, priority=2, soft_time_limit=20)
+def download_birpay_check_file(self, order_id, check_file_url):
+    """
+    Celery задача для скачивания чека (асинхронно).
+    Использует синхронную функцию _download_birpay_check_file_sync с retry логикой.
+    """
+    try:
+        return _download_birpay_check_file_sync(order_id, check_file_url)
+    except Exception as exc:
         try:
             self.retry(exc=exc)
         except self.MaxRetriesExceededError:
+            from deposit.models import BirpayOrder
             order = BirpayOrder.objects.get(id=order_id)
             order.check_file_failed = True
             order.save(update_fields=['check_file_failed'])

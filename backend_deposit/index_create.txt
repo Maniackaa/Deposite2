@@ -1,0 +1,98 @@
+-- BirpayOrder
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_birpay_id ON public.deposit_birpayorder(birpay_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_sended_at ON public.deposit_birpayorder(sended_at);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_created_at ON public.deposit_birpayorder(created_at);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_updated_at ON public.deposit_birpayorder(updated_at);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_merchant_transaction_id ON public.deposit_birpayorder(merchant_transaction_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_merchant_user_id ON public.deposit_birpayorder(merchant_user_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_card_number ON public.deposit_birpayorder(card_number);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_sender ON public.deposit_birpayorder(sender);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_check_hash ON public.deposit_birpayorder(check_hash);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_status ON public.deposit_birpayorder(status);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_status_internal ON public.deposit_birpayorder(status_internal);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_confirmed_operator_id ON public.deposit_birpayorder(confirmed_operator_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_confirmed_time ON public.deposit_birpayorder(confirmed_time);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_amount ON public.deposit_birpayorder(amount);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_operator ON public.deposit_birpayorder(operator);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_incomingsms_id ON public.deposit_birpayorder(incomingsms_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_incoming_id ON public.deposit_birpayorder(incoming_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_birpayorder_payment_id ON public.deposit_birpayorder(payment_id);
+
+-- Incoming
+CREATE INDEX IF NOT EXISTS idx_deposit_incoming_register_date ON public.deposit_incoming(register_date);
+CREATE INDEX IF NOT EXISTS idx_deposit_incoming_response_date ON public.deposit_incoming(response_date);
+CREATE INDEX IF NOT EXISTS idx_deposit_incoming_pay ON public.deposit_incoming(pay);
+CREATE INDEX IF NOT EXISTS idx_deposit_incoming_birpay_id ON public.deposit_incoming(birpay_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_incoming_merchant_user_id ON public.deposit_incoming(merchant_user_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_incoming_prev_balance ON public.deposit_incoming(prev_balance);
+
+-- IncomingCheck
+CREATE INDEX IF NOT EXISTS idx_deposit_incomingcheck_incoming_id ON public.deposit_incomingcheck(incoming_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_incomingcheck_birpay_id ON public.deposit_incomingcheck(birpay_id);
+
+-- IncomingChange
+CREATE INDEX IF NOT EXISTS idx_deposit_incomingchange_incoming_id ON public.deposit_incomingchange(incoming_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_incomingchange_user_id ON public.deposit_incomingchange(user_id);
+
+-- CardMonitoringStatus
+CREATE INDEX IF NOT EXISTS idx_deposit_cardmonitoringstatus_card_number ON public.deposit_cardmonitoringstatus(card_number);
+
+-- RequsiteZajon
+CREATE INDEX IF NOT EXISTS idx_deposit_requsitezajon_active ON public.deposit_requsitezajon(active);
+CREATE INDEX IF NOT EXISTS idx_deposit_requsitezajon_agent_id ON public.deposit_requsitezajon(agent_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_requsitezajon_works_on_asu ON public.deposit_requsitezajon(works_on_asu);
+
+-- TrashIncoming
+CREATE INDEX IF NOT EXISTS idx_deposit_trashincoming_register_date ON public.deposit_trashincoming(register_date);
+
+-- Bank
+CREATE INDEX IF NOT EXISTS idx_deposit_bank_name ON public.deposit_bank(name);
+
+-- BadScreen
+CREATE INDEX IF NOT EXISTS idx_deposit_badscreen_incoming_time ON public.deposit_badscreen(incoming_time);
+CREATE INDEX IF NOT EXISTS idx_deposit_badscreen_transaction ON public.deposit_badscreen(transaction);
+
+-- ColorBank
+CREATE INDEX IF NOT EXISTS idx_deposit_colorbank_name ON public.deposit_colorbank(name);
+
+-- CreditCard
+CREATE INDEX IF NOT EXISTS idx_deposit_creditcard_name ON public.deposit_creditcard(name);
+CREATE INDEX IF NOT EXISTS idx_deposit_creditcard_number ON public.deposit_creditcard(number);
+
+-- UmTransaction
+CREATE INDEX IF NOT EXISTS idx_deposit_umtransaction_order_id ON public.deposit_umtransaction(order_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_umtransaction_payment_id ON public.deposit_umtransaction(payment_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_umtransaction_create_at ON public.deposit_umtransaction(create_at);
+
+-- WithdrawTransaction
+CREATE INDEX IF NOT EXISTS idx_deposit_withdrawtransaction_withdraw_id ON public.deposit_withdrawtransaction(withdraw_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_withdrawtransaction_create_at ON public.deposit_withdrawtransaction(create_at);
+
+-- Message
+CREATE INDEX IF NOT EXISTS idx_deposit_message_author_id ON public.deposit_message(author_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_message_created ON public.deposit_message(created);
+
+-- MessageRead
+CREATE INDEX IF NOT EXISTS idx_deposit_messageread_message_id ON public.deposit_messageread(message_id);
+CREATE INDEX IF NOT EXISTS idx_deposit_messageread_user_id ON public.deposit_messageread(user_id);
+
+-- Setting
+CREATE INDEX IF NOT EXISTS idx_deposit_setting_name ON public.deposit_setting(name);
+
+-- Обновить статистику планировщика (после создания индексов)
+ANALYZE public.deposit_birpayorder;
+ANALYZE public.deposit_incoming;
+ANALYZE public.deposit_incomingcheck;
+ANALYZE public.deposit_incomingchange;
+ANALYZE public.deposit_cardmonitoringstatus;
+ANALYZE public.deposit_requsitezajon;
+ANALYZE public.deposit_trashincoming;
+ANALYZE public.deposit_bank;
+ANALYZE public.deposit_badscreen;
+ANALYZE public.deposit_colorbank;
+ANALYZE public.deposit_creditcard;
+ANALYZE public.deposit_umtransaction;
+ANALYZE public.deposit_withdrawtransaction;
+ANALYZE public.deposit_message;
+ANALYZE public.deposit_messageread;
+ANALYZE public.deposit_setting;

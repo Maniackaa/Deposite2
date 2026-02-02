@@ -60,7 +60,7 @@ from deposit.forms import (
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
 from deposit.tasks import check_incoming, refresh_birpay_data, \
-    send_image_to_gpt_task, download_birpay_check_file
+    send_image_to_gpt_task, download_birpay_check_file, _download_birpay_check_file_sync
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import (
@@ -2548,13 +2548,45 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
         response = super().form_valid(form)
         order = form.instance
         
-        # Если указан URL чека и файл еще не скачан, запускаем задачу скачивания
-        if order.check_file_url and not order.check_file and not order.check_file_failed:
-            # Обновляем флаг перед запуском задачи
-            BirpayOrder.objects.filter(id=order.id).update(check_file_failed=True)
-            # Запускаем задачу скачивания чека
-            download_birpay_check_file.delay(order.id, order.check_file_url)
-            logger.info(f'Задача на скачивание файла для заказа {order.birpay_id} отправлена в celery.')
+        # Устанавливаем sended_at и status_internal для отображения в birpay_panel
+        now = timezone.now()
+        update_fields = []
+        if not order.sended_at:
+            order.sended_at = now
+            update_fields.append('sended_at')
+        if order.status_internal is None or order.status_internal not in [0, 1]:
+            order.status_internal = 0
+            update_fields.append('status_internal')
+        if update_fields:
+            order.save(update_fields=update_fields)
+            logger.debug(f'Установлены поля для отображения в birpay_panel: {update_fields}')
+        
+        # Если указан URL чека и файл еще не скачан, скачиваем синхронно (для тестовых заявок)
+        if order.check_file_url:
+            log = logger.bind(
+                birpay_id=order.birpay_id,
+                order_id=order.id,
+                check_file_url=order.check_file_url,
+                has_check_file=bool(order.check_file),
+                check_file_failed=order.check_file_failed,
+            )
+            log.debug('Проверка необходимости скачивания чека')
+            
+            if not order.check_file and not order.check_file_failed:
+                try:
+                    log.info('Скачивание чека для тестовой заявки синхронно')
+                    result = _download_birpay_check_file_sync(order.id, order.check_file_url)
+                    log.info('Чек успешно скачан', result=result)
+                    # Обновляем объект из БД, чтобы получить актуальные данные
+                    order.refresh_from_db()
+                    log.info('Объект обновлен из БД', check_file_exists=bool(order.check_file))
+                except Exception as err:
+                    log.error('Ошибка скачивания чека', exc_info=True, error=str(err))
+                    messages.warning(self.request, f'Не удалось скачать чек: {str(err)}')
+            else:
+                log.debug('Чек уже скачан или скачивание уже было неудачным', 
+                         has_check_file=bool(order.check_file), 
+                         check_file_failed=order.check_file_failed)
         
         # Логика Z-ASU: проверка условия и отправка на ASU
         logger.debug(f"Проверка Z-ASU для BirpayOrder {order.birpay_id}: card_number={order.card_number}")
