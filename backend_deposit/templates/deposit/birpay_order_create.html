@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% block title %}Создание тестового BirpayOrder{% endblock %}
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+<div class="container mt-4">
+    <h1 class="mb-3">Создание тестового BirpayOrder</h1>
+    <p class="text-muted">⚠️ Только для суперюзера. Используйте для создания тестовых заявок.</p>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="post" class="needs-validation" novalidate>
+                {% csrf_token %}
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.birpay_id.id_for_label }}" class="form-label">
+                            Birpay ID <span class="text-danger">*</span>
+                        </label>
+                        {{ form.birpay_id }}
+                        {% if form.birpay_id.errors %}
+                            <div class="text-danger small">{{ form.birpay_id.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">Уникальный ID из Birpay (генерируется автоматически случайным образом)</small>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="{{ form.merchant_transaction_id.id_for_label }}" class="form-label">
+                            Merchant Transaction ID <span class="text-danger">*</span>
+                        </label>
+                        {{ form.merchant_transaction_id }}
+                        {% if form.merchant_transaction_id.errors %}
+                            <div class="text-danger small">{{ form.merchant_transaction_id.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">ID транзакции мерчанта (генерируется автоматически)</small>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.merchant_user_id.id_for_label }}" class="form-label">
+                            Merchant User ID <span class="text-danger">*</span>
+                        </label>
+                        {{ form.merchant_user_id }}
+                        {% if form.merchant_user_id.errors %}
+                            <div class="text-danger small">{{ form.merchant_user_id.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">ID пользователя мерчанта (генерируется автоматически, макс. 16 символов)</small>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="{{ form.amount.id_for_label }}" class="form-label">
+                            Сумма <span class="text-danger">*</span>
+                        </label>
+                        {{ form.amount }}
+                        {% if form.amount.errors %}
+                            <div class="text-danger small">{{ form.amount.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">Сумма платежа (по умолчанию: 100.0)</small>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.status.id_for_label }}" class="form-label">
+                            Статус <span class="text-danger">*</span>
+                        </label>
+                        {{ form.status }}
+                        {% if form.status.errors %}
+                            <div class="text-danger small">{{ form.status.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">0 - Pending, 1 - Approved, 2 - Declined</small>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="{{ form.operator.id_for_label }}" class="form-label">
+                            Оператор
+                        </label>
+                        {{ form.operator }}
+                        {% if form.operator.errors %}
+                            <div class="text-danger small">{{ form.operator.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">Логин оператора Birpay</small>
+                    </div>
+                </div>
+
+                {# Поля дат скрыты и заполняются автоматически текущим временем #}
+                {{ form.created_at }}
+                {{ form.updated_at }}
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.merchant_name.id_for_label }}" class="form-label">
+                            Название мерчанта
+                        </label>
+                        {{ form.merchant_name }}
+                        {% if form.merchant_name.errors %}
+                            <div class="text-danger small">{{ form.merchant_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="{{ form.customer_name.id_for_label }}" class="form-label">
+                            Имя клиента
+                        </label>
+                        {{ form.customer_name }}
+                        {% if form.customer_name.errors %}
+                            <div class="text-danger small">{{ form.customer_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.card_number.id_for_label }}" class="form-label">
+                            Номер карты
+                        </label>
+                        {{ form.card_number }}
+                        {% if form.card_number.errors %}
+                            <div class="text-danger small">{{ form.card_number.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">16 цифр (пробелы и дефисы будут удалены). По умолчанию: 4111 1111 1111 1111</small>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="{{ form.check_file_url.id_for_label }}" class="form-label">
+                            URL чека
+                        </label>
+                        {{ form.check_file_url }}
+                        {% if form.check_file_url.errors %}
+                            <div class="text-danger small">{{ form.check_file_url.errors|striptags }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">URL изображения чека для скачивания. По умолчанию: http://127.0.0.1:8002/media/screens/574545888_from_R13_703695562.jpg</small>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">Создать BirpayOrder</button>
+                    <a href="{% url 'deposit:birpay_orders' %}" class="btn btn-outline-secondary">Назад к списку</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Справка</h5>
+        </div>
+        <div class="card-body">
+            <ul class="mb-0">
+                <li><strong>Birpay ID:</strong> Генерируется автоматически случайным образом (максимальный существующий + случайное число от 1 до 1000).</li>
+                <li><strong>Merchant Transaction ID:</strong> Генерируется автоматически на основе birpay_id (100000 + birpay_id).</li>
+                <li><strong>Merchant User ID:</strong> Генерируется автоматически случайной строкой из 12 символов (буквы и цифры).</li>
+                <li><strong>Сумма:</strong> По умолчанию 100.0.</li>
+                <li><strong>Даты создания и обновления:</strong> Автоматически заполняются текущим временем.</li>
+                <li><strong>Номер карты:</strong> По умолчанию "4111 1111 1111 1111".</li>
+                <li><strong>URL чека:</strong> По умолчанию "http://127.0.0.1:8002/media/screens/574545888_from_R13_703695562.jpg".</li>
+                <li><strong>Статус:</strong> 0 - ожидает подтверждения, 1 - подтвержден, 2 - отклонен.</li>
+                <li><strong>Raw Data:</strong> Автоматически создается на основе заполненных полей в формате, похожем на данные от Birpay API.</li>
+                <li><strong>Sender:</strong> Автоматически заполняется последними 4 цифрами номера карты.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -2,6 +2,7 @@ import base64
 import datetime
 import io
 import json
+import re
 import uuid
 from http import HTTPStatus
 from tempfile import NamedTemporaryFile
@@ -35,34 +36,7 @@ from matplotlib import pyplot as plt
 from rest_framework.views import APIView
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from core.asu_pay_func import create_asu_withdraw
-
-
-def add_balance_mismatch_flag(incoming):
-    """Добавляет атрибут balance_mismatch к объекту incoming для проверки несовпадения баланса после округления до 0.1"""
-    try:
-        if incoming.check_balance is not None and incoming.balance is not None:
-            check_rounded = round(float(incoming.check_balance) * 10) / 10
-            balance_rounded = round(float(incoming.balance) * 10) / 10
-            incoming.balance_mismatch = check_rounded != balance_rounded
-        else:
-            incoming.balance_mismatch = False
-    except (ValueError, TypeError, AttributeError) as e:
-        incoming.balance_mismatch = False
-        logger.error(f'add_balance_mismatch_flag: ошибка для incoming.id={incoming.id}: {e}')
-    return incoming
-from core.birpay_func import (
-    get_birpay_withdraw,
-    get_new_token,
-    approve_birpay_withdraw,
-    decline_birpay_withdraw,
-    get_birpays,
-    change_amount_birpay,
-    approve_birpay_refill,
-    get_payment_requisite_data,
-    update_payment_requisite_data,
-    set_payment_requisite_active,
-)
+from core.asu_pay_func import create_asu_withdraw, should_send_to_z_asu, send_birpay_order_to_z_asu, confirm_z_asu_transaction
 from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.global_func import TZ, mask_compare, send_message_tg
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
@@ -79,6 +53,7 @@ from deposit.forms import (
     AssignCardsToUserForm,
     MoshennikListForm,
     PainterListForm,
+    BirpayOrderCreateForm,
     OperatorStatsDayForm,
     RequsiteZajonForm,
 )
@@ -101,6 +76,20 @@ from deposit.models import (
     Bank,
     RequsiteZajon,
 )
+
+from core.birpay_func import (
+    get_birpay_withdraw,
+    get_new_token,
+    approve_birpay_withdraw,
+    decline_birpay_withdraw,
+    get_birpays,
+    change_amount_birpay,
+    approve_birpay_refill,
+    get_payment_requisite_data,
+    update_payment_requisite_data,
+    set_payment_requisite_active,
+)
+
 from users.models import Options
 
 logger = structlog.get_logger('deposit')
@@ -111,6 +100,22 @@ User = get_user_model()
 
 REQUIRED_REFILL_METHOD_ID = 127
 REQUIRED_REFILL_METHOD_NAME = 'AZN_azcashier_5_birpay'
+
+
+def add_balance_mismatch_flag(incoming):
+    """Добавляет атрибут balance_mismatch к объекту incoming для проверки несовпадения баланса после округления до 0.1"""
+    try:
+        if incoming.check_balance is not None and incoming.balance is not None:
+            check_rounded = round(float(incoming.check_balance) * 10) / 10
+            balance_rounded = round(float(incoming.balance) * 10) / 10
+            incoming.balance_mismatch = check_rounded != balance_rounded
+        else:
+            incoming.balance_mismatch = False
+    except (ValueError, TypeError, AttributeError) as e:
+        incoming.balance_mismatch = False
+        logger.error(f'add_balance_mismatch_flag: ошибка для incoming.id={incoming.id}: {e}')
+    return incoming
+
 
 
 def _has_requisite_access(user) -> bool:
@@ -140,6 +145,26 @@ def _has_required_method(refill_methods):
         ):
             return True
     return False
+
+
+def extract_card_number_digits(card_number_str):
+    """
+    Извлекает только цифры из строки номера карты.
+    Удаляет все нецифровые символы (пробелы, буквы, знаки препинания).
+    Обрезает результат до 32 символов (максимальная длина поля card_number).
+    
+    Args:
+        card_number_str: Строка с номером карты (может содержать дополнительный текст)
+    
+    Returns:
+        str: Только цифры из строки (максимум 32 символа)
+    """
+    if not card_number_str:
+        return ''
+    # Извлекаем только цифры
+    digits_only = re.sub(r'\D', '', str(card_number_str))
+    # Обрезаем до максимальной длины поля (32 символа)
+    return digits_only[:32]
 
 
 def sync_requsite_zajon():
@@ -182,6 +207,7 @@ def sync_requsite_zajon():
                 logger.warning('Пропущена запись без id', row=row)
                 continue
 
+            # logger.info(f'{row}')
             existing = existing_map.get(pk)
 
             created_at = _parse_iso_datetime(row.get('createdAt')) or timezone.now()
@@ -191,14 +217,29 @@ def sync_requsite_zajon():
             payload_data = row.get('payload') or {}
             payload_copy = dict(payload_data)
 
+            # Получаем сырое значение card_number из payload (может содержать дополнительный текст)
+            raw_card_number = payload_copy.get('card_number', '') or ''
+            
             if existing and not remote_changed:
-                card_number_value = existing.card_number
+                # Для существующих записей без изменений на сервере:
+                # Если сырое значение есть в payload, пересчитываем card_number из него
+                # Иначе сохраняем текущее значение card_number
+                if raw_card_number:
+                    # Пересчитываем card_number из сырого значения для синхронизации
+                    card_number_value = extract_card_number_digits(raw_card_number)
+                else:
+                    # Если сырого значения нет, сохраняем текущее
+                    card_number_value = existing.card_number
+                    raw_card_number = existing.payload.get('card_number', '') if existing.payload else '' or existing.card_number or ''
                 active_value = existing.active
             else:
-                card_number_value = payload_copy.get('card_number', '') or ''
+                # Для новых записей или измененных на сервере:
+                # Извлекаем только цифры для поля card_number (максимум 32 символа)
+                card_number_value = extract_card_number_digits(raw_card_number)
                 active_value = row.get('active', False)
 
-            payload_copy['card_number'] = card_number_value
+            # В payload сохраняем сырое значение из Birpay (с дополнительным текстом)
+            payload_copy['card_number'] = raw_card_number
 
             common_fields = {
                 'active': active_value,
@@ -276,33 +317,108 @@ class RequsiteZajonUpdateView(StaffOnlyPerm, UpdateView):
     def form_valid(self, form):
         changed_fields = form.changed_data
         self.object = form.save(commit=False)
+        
+        log = logger.bind(
+            requisite_id=self.object.pk,
+            changed_fields=changed_fields,
+        )
 
+        # Получаем старое сырое значение ДО изменения payload
+        old_payload = dict(self.object.payload or {}) if self.object.pk else {}
+        current_raw = old_payload.get('card_number', '') if self.object.pk else ''
+        log.debug('Начало обработки формы', current_raw=current_raw[:50] if current_raw else '')
+
+        # Обработка сырого значения card_number из формы
+        raw_card_number = form.cleaned_data.get('raw_card_number', '').strip()
+        log.debug('Получено сырое значение из формы', raw_card_number=raw_card_number[:50] if raw_card_number else '')
+        
+        if raw_card_number:
+            # Извлекаем номер карты из сырого значения (только цифры, максимум 32 символа)
+            card_number_value = extract_card_number_digits(raw_card_number)
+            # Берем первые 16 цифр для номера карты
+            if len(card_number_value) >= 16:
+                self.object.card_number = card_number_value[:16]
+            else:
+                self.object.card_number = card_number_value
+            log.debug(
+                'Извлечен номер карты из сырого значения',
+                card_number_extracted=self.object.card_number,
+                raw_length=len(raw_card_number),
+            )
+        else:
+            # Если сырое значение пустое, очищаем и card_number
+            self.object.card_number = ''
+            raw_card_number = ''
+            log.debug('Сырое значение пустое, очищаем card_number')
+
+        # Сохраняем сырое значение в payload
         payload = dict(self.object.payload or {})
-        payload['card_number'] = self.object.card_number
+        payload['card_number'] = raw_card_number
         self.object.payload = payload
 
         sync_result = None
-        if 'card_number' in changed_fields:
-            sync_result = update_payment_requisite_data(
-                self.object.pk,
-                name=self.object.name,
-                agent_id=self.object.agent_id,
-                weight=self.object.weight,
-                card_number=self.object.card_number,
-                refill_method_types=self.object.refill_method_types,
-                users=self.object.users,
-                payment_requisite_filter_id=self.object.payment_requisite_filter_id,
+        # Отправляем на birpay сырое значение, если оно изменилось
+        raw_changed = raw_card_number != current_raw
+        log.info(
+            'Проверка изменения сырого значения',
+            raw_changed=raw_changed,
+            old_raw=current_raw[:50] if current_raw else '',
+            new_raw=raw_card_number[:50] if raw_card_number else '',
+        )
+        
+        if raw_changed:
+            log.info(
+                'Отправка обновления на Birpay',
+                requisite_id=self.object.pk,
+                card_number_raw=raw_card_number[:50] if raw_card_number else '',
             )
+            try:
+                # Отправляем полный payload, чтобы сохранить все существующие поля
+                sync_result = update_payment_requisite_data(
+                    self.object.pk,
+                    name=self.object.name,
+                    agent_id=self.object.agent_id,
+                    weight=self.object.weight,
+                    card_number=raw_card_number,  # Отправляем сырое значение на birpay
+                    refill_method_types=self.object.refill_method_types,
+                    users=self.object.users,
+                    payment_requisite_filter_id=self.object.payment_requisite_filter_id,
+                    full_payload=old_payload,  # Отправляем старый payload, чтобы сохранить все поля
+                )
+                log.info(
+                    'Результат обновления на Birpay',
+                    status_code=sync_result.get('status_code') if sync_result else None,
+                    success=sync_result.get('success') if sync_result else None,
+                    error=sync_result.get('error') if sync_result else None,
+                )
+            except Exception as e:
+                log.error('Ошибка при обновлении на Birpay', exc_info=True, error=str(e))
+                sync_result = {'error': str(e), 'success': False}
+        else:
+            log.debug('Сырое значение не изменилось, пропускаем отправку на Birpay')
 
-        self.object.save(update_fields=['card_number', 'active', 'payload'])
+        # Сохраняем объект с учетом всех измененных полей формы, включая works_on_asu
+        # card_number и payload всегда обновляются, так как мы их изменяем вручную
+        update_fields_list = ['card_number', 'payload']
+        if 'works_on_asu' in changed_fields:
+            update_fields_list.append('works_on_asu')
+        log.debug('Сохранение объекта', update_fields=update_fields_list)
+        self.object.save(update_fields=update_fields_list)
+        log.info('Объект успешно сохранен')
 
         status_code = sync_result.get('status_code') if sync_result else None
         if status_code and status_code >= 400:
+            error_msg = sync_result.get('data') or sync_result.get('error') or 'Неизвестная ошибка'
+            log.warning('Ошибка при обновлении на Birpay', status_code=status_code, error=error_msg)
             messages.warning(
                 self.request,
-                f"Реквизит обновлён только локально. Ошибка Birpay: {sync_result.get('data')}",
+                f"Реквизит обновлён только локально. Ошибка Birpay: {error_msg}",
             )
+        elif sync_result:
+            log.info('Реквизит успешно обновлен локально и на Birpay')
+            messages.success(self.request, 'Реквизит обновлён')
         else:
+            log.info('Реквизит обновлен только локально (без изменений для Birpay)')
             messages.success(self.request, 'Реквизит обновлён')
         return HttpResponseRedirect(self.get_success_url())
 
@@ -1633,33 +1749,53 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
             incoming_pay=F('incoming__pay'),
             delta=ExpressionWrapper(F('incoming__pay') - F('amount'), output_field=FloatField()),
         )
+        # Оптимизация: загружаем связанные объекты одним запросом
+        qs = qs.select_related('incoming', 'confirmed_operator')
         self.filterset = BirpayOrderFilter(self.request.GET, queryset=qs)
         return self.filterset.qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_form'] = self.filterset.form
-        gpt_auto_approve = Options.load().gpt_auto_approve
-        context['gpt_auto_approve'] = gpt_auto_approve
+        
+        # Загружаем Options один раз для всего контекста
+        options = Options.load()
+        context['gpt_auto_approve'] = options.gpt_auto_approve
+        
+        # Кэшируем списки для проверки is_moshennik/is_painter без запросов к БД
+        birpay_moshennik_list = set(options.birpay_moshennik_list)
+        birpay_painter_list = set(options.birpay_painter_list)
 
         show_stat = self.filterset.form.cleaned_data.get('show_stat')
         if show_stat:
             qs = self.filterset.qs
-            total_count = qs.count()
+            # Оптимизация: используем один запрос с агрегацией вместо множественных count()
+            stats_agg = qs.aggregate(
+                total=Count('id'),
+                with_incoming=Count('id', filter=Q(incoming__isnull=False)),
+                sum_incoming_pay=Sum('incoming_pay'),
+                sum_amount=Sum('amount'),
+                sum_delta=Sum('delta'),
+                status_0=Count('id', filter=Q(status=0)),
+                status_1=Count('id', filter=Q(status=1)),
+                status_2=Count('id', filter=Q(status=2)),
+                gpt_approve_count=Count('id', filter=Q(gpt_flags=255)),
+            )
+            total_count = stats_agg['total'] or 0
             stats = {
                 'total': total_count,
-                'with_incoming': qs.exclude(incoming__isnull=True).count(),
-                'sum_incoming_pay': qs.aggregate(sum=Sum('incoming_pay'))['sum'] or 0,
-                'sum_amount': qs.aggregate(sum=Sum('amount'))['sum'] or 0,
-                'sum_delta': qs.aggregate(sum=Sum('delta'))['sum'] or 0,
-                'status_0': qs.filter(status=0).count(),
-                'status_1': qs.filter(status=1).count(),
-                'status_2': qs.filter(status=2).count(),
-                'gpt_approve': int(qs.filter(gpt_flags=255).count() / total_count * 100) if total_count else 0
+                'with_incoming': stats_agg['with_incoming'] or 0,
+                'sum_incoming_pay': stats_agg['sum_incoming_pay'] or 0,
+                'sum_amount': stats_agg['sum_amount'] or 0,
+                'sum_delta': stats_agg['sum_delta'] or 0,
+                'status_0': stats_agg['status_0'] or 0,
+                'status_1': stats_agg['status_1'] or 0,
+                'status_2': stats_agg['status_2'] or 0,
+                'gpt_approve': int(stats_agg['gpt_approve_count'] / total_count * 100) if total_count else 0
             }
             context['birpay_stats'] = stats
 
-
+        # Предвычисляем is_moshennik и is_painter для каждого заказа, чтобы избежать вызовов Options.load() в шаблоне
         for order in context['page_obj']:
             if hasattr(order, 'raw_data'):
                 try:
@@ -1668,7 +1804,10 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
                     order.raw_data_json = '{}'
             else:
                 order.raw_data_json = '{}'
-
+            
+            # Предвычисляем флаги для избежания запросов в свойствах модели
+            order._is_moshennik = order.merchant_user_id in birpay_moshennik_list
+            order._is_painter = order.merchant_user_id in birpay_painter_list
 
         return context
 
@@ -2011,7 +2150,14 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                                 logger.warning(f'Привязка BirpayOrder {order.merchant_transaction_id} к Incoming {incoming_to_approve.id} с несовпадающим балансом (подтверждено оператором)')
                         
                         logger.info('Апрувнем заявку')
-                        response = approve_birpay_refill(pk=order.birpay_id)
+                        
+                        # Логика Z-ASU: если DEBUG=True, не отправляем запрос, считаем успешным
+                        if settings.DEBUG:
+                            logger.info(f'DEBUG=True: пропускаем отправку approve_birpay_refill для {order.birpay_id}, считаем успешным')
+                            response = type('MockResponse', (), {'status_code': 200, 'text': 'OK (DEBUG mode)'})()
+                        else:
+                            response = approve_birpay_refill(pk=order.birpay_id)
+                        
                         if response.status_code != 200:
                             text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
                             messages.add_message(request, messages.ERROR, text)
@@ -2020,6 +2166,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                             # Апрувнем заявку
                             text = f"Заявка {order} mtx_id {order.merchant_transaction_id} подтверждена в birpay с суммой {order.amount}"
                             logger.info(text)
+                            
                             messages.add_message(request, messages.INFO, text)
                             order.status = 1
                             order.status_internal = 1
@@ -2037,6 +2184,31 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                                 incoming_to_approve.merchant_user_id = order.merchant_user_id
                                 incoming_to_approve.save()
                                 logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')
+                            
+                            # Логика Z-ASU: после успешного подтверждения в birpay и сохранения заявки апрувим на ASU
+                            # Выполняем в конце, чтобы не блокировать основную транзакцию при недоступности сервера ASU
+                            asu_approve_message = ''
+                            if should_send_to_z_asu(order.card_number):
+                                logger.info(f'Логика Z-ASU: заявка {order.merchant_transaction_id} требует подтверждения на ASU')
+                                try:
+                                    # Подтверждаем транзакцию на ASU через новый endpoint
+                                    # Endpoint сам найдет Payment через ORM по merchant_transaction_id
+                                    confirm_result = confirm_z_asu_transaction(order.merchant_transaction_id)
+                                    if confirm_result.get('success'):
+                                        payment_id = confirm_result.get('payment_id', 'N/A')
+                                        asu_approve_message = f' успешно апрувнуто на ASU (Payment {payment_id})'
+                                        logger.info(f'Логика Z-ASU: транзакция {order.merchant_transaction_id} успешно подтверждена на ASU (Payment {payment_id})')
+                                    else:
+                                        error_msg = confirm_result.get('error', 'Unknown error')
+                                        asu_approve_message = f' ошибка апрува на ASU: {error_msg}'
+                                        logger.error(f'Логика Z-ASU: ошибка подтверждения транзакции {order.merchant_transaction_id} на ASU: {error_msg}')
+                                except Exception as e:
+                                    asu_approve_message = f' исключение при апруве на ASU: {str(e)}'
+                                    logger.error(f'Логика Z-ASU: исключение при подтверждении на ASU: {e}', exc_info=True)
+                            
+                            # Добавляем информацию об апруве на ASU в сообщение
+                            if asu_approve_message:
+                                messages.add_message(request, messages.INFO, text + asu_approve_message)
 
             # Очищаем контекст после завершения обработки заказа
             clear_contextvars()
@@ -2364,3 +2536,57 @@ def show_birpay_order_log(request, query_string):
         return HttpResponse(html_log)
 
 
+class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
+    """Представление для ручного создания тестовых BirpayOrder (только для суперюзера)"""
+    model = BirpayOrder
+    form_class = BirpayOrderCreateForm
+    template_name = 'deposit/birpay_order_create.html'
+    success_url = reverse_lazy('deposit:birpay_orders')
+    
+    def form_valid(self, form):
+        # Сохраняем форму (это создаст объект и присвоит ему ID)
+        response = super().form_valid(form)
+        order = form.instance
+        
+        # Если указан URL чека и файл еще не скачан, запускаем задачу скачивания
+        if order.check_file_url and not order.check_file and not order.check_file_failed:
+            # Обновляем флаг перед запуском задачи
+            BirpayOrder.objects.filter(id=order.id).update(check_file_failed=True)
+            # Запускаем задачу скачивания чека
+            download_birpay_check_file.delay(order.id, order.check_file_url)
+            logger.info(f'Задача на скачивание файла для заказа {order.birpay_id} отправлена в celery.')
+        
+        # Логика Z-ASU: проверка условия и отправка на ASU
+        logger.debug(f"Проверка Z-ASU для BirpayOrder {order.birpay_id}: card_number={order.card_number}")
+        if order.card_number:
+            should_send = should_send_to_z_asu(order.card_number)
+            logger.debug(f"should_send_to_z_asu({order.card_number}) = {should_send}")
+            if should_send:
+                logger.info(f"BirpayOrder {order.birpay_id} соответствует условию Z-ASU, отправляем на ASU")
+                try:
+                    result = send_birpay_order_to_z_asu(order)
+                    if result.get('success'):
+                        payment_id = result.get('payment_id')
+                        logger.info(f"BirpayOrder {order.birpay_id} успешно отправлен на Z-ASU, payment_id={payment_id}")
+                        # Сохраняем payment_id в BirpayOrder
+                        order.payment_id = payment_id
+                        order.save(update_fields=['payment_id'])
+                        messages.success(self.request, f'Заявка отправлена на Z-ASU! Payment ID: {payment_id}')
+                    else:
+                        logger.error(f"Ошибка отправки BirpayOrder {order.birpay_id} на Z-ASU: {result.get('error')}")
+                        messages.error(self.request, f'Ошибка отправки на Z-ASU: {result.get("error")}')
+                except Exception as err:
+                    logger.error(f"Исключение при отправке BirpayOrder {order.birpay_id} на Z-ASU: {err}", exc_info=True)
+                    messages.error(self.request, f'Ошибка отправки на Z-ASU: {str(err)}')
+            else:
+                logger.debug(f"BirpayOrder {order.birpay_id} не соответствует условию Z-ASU (card_number={order.card_number})")
+        else:
+            logger.debug(f"BirpayOrder {order.birpay_id} не имеет card_number, пропускаем Z-ASU")
+        
+        messages.success(self.request, f'BirpayOrder успешно создан! ID: {order.id}, birpay_id: {order.birpay_id}')
+        return response
+
+
+class ZASUManagementView(SuperuserOnlyPerm, TemplateView):
+    """Страница управления Z-ASU (только для суперюзера)"""
+    template_name = 'deposit/z_asu_management.html'

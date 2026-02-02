@@ -80,7 +80,7 @@
             <td>{{ incoming.response_date|date:"d.m H:i" }}</td>
             <td>{{ incoming.recipient }}</td>
 
-            <td style="color: {{ incoming.color_font }}; background: {{ incoming.color_back }}">{{ incoming.sender }}</td>
+            <td style="color: {{ incoming.color_font }}; background: {{ incoming.color_back }}" title="{{ incoming.sender }}">{% if incoming.sender|length > 20 %}...{{ incoming.sender|slice:"-20:" }}{% else %}{{ incoming.sender }}{% endif %}</td>
             {% if incoming.worker == 'base2' %}
              <td style="background-color: crimson">{{ incoming.worker }}</td>
             {% else %}

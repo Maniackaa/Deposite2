@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+import string
 from copy import copy
 
 import colorfield.fields
@@ -11,11 +12,12 @@ from django.contrib.admin import widgets
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import connection
-from django.db.models import Subquery, Q
+from django.db.models import Subquery, Q, Max
+import random
 from django.forms import CheckboxInput
 from django.utils import timezone
 
-from .models import Incoming, ColorBank, BadScreen, Bank, RequsiteZajon
+from .models import Incoming, ColorBank, BadScreen, Bank, RequsiteZajon, BirpayOrder
 from .widgets import MinimalSplitDateTimeMultiWidget
 
 logger = structlog.get_logger('deposit')
@@ -306,34 +308,197 @@ def luhn_check(card_number):
 
 
 class RequsiteZajonForm(forms.ModelForm):
+    # Поле для редактирования сырого значения из payload
+    raw_card_number = forms.CharField(
+        label='Номер карты (сырое значение)',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Например: 4189 8000 8635 5664 Bu kartlara yalnız elektron ödəniş sistemlərindən köçürmə ed'
+        }),
+        help_text='Введите сырое значение из Birpay. Система автоматически извлечет номер карты (16 цифр) и проверит его валидность.'
+    )
+    
     class Meta:
         model = RequsiteZajon
-        fields = ('card_number',)
+        fields = ('works_on_asu',)  # card_number больше не редактируется напрямую
         widgets = {
-            'card_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'works_on_asu': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Устанавливаем начальное значение raw_card_number из payload
+        if self.instance and self.instance.pk:
+            payload = self.instance.payload or {}
+            self.fields['raw_card_number'].initial = payload.get('card_number', '') or self.instance.card_number or ''
+    
+    def clean_raw_card_number(self):
+        raw_card_number = self.cleaned_data.get('raw_card_number', '').strip()
+        
+        if not raw_card_number:
+            return raw_card_number  # Пустое значение допустимо
+        
+        # Извлекаем только цифры из сырого значения
+        cleaned_digits = re.sub(r'\D', '', raw_card_number)
+        
+        # Проверяем, что найдено достаточно цифр для номера карты
+        if len(cleaned_digits) < 16:
+            raise forms.ValidationError(
+                f'В сыром значении должно быть минимум 16 цифр для номера карты. Найдено: {len(cleaned_digits)}'
+            )
+        
+        # Берем первые 16 цифр (номер карты)
+        card_number = cleaned_digits[:16]
+        
+        # Проверяем алгоритм Луна
+        if not luhn_check(card_number):
+            raise forms.ValidationError(
+                f'Номер карты {card_number} не прошел проверку по алгоритму Луна. Проверьте правильность номера карты в сыром значении.'
+            )
+        
+        # Возвращаем сырое значение (оно будет сохранено в payload)
+        return raw_card_number
+
+
+class BirpayOrderCreateForm(forms.ModelForm):
+    """Форма для ручного создания тестовых BirpayOrder"""
+    
+    class Meta:
+        model = BirpayOrder
+        fields = [
+            'birpay_id', 'merchant_transaction_id', 'merchant_user_id', 'amount',
+            'status', 'created_at', 'updated_at', 'merchant_name', 'customer_name',
+            'card_number', 'operator', 'check_file_url'
+        ]
+        widgets = {
+            'birpay_id': forms.NumberInput(attrs={'class': 'form-control', 'required': True}),
+            'merchant_transaction_id': forms.TextInput(attrs={'class': 'form-control', 'required': True}),
+            'merchant_user_id': forms.TextInput(attrs={'class': 'form-control', 'required': True, 'maxlength': 16}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'required': True}),
+            'status': forms.Select(attrs={'class': 'form-control', 'required': True}),
+            'created_at': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'updated_at': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'merchant_name': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 64}),
+            'customer_name': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 128}),
+            'card_number': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 20, 'placeholder': '4111 1111 1111 1111 (для Z-ASU)'}),
+            'operator': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 128}),
+            'check_file_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://example.com/receipt.jpg'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Устанавливаем значения по умолчанию для дат, если форма новая
+        if not self.instance.pk:
+            now = timezone.now()
+            # Форматируем дату для datetime-local input
+            now_str = now.strftime('%Y-%m-%dT%H:%M')
+            self.fields['created_at'].initial = now_str
+            self.fields['updated_at'].initial = now_str
+            
+            # Генерируем случайный birpay_id (максимальный + случайное число от 1 до 1000)
+            max_birpay_id = BirpayOrder.objects.aggregate(max_id=Max('birpay_id'))['max_id'] or 0
+            random_birpay_id = max_birpay_id + random.randint(1, 1000)
+            self.fields['birpay_id'].initial = random_birpay_id
+            
+            # Генерируем Merchant Transaction ID (6-значное число, начиная с 100000)
+            merchant_tx_id = str(100000 + random_birpay_id)
+            self.fields['merchant_transaction_id'].initial = merchant_tx_id
+            
+            # Генерируем Merchant User ID (случайная строка из букв и цифр, макс 16 символов)
+            merchant_user_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
+            self.fields['merchant_user_id'].initial = merchant_user_id
+            
+            # Устанавливаем значение по умолчанию для суммы
+            self.fields['amount'].initial = 100.0
+            
+            # Устанавливаем значение по умолчанию для номера карты
+            self.fields['card_number'].initial = '4111 1111 1111 1111'
+            
+            # Устанавливаем значение по умолчанию для URL чека (полный URL)
+            check_file_url = "http://127.0.0.1:8002/media/screens/574545888_from_R13_703695562.jpg"
+            self.fields['check_file_url'].initial = check_file_url
+        
+        # Устанавливаем choices для статуса
+        self.fields['status'].widget.choices = [
+            (0, '0 - Pending (ожидает)'),
+            (1, '1 - Approved (подтвержден)'),
+            (2, '2 - Declined (отклонен)'),
+        ]
+        
+        # Скрываем поля дат (они будут заполняться автоматически)
+        self.fields['created_at'].widget = forms.HiddenInput()
+        self.fields['updated_at'].widget = forms.HiddenInput()
+    
+    def clean_birpay_id(self):
+        birpay_id = self.cleaned_data.get('birpay_id')
+        if birpay_id:
+            # Проверяем уникальность, исключая текущий объект
+            qs = BirpayOrder.objects.filter(birpay_id=birpay_id)
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError(f'BirpayOrder с birpay_id={birpay_id} уже существует')
+        return birpay_id
     
     def clean_card_number(self):
         card_number = self.cleaned_data.get('card_number', '').strip()
+        if card_number:
+            # Убираем пробелы и дефисы
+            cleaned = re.sub(r'[\s\-]', '', card_number)
+            if not re.match(r'^\d+$', cleaned):
+                raise forms.ValidationError('Номер карты должен содержать только цифры')
+            return cleaned
+        return card_number
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
         
-        if not card_number:
-            return card_number  # Пустое значение допустимо (blank=True)
+        # Если даты не заполнены, устанавливаем текущее время
+        if not instance.created_at:
+            instance.created_at = timezone.now()
+        if not instance.updated_at:
+            instance.updated_at = timezone.now()
         
-        # Убираем все пробелы и дефисы
-        cleaned = re.sub(r'[\s\-]', '', card_number)
+        # Создаем raw_data в формате, похожем на данные от Birpay API
+        raw_data = {
+            'id': instance.birpay_id,
+            'createdAt': instance.created_at.isoformat(),
+            'updatedAt': instance.updated_at.isoformat(),
+            'merchantTransactionId': instance.merchant_transaction_id,
+            'merchantUserId': instance.merchant_user_id,
+            'amount': str(instance.amount),
+            'status': instance.status,
+        }
         
-        # Проверяем, что содержит только цифры
-        if not re.match(r'^\d+$', cleaned):
-            raise forms.ValidationError('Номер карты должен содержать только цифры')
+        if instance.merchant_name:
+            raw_data['merchant'] = {'name': instance.merchant_name}
         
-        # Проверяем длину (должно быть 16 символов)
-        if len(cleaned) != 16:
-            raise forms.ValidationError(
-                f'Номер карты должен содержать ровно 16 цифр. Получено: {len(cleaned)}'
-            )
+        if instance.customer_name:
+            raw_data['customerName'] = instance.customer_name
         
-        # Проверяем алгоритм Луна
-        if not luhn_check(cleaned):
-            raise forms.ValidationError('Номер карты не прошел проверку по алгоритму Луна')
+        if instance.card_number:
+            raw_data['paymentRequisite'] = {
+                'payload': {
+                    'card_number': instance.card_number
+                }
+            }
         
-        return cleaned
+        if instance.check_file_url:
+            raw_data['payload'] = {'check_file': instance.check_file_url}
+        
+        if instance.operator:
+            raw_data['operator'] = {'username': instance.operator}
+        
+        instance.raw_data = raw_data
+        
+        # Устанавливаем sender как последние 4 цифры карты
+        if instance.card_number:
+            # Убираем пробелы перед извлечением последних 4 цифр
+            cleaned_card = re.sub(r'[\s\-]', '', instance.card_number)
+            instance.sender = cleaned_card[-4:] if len(cleaned_card) >= 4 else cleaned_card
+        
+        if commit:
+            instance.save()
+        return instance

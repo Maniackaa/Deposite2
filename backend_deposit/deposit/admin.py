@@ -128,12 +128,14 @@ class RequsiteZajonAdmin(admin.ModelAdmin):
         'name',
         'agent_name',
         'card_number',
+        'works_on_asu',
         'active',
         'weight',
         'updated_at',
     )
     list_filter = (
         'active',
+        'works_on_asu',
         ('updated_at', DateRangeFilterBuilder()),
     )
     search_fields = ('name', 'card_number', 'agent_name')

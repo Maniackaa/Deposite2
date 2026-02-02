@@ -91,7 +91,7 @@
             <td>{{ incoming.response_date|date:"d.m H:i" }}</td>
              <td>{{ incoming.recipient }}</td>
 
-            <td style="color: {{ incoming.color_font }}; background: {{ incoming.color_back }}">{{ incoming.sender }}</td>
+            <td style="color: {{ incoming.color_font }}; background: {{ incoming.color_back }}" title="{{ incoming.sender }}">{% if incoming.sender|length > 20 %}...{{ incoming.sender|slice:"-20:" }}{% else %}{{ incoming.sender }}{% endif %}</td>
             {% if incoming.worker == 'base2' %}
              <td style="background-color: crimson">{{ incoming.worker }}</td>
             {% else %}
@@ -118,7 +118,7 @@
                       data-pay="{{ incoming.pay|default_if_none:'' }}"
                       data-balance-mismatch="{% if incoming.balance_mismatch %}true{% else %}false{% endif %}">
                                     {% csrf_token %}
-                    <input type="text" style="margin-bottom: -10px; margin-top: -10px; font-size: 14px; height: 20px" minlength="0" maxlength="50" size="20" value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
+                    <input type="text" style="margin-bottom: -10px; margin-top: -10px; font-size: 14px; height: 20px" minlength="0" maxlength="50" size="12" value="{{ incoming.birpay_id|default_if_none:""  }}" name="{{ incoming.id }}-{{ view_name }}">
                     {% if incoming.birpay_id or not incoming.birpay_id|default_if_none:'-' %}
                       <button disabled style="margin-bottom: -10px; margin-top: -10px; height: 25px;font-size: small" type="submit" class="btn btn-success btn-sm">---</button>
                     {% else %}

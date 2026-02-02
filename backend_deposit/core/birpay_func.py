@@ -400,9 +400,14 @@ def update_payment_requisite_data(
     refill_method_types: list | None = None,
     users: list | None = None,
     payment_requisite_filter_id: int | None = None,
+    full_payload: dict | None = None,
 ):
     """
     Обновление реквизита (номер карты + активность) одним запросом.
+    
+    Args:
+        full_payload: Полный payload объекта. Если передан, используется он с обновленным card_number.
+                      Если None, создается новый payload только с card_number.
     """
     logger = structlog.get_logger('deposit').bind(requisite_id=requisite_id)
     refill_method_types = refill_method_types or []
@@ -419,6 +424,16 @@ def update_payment_requisite_data(
             # Если передан просто ID
             users_ids.append({'id': int(user)})
 
+    # Формируем payload: если передан полный payload, используем его и обновляем card_number
+    # Иначе создаем новый payload только с card_number
+    if full_payload is not None:
+        payload_data = dict(full_payload)
+        payload_data['card_number'] = card_number
+        logger.debug('Используется полный payload с обновленным card_number', payload_keys=list(payload_data.keys()))
+    else:
+        payload_data = {'card_number': card_number}
+        logger.debug('Создается новый payload только с card_number')
+
     token = read_token()
     headers['Authorization'] = f'Bearer {token}'
     json_data = {
@@ -430,9 +445,7 @@ def update_payment_requisite_data(
         'agent': {
             'id': agent_id,
         },
-        'payload': {
-            'card_number': card_number,
-        },
+        'payload': payload_data,
         'users': users_ids,
     }
     if payment_requisite_filter_id:
@@ -440,29 +453,59 @@ def update_payment_requisite_data(
     if active is None:
         json_data.pop('active')
 
-    logger.info('Updating Birpay requisite', payload=json_data)
+    logger.info(
+        'Updating Birpay requisite',
+        requisite_id=requisite_id,
+        card_number=card_number[:50] if card_number else '',
+        card_number_length=len(card_number) if card_number else 0,
+        payload_keys=list(json_data.keys()),
+        payload_card_number=payload_data.get('card_number', '')[:50] if payload_data.get('card_number') else '',
+        full_json_data=json_data,  # Логируем полный JSON для отладки
+    )
 
     response = requests.put('https://birpay-gate.com/api/operator/payment_requisite', headers=headers, json=json_data)
+    logger.debug(
+        'Birpay PUT request sent',
+        url='https://birpay-gate.com/api/operator/payment_requisite',
+        status_code=response.status_code,
+    )
+    
     if response.status_code == 401:
+        logger.warning('Unauthorized, getting new token')
         token = get_new_token()
         headers['Authorization'] = f'Bearer {token}'
         response = requests.put('https://birpay-gate.com/api/operator/payment_requisite', headers=headers,
                                 json=json_data)
+        logger.debug('Birpay PUT request retried', status_code=response.status_code)
+    
     try:
         response_json = response.json()
     except ValueError:
         response_json = {'raw': response.text}
+        logger.warning('Failed to parse JSON response', raw_response=response.text[:200])
 
     logger.info(
         'Birpay requisite update result',
         status_code=response.status_code,
+        success=response.status_code in (200, 201),
         response=response_json,
     )
 
-    return {
+    result = {
         'status_code': response.status_code,
         'data': response_json,
+        'success': response.status_code in (200, 201),
     }
+    
+    if not result['success']:
+        result['error'] = response_json.get('error') or response_json.get('detail') or str(response_json)
+        logger.warning(
+            'Birpay requisite update failed',
+            status_code=response.status_code,
+            error=result['error'],
+        )
+    
+    return result
 
 def set_payment_requisite_active(
     requisite_id: int,
