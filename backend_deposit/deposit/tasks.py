@@ -790,25 +790,24 @@ def send_image_to_gpt_task(self, birpay_id):
                 # Это гарантирует, что только один поток сможет подтвердить заказ в Birpay API
                 if sms_bound_successfully:
                     response = approve_birpay_refill(pk=order.birpay_id)
-                    if response.status_code != 200:
-                        text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
-                        logger.warning(text)
-                        send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
-                    else:
-                        # Успешный апрув в Birpay — подтверждаем транзакцию на ASU (Z-ASU), если карта в реквизитах с works_on_asu
+                    if response.status_code == 200:
+                        logger.debug(f'Успешный approve_birpay_refill')
                         if order.card_number and should_send_to_z_asu(order.card_number):
                             try:
                                 confirm_result = confirm_z_asu_transaction(order.merchant_transaction_id)
                                 if confirm_result.get('status') == 'confirmed':
-                                    logger.info(
-                                        f'Автоподтверждение: транзакция {order.merchant_transaction_id} успешно подтверждена на ASU (Payment {confirm_result.get("payment_id", "?")})')
+                                    logger.info(f'Подтверждаем на ASU birpay_id={order.birpay_id} mtx={order.merchant_transaction_id}')
                                 else:
-                                    logger.warning(
-                                        f'Автоподтверждение: апрув на ASU для {order.merchant_transaction_id}: {confirm_result}')
+                                    logger.warning(f'Подтверждаем на ASU: ответ не confirmed mtx={order.merchant_transaction_id} {confirm_result}')
                             except Exception as e:
-                                logger.error(
-                                    f'Автоподтверждение: исключение при апруве на ASU для {order.merchant_transaction_id}: {e}',
-                                    exc_info=True)
+                                logger.error(f'Подтверждаем на ASU: исключение mtx={order.merchant_transaction_id} {e}', exc_info=True)
+                        else:
+                            reason = 'нет card_number' if not order.card_number else 'карта не в реквизитах с works_on_asu'
+                            logger.info(f'Не ASU: {reason} birpay_id={order.birpay_id} mtx={order.merchant_transaction_id}')
+                    else:
+                        text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
+                        logger.warning(text)
+                        send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
             if order.is_moshennik():
                 logger.info(f'Обработка мошенника')
                 if len(incomings_with_correct_card_and_order_amount) == 1:

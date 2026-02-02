@@ -2,16 +2,30 @@
 Тесты для проверки отправки уведомлений при привязке BirpayOrder к Incoming с несовпадающим балансом.
 """
 import pytest
+from collections import OrderedDict
 from unittest.mock import patch, Mock
-from django.test import TestCase, Client
+from django.test import TestCase, Client, RequestFactory
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.urls import reverse
+from django.middleware.csrf import get_token
+from django.contrib.sessions.middleware import SessionMiddleware
+from django.http import HttpResponse
 import datetime
 import pytz
 
 from deposit.models import BirpayOrder, Incoming
 from core.global_func import TZ
+
+
+def _get_csrf_token(client):
+    """Получить CSRF-токен для тестового клиента (не зависит от куки в ответе GET)."""
+    request = RequestFactory().get('/')
+    SessionMiddleware(lambda r: HttpResponse()).process_request(request)
+    request.session.save()
+    token = get_token(request)
+    client.cookies['csrftoken'] = token
+    return token
 
 
 @pytest.mark.django_db
@@ -89,6 +103,12 @@ class TestBalanceMismatchNotification(TestCase):
         self.assertIsNotNone(self.incoming.check_balance)
         self.assertEqual(self.incoming.check_balance, 1100.0)
         self.assertEqual(self.incoming.balance, 1100.1)
+
+    def test_incomings_page_get(self):
+        """Тест: получение страницы incomings через GET."""
+        url = reverse('deposit:incomings')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200, msg=f'GET {url} вернул {response.status_code}')
     
     @patch('deposit.views.send_message_tg')
     def test_notification_sent_on_balance_mismatch(self, mock_send_message_tg):
@@ -98,8 +118,7 @@ class TestBalanceMismatchNotification(TestCase):
             # Выполняем POST запрос для привязки
             # Формат: первый ключ - csrfmiddlewaretoken (автоматически), второй - поле с данными
             url = reverse('deposit:incomings')
-            # Получаем CSRF токен
-            csrf_token = self.client.get(url).cookies['csrftoken'].value
+            csrf_token = _get_csrf_token(self.client)
             response = self.client.post(url, {
                 'csrfmiddlewaretoken': csrf_token,
                 f'{self.incoming.id}-ok': self.order.merchant_transaction_id,
@@ -171,18 +190,25 @@ class TestBalanceMismatchNotification(TestCase):
         # Для первой записи check_balance будет None, поэтому balance_mismatch будет False
         incoming_match.refresh_from_db()
         self.assertIsNone(incoming_match.check_balance)
-        
+        # View проверяет isinstance(incoming.birpay_id, NoneType) — явно сбрасываем
+        incoming_match.birpay_id = None
+        incoming_match.save(update_fields=['birpay_id'])
+
         with patch('deposit.views.settings.ALARM_IDS', ['123456789']):
-            # Выполняем POST запрос для привязки
             url = reverse('deposit:incomings')
-            csrf_token = self.client.get(url).cookies['csrftoken'].value
-            response = self.client.post(url, {
-                'csrfmiddlewaretoken': csrf_token,
-                f'{incoming_match.id}-ok': self.order.merchant_transaction_id
-            }, follow=True, HTTP_X_CSRFTOKEN=csrf_token)
+            # GET в начале — страница может выставить CSRF-куку
+            self.client.get(url)
+            csrf_token = self.client.cookies.get('csrftoken')
+            csrf_token = csrf_token.value if csrf_token else _get_csrf_token(self.client)
+            # View берёт list(request.POST.keys())[1] — второй ключ должен быть "pk-ok"
+            post_data = OrderedDict([
+                ('csrfmiddlewaretoken', csrf_token),
+                (f'{incoming_match.id}-ok', self.order.merchant_transaction_id),
+            ])
+            response = self.client.post(url, post_data, HTTP_X_CSRFTOKEN=csrf_token)
             
-            # Проверяем, что запрос выполнен успешно
-            self.assertEqual(response.status_code, 200)
+            # При успехе view делает redirect (302), не follow — избегаем ошибок debug_toolbar при GET
+            self.assertEqual(response.status_code, 302, msg=f'Ожидали redirect, получили {response.status_code}: {getattr(response, "content", b"")[:200]}')
             
             # Проверяем, что send_message_tg НЕ был вызван
             self.assertFalse(mock_send_message_tg.called, "send_message_tg НЕ должен быть вызван при совпадающем балансе")
@@ -192,7 +218,7 @@ class TestBalanceMismatchNotification(TestCase):
         """Тест: уведомление содержит правильные данные"""
         with patch('deposit.views.settings.ALARM_IDS', ['123456789', '987654321']):
             url = reverse('deposit:incomings')
-            csrf_token = self.client.get(url).cookies['csrftoken'].value
+            csrf_token = _get_csrf_token(self.client)
             response = self.client.post(url, {
                 'csrfmiddlewaretoken': csrf_token,
                 f'{self.incoming.id}-ok': self.order.merchant_transaction_id,
@@ -246,8 +272,7 @@ class TestBalanceMismatchNotification(TestCase):
         
         with patch('deposit.views.settings.ALARM_IDS', ['123456789']):
             url = reverse('deposit:incomings')
-            csrf_token = self.client.get(url).cookies['csrftoken'].value
-            # Запрос должен выполниться успешно, несмотря на ошибку отправки
+            csrf_token = _get_csrf_token(self.client)
             response = self.client.post(url, {
                 'csrfmiddlewaretoken': csrf_token,
                 f'{self.incoming.id}-ok': self.order.merchant_transaction_id,
