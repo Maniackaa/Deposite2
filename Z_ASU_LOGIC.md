@@ -363,6 +363,18 @@ Content-Type: application/json
 2. Endpoint ищет Payment через ORM по `order_id` и `source='z_asu'`
 3. Подтверждает Payment (статус 9)
 
+### Автоподтверждение при получении Incoming (GPT + все флаги)
+
+При **автоматическом подтверждении** заявки в задаче `send_image_to_gpt_task` (когда включено `gpt_auto_approve`, все 8 флагов GPT установлены, найдена однозначная SMS и привязка прошла успешно):
+
+1. Вызывается `approve_birpay_refill(pk=order.birpay_id)`.
+2. При успешном ответе (HTTP 200) выполняется **подтверждение на ASU** по той же логике, что и в birpay_panel:
+   - Проверка `should_send_to_z_asu(order.card_number)`.
+   - Вызов `confirm_z_asu_transaction(order.merchant_transaction_id)`.
+   - Ошибки апрува на ASU логируются и не отменяют уже выполненное подтверждение в Birpay.
+
+**Файл:** `deposit/tasks.py` (блок после успешного `approve_birpay_refill` в ветке автоподтверждения).
+
 ---
 
 ## 5. Пересылка SMS для агентов "Работает на Zajon"

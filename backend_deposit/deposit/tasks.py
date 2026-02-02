@@ -794,6 +794,21 @@ def send_image_to_gpt_task(self, birpay_id):
                         text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
                         logger.warning(text)
                         send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
+                    else:
+                        # Успешный апрув в Birpay — подтверждаем транзакцию на ASU (Z-ASU), если карта в реквизитах с works_on_asu
+                        if order.card_number and should_send_to_z_asu(order.card_number):
+                            try:
+                                confirm_result = confirm_z_asu_transaction(order.merchant_transaction_id)
+                                if confirm_result.get('status') == 'confirmed':
+                                    logger.info(
+                                        f'Автоподтверждение: транзакция {order.merchant_transaction_id} успешно подтверждена на ASU (Payment {confirm_result.get("payment_id", "?")})')
+                                else:
+                                    logger.warning(
+                                        f'Автоподтверждение: апрув на ASU для {order.merchant_transaction_id}: {confirm_result}')
+                            except Exception as e:
+                                logger.error(
+                                    f'Автоподтверждение: исключение при апруве на ASU для {order.merchant_transaction_id}: {e}',
+                                    exc_info=True)
             if order.is_moshennik():
                 logger.info(f'Обработка мошенника')
                 if len(incomings_with_correct_card_and_order_amount) == 1:
