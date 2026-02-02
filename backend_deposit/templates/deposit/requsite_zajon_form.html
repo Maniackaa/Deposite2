@@ -28,6 +28,18 @@
                         <span class="badge bg-secondary">Выключено</span>
                     {% endif %}
                 </dd>
+
+                <dt class="col-sm-3">Номер карты (очищенный)</dt>
+                <dd class="col-sm-9">
+                    <span class="fw-semibold">{{ object.card_number|default:'—' }}</span>
+                </dd>
+
+                {% if object.payload.card_number %}
+                <dt class="col-sm-3">Номер карты (сырое из Birpay)</dt>
+                <dd class="col-sm-9">
+                    <code class="text-muted small">{{ object.payload.card_number }}</code>
+                </dd>
+                {% endif %}
             </dl>
         </div>
     </div>
@@ -35,11 +47,26 @@
     <form method="post" class="needs-validation" novalidate>
         {% csrf_token %}
         <div class="mb-3">
-            <label for="{{ form.card_number.id_for_label }}" class="form-label">Номер карты</label>
-            {{ form.card_number }}
-            {% if form.card_number.errors %}
-                <div class="text-danger small">{{ form.card_number.errors|striptags }}</div>
+            <label for="{{ form.raw_card_number.id_for_label }}" class="form-label">{{ form.raw_card_number.label }}</label>
+            {{ form.raw_card_number }}
+            {% if form.raw_card_number.help_text %}
+                <small class="form-text text-muted">{{ form.raw_card_number.help_text }}</small>
             {% endif %}
+            {% if form.raw_card_number.errors %}
+                <div class="text-danger small">{{ form.raw_card_number.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        <div class="mb-3">
+            <div class="form-check">
+                {{ form.works_on_asu }}
+                <label for="{{ form.works_on_asu.id_for_label }}" class="form-check-label">
+                    Работает на ASU
+                </label>
+            </div>
+            {% if form.works_on_asu.errors %}
+                <div class="text-danger small">{{ form.works_on_asu.errors|striptags }}</div>
+            {% endif %}
+            <small class="form-text text-muted">Если включено, заявки с этой картой будут отправляться на Z-ASU API</small>
         </div>
         <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">Сохранить</button>

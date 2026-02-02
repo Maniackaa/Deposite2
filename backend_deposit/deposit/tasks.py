@@ -534,7 +534,11 @@ def process_birpay_order(data):
         try:
             result = send_birpay_order_to_z_asu(order)
             if result.get('success'):
-                logger.info(f"BirpayOrder {birpay_id} успешно отправлен на Z-ASU, payment_id={result.get('payment_id')}")
+                payment_id = result.get('payment_id')
+                logger.info(f"BirpayOrder {birpay_id} успешно отправлен на Z-ASU, payment_id={payment_id}")
+                # Сохраняем payment_id в BirpayOrder
+                order.payment_id = payment_id
+                order.save(update_fields=['payment_id'])
             else:
                 logger.error(f"Ошибка отправки BirpayOrder {birpay_id} на Z-ASU: {result.get('error')}")
         except Exception as err:

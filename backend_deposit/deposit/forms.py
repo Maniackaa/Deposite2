@@ -308,37 +308,58 @@ def luhn_check(card_number):
 
 
 class RequsiteZajonForm(forms.ModelForm):
+    # Поле для редактирования сырого значения из payload
+    raw_card_number = forms.CharField(
+        label='Номер карты (сырое значение)',
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Например: 4189 8000 8635 5664 Bu kartlara yalnız elektron ödəniş sistemlərindən köçürmə ed'
+        }),
+        help_text='Введите сырое значение из Birpay. Система автоматически извлечет номер карты (16 цифр) и проверит его валидность.'
+    )
+    
     class Meta:
         model = RequsiteZajon
-        fields = ('card_number',)
+        fields = ('works_on_asu',)  # card_number больше не редактируется напрямую
         widgets = {
-            'card_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'works_on_asu': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
     
-    def clean_card_number(self):
-        card_number = self.cleaned_data.get('card_number', '').strip()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Устанавливаем начальное значение raw_card_number из payload
+        if self.instance and self.instance.pk:
+            payload = self.instance.payload or {}
+            self.fields['raw_card_number'].initial = payload.get('card_number', '') or self.instance.card_number or ''
+    
+    def clean_raw_card_number(self):
+        raw_card_number = self.cleaned_data.get('raw_card_number', '').strip()
         
-        if not card_number:
-            return card_number  # Пустое значение допустимо (blank=True)
+        if not raw_card_number:
+            return raw_card_number  # Пустое значение допустимо
         
-        # Убираем все пробелы и дефисы
-        cleaned = re.sub(r'[\s\-]', '', card_number)
+        # Извлекаем только цифры из сырого значения
+        cleaned_digits = re.sub(r'\D', '', raw_card_number)
         
-        # Проверяем, что содержит только цифры
-        if not re.match(r'^\d+$', cleaned):
-            raise forms.ValidationError('Номер карты должен содержать только цифры')
-        
-        # Проверяем длину (должно быть 16 символов)
-        if len(cleaned) != 16:
+        # Проверяем, что найдено достаточно цифр для номера карты
+        if len(cleaned_digits) < 16:
             raise forms.ValidationError(
-                f'Номер карты должен содержать ровно 16 цифр. Получено: {len(cleaned)}'
+                f'В сыром значении должно быть минимум 16 цифр для номера карты. Найдено: {len(cleaned_digits)}'
             )
         
-        # Проверяем алгоритм Луна
-        if not luhn_check(cleaned):
-            raise forms.ValidationError('Номер карты не прошел проверку по алгоритму Луна')
+        # Берем первые 16 цифр (номер карты)
+        card_number = cleaned_digits[:16]
         
-        return cleaned
+        # Проверяем алгоритм Луна
+        if not luhn_check(card_number):
+            raise forms.ValidationError(
+                f'Номер карты {card_number} не прошел проверку по алгоритму Луна. Проверьте правильность номера карты в сыром значении.'
+            )
+        
+        # Возвращаем сырое значение (оно будет сохранено в payload)
+        return raw_card_number
 
 
 class BirpayOrderCreateForm(forms.ModelForm):

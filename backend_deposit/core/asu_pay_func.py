@@ -6,7 +6,7 @@ from django.conf import settings
 from core.global_func import hash_gen, send_message_tg
 from users.models import Options
 
-log = structlog.get_logger('deposit')
+logger = structlog.get_logger('deposit')
 
 
 class ASUAccountManager:
@@ -31,7 +31,7 @@ class ASUAccountManager:
         
         self.account_type = account_type
         self.token_file = settings.BASE_DIR / f'token_{account_type}.txt'
-        self.logger = log.bind(account_type=account_type)
+        self.logger = logger.bind(account_type=account_type)
     
     def _get_credentials(self):
         """Получает логин и пароль для текущего аккаунта."""
@@ -448,7 +448,7 @@ def create_z_asu_withdraw(withdraw_id, amount, card_data, target_phone, payload:
 def should_send_to_z_asu(card_number: str) -> bool:
     """
     Проверка условия для отправки BirpayOrder на Z-ASU.
-    Логика Z-ASU: проверяет что номер карты равен 4111 1111 1111 1111.
+    Логика Z-ASU: проверяет, есть ли карта в реквизитах Zajon с опцией "Работает на ASU".
     
     Args:
         card_number: Номер карты (может содержать пробелы)
@@ -461,9 +461,27 @@ def should_send_to_z_asu(card_number: str) -> bool:
     
     # Убираем пробелы и дефисы для сравнения
     cleaned_card = card_number.replace(' ', '').replace('-', '')
-    z_asu_test_card = '4111111111111111'
     
-    return cleaned_card == z_asu_test_card
+    # Проверяем, есть ли реквизит с этой картой и опцией works_on_asu=True
+    from deposit.models import RequsiteZajon
+    
+    # Получаем все реквизиты с works_on_asu=True и проверяем карту в Python
+    # Это позволяет нормализовать карты независимо от формата хранения в базе
+    all_z_asu_requisites = RequsiteZajon.objects.filter(works_on_asu=True).values('id', 'name', 'card_number')
+    
+    for req in all_z_asu_requisites:
+        req_card = req['card_number']
+        if req_card:
+            # Нормализуем карту из базы для сравнения (убираем пробелы и дефисы)
+            normalized_req_card = req_card.replace(' ', '').replace('-', '')
+            if normalized_req_card == cleaned_card:
+                logger.info(f'Логика Z-ASU: найдена карта {cleaned_card} в реквизите {req["id"]} ({req["name"]}) с works_on_asu=True')
+                return True
+    
+    # Логируем для отладки
+    logger.debug(f'Логика Z-ASU: не найдено реквизитов с картой {cleaned_card} и works_on_asu=True. Всего реквизитов с works_on_asu=True: {all_z_asu_requisites.count()}')
+    
+    return False
 
 
 def send_birpay_order_to_z_asu(birpay_order) -> dict:

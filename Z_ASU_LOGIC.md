@@ -42,7 +42,7 @@ Z-ASU - это специальная логика для взаимодейст
 
 ### Условие активации
 
-Логика Z-ASU активируется когда создается `BirpayOrder` с номером карты **`4111 1111 1111 1111`**.
+Логика Z-ASU активируется когда создается `BirpayOrder` с номером карты, которая присутствует в реквизитах Zajon (`RequsiteZajon`) с включенной опцией **"Работает на ASU"** (`works_on_asu=True`).
 
 ### Процесс
 
@@ -53,9 +53,19 @@ Z-ASU - это специальная логика для взаимодейст
 2. **Проверка условия** (`core/asu_pay_func.py`)
    ```python
    def should_send_to_z_asu(card_number: str) -> bool:
-       """Проверяет что номер карты равен 4111 1111 1111 1111"""
+       """
+       Проверяет, есть ли карта в реквизитах Zajon с опцией "Работает на ASU".
+       Нормализует карту (убирает пробелы и дефисы) и ищет совпадение в реквизитах.
+       """
        cleaned_card = card_number.replace(' ', '').replace('-', '')
-       return cleaned_card == '4111111111111111'
+       # Получаем все реквизиты с works_on_asu=True и проверяем карту
+       all_z_asu_requisites = RequsiteZajon.objects.filter(works_on_asu=True)
+       for req in all_z_asu_requisites:
+           if req.card_number:
+               normalized_req_card = req.card_number.replace(' ', '').replace('-', '')
+               if normalized_req_card == cleaned_card:
+                   return True
+       return False
    ```
 
 3. **Отправка на Payment API** (`core/asu_pay_func.py`)
@@ -287,15 +297,30 @@ Content-Type: application/json
    - Вызывается `approve_birpay_refill(pk=order.birpay_id)`
    - Если успешно (HTTP 200), заявка подтверждается
 
-3. **Логика Z-ASU - подтверждение на ASU:**
-   - После успешного подтверждения в birpay проверяется `should_send_to_z_asu(order.card_number)`
-   - Если это Z-ASU заказ (карта `4111 1111 1111 1111`), вызывается `confirm_z_asu_transaction(order.merchant_transaction_id)`
-   - Endpoint `/api/v2/z-asu/confirm-transaction/` ищет Payment через ORM и подтверждает его
+3. **Сохранение заявки:**
+   - Заявка сохраняется в транзакции (`transaction.atomic()`)
+   - Привязывается к Incoming (SMS)
+   - Обновляется статус заявки
 
-4. **Сообщение пользователю:**
+4. **Логика Z-ASU - подтверждение на ASU (в конце обработки):**
+   
+   **Условия выполнения:**
+   - ✅ Заявка успешно подтверждена в birpay (`response.status_code == 200` или `DEBUG=True`)
+   - ✅ Заявка успешно сохранена в транзакции (привязана к Incoming, обновлен статус)
+   - ✅ Проверка `should_send_to_z_asu(order.card_number)` возвращает `True`
+     - Карта найдена в реквизитах Zajon с `works_on_asu=True` и `active=True`
+   
+   **Процесс:**
+   - Вызывается `confirm_z_asu_transaction(order.merchant_transaction_id)`
+   - Endpoint `/api/v2/z-asu/confirm-transaction/` ищет Payment через ORM по `order_id=merchant_transaction_id` и `source='z_asu'`
+   - Если Payment найден, переводит его в статус 9 (Confirmed)
+   - **Важно:** Выполняется в конце, после сохранения заявки, чтобы не блокировать основную транзакцию при недоступности сервера ASU
+
+5. **Сообщение пользователю:**
    - Добавляется информация об успешности апрува на ASU:
      - " успешно апрувнуто на ASU (Payment {payment_id})" - если успешно
      - " ошибка апрува на ASU: {error}" - если ошибка
+     - " исключение при апруве на ASU: {error}" - если исключение
 
 ### Функция подтверждения транзакции
 
@@ -404,8 +429,15 @@ Content-Type: application/json
 - `z_asu_login` - Логин для Z-ASU аккаунта
 - `z_asu_password` - Пароль для Z-ASU аккаунта
 
+**Deposit проект - RequsiteZajon:**
+- `works_on_asu` - Опция "Работает на ASU" (BooleanField, default=False)
+  - Если включено, заявки с этой картой будут отправляться на Z-ASU API
+  - Настраивается в форме редактирования реквизита (`requisite-zajon/pk/`)
+  - В списке реквизитов ID отображается как бирюзовая лампочка для реквизитов с `works_on_asu=True`
+
 **Payment проект - Profile.agent_data:**
 - `works_on_zajon` - Опция для агентов (boolean)
+  - Если включено, все распознанные SMS от этого агента пересылаются в систему депозит
 
 **Payment проект - Merchant:**
 - Должен существовать Merchant с `name='Z-ASU'`
@@ -439,7 +471,7 @@ Z-ASU API имеет отдельную Swagger документацию:
 
 **Файлы:**
 - `core/asu_pay_func.py` - Функции для работы с Z-ASU API
-  - `should_send_to_z_asu()` - Проверка условия
+  - `should_send_to_z_asu()` - Проверка условия (ищет карту в реквизитах с `works_on_asu=True`)
   - `send_birpay_order_to_z_asu()` - Отправка на Payment API
   - `confirm_z_asu_transaction()` - Подтверждение транзакции по merchant_transaction_id
   - `ASUAccountManager` - Менеджер аккаунтов (ASU и Z-ASU)
@@ -449,7 +481,23 @@ Z-ASU API имеет отдельную Swagger документацию:
 
 - `deposit/views.py` - Django views
   - `BirpayOrderCreateView` - Ручное создание BirpayOrder (вызывает Z-ASU логику)
-  - `BirpayPanelView.post()` - Подтверждение заявки с апрувом на ASU (Z-ASU логика)
+  - `BirpayPanelView.post()` - Подтверждение заявки с апрувом на ASU (Z-ASU логика в конце обработки)
+  - `RequsiteZajonUpdateView.form_valid()` - Сохранение поля `works_on_asu` при редактировании реквизита
+
+- `deposit/models.py` - Модели
+  - `RequsiteZajon` - Модель реквизитов Zajon с полем `works_on_asu` (BooleanField)
+
+- `deposit/forms.py` - Формы
+  - `RequsiteZajonForm` - Форма редактирования реквизита с полем `works_on_asu`
+
+- `deposit/admin.py` - Админка
+  - `RequsiteZajonAdmin` - Админка для реквизитов с полем `works_on_asu` в списке и фильтрах
+
+- `templates/deposit/requsite_zajon_list.html` - Шаблон списка реквизитов
+  - Визуализация ID как бирюзовой лампочки для реквизитов с `works_on_asu=True`
+
+- `templates/deposit/requsite_zajon_form.html` - Шаблон редактирования реквизита
+  - Чекбокс "Работает на ASU"
 
 - `users/models.py` - Модели
   - `Options` - Singleton модель с `z_asu_login` и `z_asu_password`
@@ -481,6 +529,11 @@ Z-ASU API имеет отдельную Swagger документацию:
   - `duplicate_sms_to_deposit()` - Функция пересылки SMS
   - `process_card_to_card_sms_from_apk_agent()` - Обработка SMS от APK агентов
 
+- `balance_checker/func.py` - Функции фильтрации кошельков
+  - `filter_wallet_for_pay()` - Фильтрация подходящих Wallet для payment
+    - Исключает кошельки агентов с `works_on_zajon=True` (логика Z-ASU)
+    - Оптимизированный поиск: сначала находит профили агентов с `works_on_zajon=True`, затем исключает их кошельки по `agent_user_id`
+
 - `users/models.py` - Модели
   - `Profile.agent_data` - JSONField с опцией `works_on_zajon`
 
@@ -507,8 +560,10 @@ Z-ASU API имеет отдельную Swagger документацию:
 Все операции логируются с пометкой `z_asu` или `zajon_agent`:
 
 **Deposit проект:**
-- `log.bind(account_type='z_asu')` - для операций с Z-ASU аккаунтом
+- Используется глобальный `logger = structlog.get_logger('deposit')`
+- `logger.bind(account_type='z_asu')` - для операций с Z-ASU аккаунтом
 - `logger.bind(birpay_order_id=..., z_asu=True)` - для отправки BirpayOrder
+- `logger.info()` / `logger.debug()` - для логирования проверки реквизитов и подтверждения транзакций
 
 **Payment проект:**
 - `logger.bind(z_asu_api=True)` - для API операций
@@ -543,17 +598,42 @@ Z-ASU API имеет отдельную Swagger документацию:
 
 ---
 
-## 11. Тестирование
+## 11. Фильтрация кошельков при назначении
 
-### Тестовая карта
+### Исключение кошельков агентов с works_on_zajon=True
 
-Для активации логики Z-ASU используется тестовая карта:
-- **Номер:** `4111 1111 1111 1111` (с пробелами или без)
+При назначении `work_wallet` для Payment система исключает кошельки агентов, у которых включена опция "Работает на Zajon".
+
+**Логика фильтрации** (`balance_checker/func.py`):
+- Находятся все профили агентов с `user__role='agent'` и `agent_data__works_on_zajon=True`
+- Получается список их `user_id`
+- Кошельки с `agent_user_id__in=[список id]` исключаются из автоматического назначения
+- Применяется только для кошельков с `agent_user` (manual, p2p кошельки)
+
+**Оптимизация:**
+- Используется один запрос для получения списка агентов с `works_on_zajon=True`
+- Исключение выполняется через простой фильтр `exclude(agent_user_id__in=zajon_agent_ids)`
+- Это эффективнее, чем фильтрация через JSONField в JOIN запросе
+
+---
+
+## 12. Тестирование
+
+### Настройка реквизита для работы с ASU
+
+Для активации логики Z-ASU необходимо:
+1. Создать или отредактировать реквизит Zajon (`requisite-zajon/pk/`)
+2. Указать номер карты
+3. Включить опцию "Работает на ASU"
+4. Сохранить реквизит
+
+В списке реквизитов ID будет отображаться как бирюзовая лампочка для реквизитов с `works_on_asu=True`.
 
 ### Проверка работы
 
-1. **Создание BirpayOrder с тестовой картой**
+1. **Создание BirpayOrder с картой из реквизита с works_on_asu=True**
    - В админке Deposit проекта
+   - Использовать карту из реквизита с включенной опцией "Работает на ASU"
    - Проверить логи на отправку запроса на Payment API
 
 2. **Проверка создания Payment**
@@ -572,7 +652,7 @@ Z-ASU API имеет отдельную Swagger документацию:
 
 ---
 
-## 12. Важные замечания
+## 13. Важные замечания
 
 1. **Токены JWT**
    - Токены для ASU и Z-ASU хранятся отдельно (`token_asu.txt` и `token_z_asu.txt`)
@@ -600,11 +680,24 @@ Z-ASU API имеет отдельную Swagger документацию:
    - Используется та же логика, что и в `wallet_assignment_service` через `WalletAssignmentResult.apply_to_payment()`
    - Это обеспечивает консистентность между ручным назначением и назначением через Z-ASU API
 
----
+7. **Определение работы с ASU через реквизиты**
+   - Логика Z-ASU активируется не по конкретному номеру карты, а по наличию карты в реквизитах с `works_on_asu=True`
+   - Это позволяет гибко настраивать, какие карты работают с ASU через интерфейс редактирования реквизитов
+   - Визуальная индикация: ID реквизита отображается как бирюзовая лампочка в списке реквизитов
+
+8. **Исключение кошельков агентов с works_on_zajon**
+   - Кошельки агентов с `works_on_zajon=True` исключаются из автоматического назначения при фильтрации
+   - Это предотвращает назначение кошельков агентам, которые работают на Zajon и обрабатывают платежи вручную
+
+9. **Подтверждение на ASU в конце обработки**
+   - Подтверждение на ASU выполняется после сохранения заявки, чтобы не блокировать основную транзакцию
+   - При недоступности сервера ASU основная транзакция уже сохранена и не блокируется таймаутами
 
 ---
 
-## 13. Permission классы
+---
+
+## 14. Permission классы
 
 ### IsZASUUser
 
@@ -632,6 +725,15 @@ def z_asu_create_payment(request):
 - Добавлена проверка доступа через permission класс `IsZASUUser`
 - Добавлены endpoints для подтверждения и отклонения Payment
 - Добавлен endpoint для подтверждения транзакции по merchant_transaction_id
-- Добавлена логика подтверждения на ASU после успешного подтверждения в birpay_panel
+- Добавлена логика подтверждения на ASU после успешного подтверждения в birpay_panel (в конце обработки)
 - Добавлена проверка DEBUG режима для `approve_birpay_refill`
 - Интегрирован `WalletAssignmentResult.apply_to_payment()` для единообразной логики назначения кошелька и уменьшения баланса агента
+- **Изменена логика определения работы с ASU:** теперь проверяется наличие карты в реквизитах Zajon с опцией `works_on_asu=True` вместо проверки конкретного номера карты `4111 1111 1111 1111`
+- Добавлено поле `works_on_asu` в модель `RequsiteZajon` для настройки работы с ASU через интерфейс редактирования реквизитов
+- Добавлена визуализация ID реквизита как бирюзовой лампочки для реквизитов с `works_on_asu=True` в списке реквизитов
+- Добавлена фильтрация кошельков агентов с `works_on_zajon=True` при назначении кошельков (исключаются из автоматического назначения)
+- Оптимизирована фильтрация кошельков: используется один запрос для получения списка агентов вместо фильтрации через JSONField в JOIN
+- **Изменена логика определения работы с ASU:** теперь проверяется наличие карты в реквизитах Zajon с опцией `works_on_asu=True` вместо проверки конкретного номера карты
+- Добавлено поле `works_on_asu` в модель `RequsiteZajon` для настройки работы с ASU через интерфейс редактирования реквизитов
+- Добавлена визуализация ID реквизита как бирюзовой лампочки для реквизитов с `works_on_asu=True`
+- Добавлена фильтрация кошельков агентов с `works_on_zajon=True` при назначении кошельков (исключаются из автоматического назначения)

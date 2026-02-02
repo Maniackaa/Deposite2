@@ -160,6 +160,7 @@ class BirpayOrder(models.Model):
     gpt_flags = models.SmallIntegerField(default=0)
     incomingsms_id = models.CharField(max_length=10, null=True, blank=True, unique=True, db_index=True)
     incoming = models.OneToOneField('Incoming', on_delete=SET_NULL, null=True, blank=True, related_name='birpay', db_index=True)
+    payment_id = models.CharField('ID Payment на ASU', max_length=100, null=True, blank=True, db_index=True, help_text='ID Payment, созданного на ASU через Z-ASU API')
 
     class Meta:
         ordering = ('-created_at',)
@@ -417,6 +418,8 @@ class RequsiteZajon(models.Model):
     updated_at = models.DateTimeField('Обновлено (Birpay)')
     payment_requisite_filter_id = models.IntegerField('ID фильтра реквизита', null=True, blank=True)
     card_number = models.CharField('Номер карты', max_length=32, blank=True)
+    works_on_asu = models.BooleanField('Работает на ASU', default=False, db_index=True, 
+                                       help_text='Если включено, заявки с этой картой будут отправляться на Z-ASU API')
     refill_method_types = models.JSONField('Методы пополнения', default=list, blank=True)
     payload = models.JSONField('Параметры реквизита', default=dict, blank=True)
     users = models.JSONField('Операторы', default=list, blank=True)

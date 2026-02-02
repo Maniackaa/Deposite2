@@ -95,7 +95,7 @@
             <tbody>
             {% for order in page_obj %}
                 <tr>
-                    <td>{{ order.id }}</td>
+                    <td>{{ order.id }}{% if order.payment_id %}<span title="Payment ID на ASU: {{ order.payment_id }}" style="color: #20c997; font-weight: bold; margin-left: 3px;">⚡</span>{% endif %}</td>
                     <td>
                         {{ order.incoming.id|default_if_none:"" }} {{ order.incoming.pay|default_if_none:"" }}
                     </td>

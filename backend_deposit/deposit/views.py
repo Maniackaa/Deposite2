@@ -2,6 +2,7 @@ import base64
 import datetime
 import io
 import json
+import re
 import uuid
 from http import HTTPStatus
 from tempfile import NamedTemporaryFile
@@ -36,33 +37,6 @@ from rest_framework.views import APIView
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from core.asu_pay_func import create_asu_withdraw, should_send_to_z_asu, send_birpay_order_to_z_asu, confirm_z_asu_transaction
-
-
-def add_balance_mismatch_flag(incoming):
-    """Добавляет атрибут balance_mismatch к объекту incoming для проверки несовпадения баланса после округления до 0.1"""
-    try:
-        if incoming.check_balance is not None and incoming.balance is not None:
-            check_rounded = round(float(incoming.check_balance) * 10) / 10
-            balance_rounded = round(float(incoming.balance) * 10) / 10
-            incoming.balance_mismatch = check_rounded != balance_rounded
-        else:
-            incoming.balance_mismatch = False
-    except (ValueError, TypeError, AttributeError) as e:
-        incoming.balance_mismatch = False
-        logger.error(f'add_balance_mismatch_flag: ошибка для incoming.id={incoming.id}: {e}')
-    return incoming
-from core.birpay_func import (
-    get_birpay_withdraw,
-    get_new_token,
-    approve_birpay_withdraw,
-    decline_birpay_withdraw,
-    get_birpays,
-    change_amount_birpay,
-    approve_birpay_refill,
-    get_payment_requisite_data,
-    update_payment_requisite_data,
-    set_payment_requisite_active,
-)
 from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.global_func import TZ, mask_compare, send_message_tg
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
@@ -102,6 +76,20 @@ from deposit.models import (
     Bank,
     RequsiteZajon,
 )
+
+from core.birpay_func import (
+    get_birpay_withdraw,
+    get_new_token,
+    approve_birpay_withdraw,
+    decline_birpay_withdraw,
+    get_birpays,
+    change_amount_birpay,
+    approve_birpay_refill,
+    get_payment_requisite_data,
+    update_payment_requisite_data,
+    set_payment_requisite_active,
+)
+
 from users.models import Options
 
 logger = structlog.get_logger('deposit')
@@ -112,6 +100,22 @@ User = get_user_model()
 
 REQUIRED_REFILL_METHOD_ID = 127
 REQUIRED_REFILL_METHOD_NAME = 'AZN_azcashier_5_birpay'
+
+
+def add_balance_mismatch_flag(incoming):
+    """Добавляет атрибут balance_mismatch к объекту incoming для проверки несовпадения баланса после округления до 0.1"""
+    try:
+        if incoming.check_balance is not None and incoming.balance is not None:
+            check_rounded = round(float(incoming.check_balance) * 10) / 10
+            balance_rounded = round(float(incoming.balance) * 10) / 10
+            incoming.balance_mismatch = check_rounded != balance_rounded
+        else:
+            incoming.balance_mismatch = False
+    except (ValueError, TypeError, AttributeError) as e:
+        incoming.balance_mismatch = False
+        logger.error(f'add_balance_mismatch_flag: ошибка для incoming.id={incoming.id}: {e}')
+    return incoming
+
 
 
 def _has_requisite_access(user) -> bool:
@@ -141,6 +145,26 @@ def _has_required_method(refill_methods):
         ):
             return True
     return False
+
+
+def extract_card_number_digits(card_number_str):
+    """
+    Извлекает только цифры из строки номера карты.
+    Удаляет все нецифровые символы (пробелы, буквы, знаки препинания).
+    Обрезает результат до 32 символов (максимальная длина поля card_number).
+    
+    Args:
+        card_number_str: Строка с номером карты (может содержать дополнительный текст)
+    
+    Returns:
+        str: Только цифры из строки (максимум 32 символа)
+    """
+    if not card_number_str:
+        return ''
+    # Извлекаем только цифры
+    digits_only = re.sub(r'\D', '', str(card_number_str))
+    # Обрезаем до максимальной длины поля (32 символа)
+    return digits_only[:32]
 
 
 def sync_requsite_zajon():
@@ -183,6 +207,7 @@ def sync_requsite_zajon():
                 logger.warning('Пропущена запись без id', row=row)
                 continue
 
+            # logger.info(f'{row}')
             existing = existing_map.get(pk)
 
             created_at = _parse_iso_datetime(row.get('createdAt')) or timezone.now()
@@ -192,14 +217,29 @@ def sync_requsite_zajon():
             payload_data = row.get('payload') or {}
             payload_copy = dict(payload_data)
 
+            # Получаем сырое значение card_number из payload (может содержать дополнительный текст)
+            raw_card_number = payload_copy.get('card_number', '') or ''
+            
             if existing and not remote_changed:
-                card_number_value = existing.card_number
+                # Для существующих записей без изменений на сервере:
+                # Если сырое значение есть в payload, пересчитываем card_number из него
+                # Иначе сохраняем текущее значение card_number
+                if raw_card_number:
+                    # Пересчитываем card_number из сырого значения для синхронизации
+                    card_number_value = extract_card_number_digits(raw_card_number)
+                else:
+                    # Если сырого значения нет, сохраняем текущее
+                    card_number_value = existing.card_number
+                    raw_card_number = existing.payload.get('card_number', '') if existing.payload else '' or existing.card_number or ''
                 active_value = existing.active
             else:
-                card_number_value = payload_copy.get('card_number', '') or ''
+                # Для новых записей или измененных на сервере:
+                # Извлекаем только цифры для поля card_number (максимум 32 символа)
+                card_number_value = extract_card_number_digits(raw_card_number)
                 active_value = row.get('active', False)
 
-            payload_copy['card_number'] = card_number_value
+            # В payload сохраняем сырое значение из Birpay (с дополнительным текстом)
+            payload_copy['card_number'] = raw_card_number
 
             common_fields = {
                 'active': active_value,
@@ -277,33 +317,108 @@ class RequsiteZajonUpdateView(StaffOnlyPerm, UpdateView):
     def form_valid(self, form):
         changed_fields = form.changed_data
         self.object = form.save(commit=False)
+        
+        log = logger.bind(
+            requisite_id=self.object.pk,
+            changed_fields=changed_fields,
+        )
 
+        # Получаем старое сырое значение ДО изменения payload
+        old_payload = dict(self.object.payload or {}) if self.object.pk else {}
+        current_raw = old_payload.get('card_number', '') if self.object.pk else ''
+        log.debug('Начало обработки формы', current_raw=current_raw[:50] if current_raw else '')
+
+        # Обработка сырого значения card_number из формы
+        raw_card_number = form.cleaned_data.get('raw_card_number', '').strip()
+        log.debug('Получено сырое значение из формы', raw_card_number=raw_card_number[:50] if raw_card_number else '')
+        
+        if raw_card_number:
+            # Извлекаем номер карты из сырого значения (только цифры, максимум 32 символа)
+            card_number_value = extract_card_number_digits(raw_card_number)
+            # Берем первые 16 цифр для номера карты
+            if len(card_number_value) >= 16:
+                self.object.card_number = card_number_value[:16]
+            else:
+                self.object.card_number = card_number_value
+            log.debug(
+                'Извлечен номер карты из сырого значения',
+                card_number_extracted=self.object.card_number,
+                raw_length=len(raw_card_number),
+            )
+        else:
+            # Если сырое значение пустое, очищаем и card_number
+            self.object.card_number = ''
+            raw_card_number = ''
+            log.debug('Сырое значение пустое, очищаем card_number')
+
+        # Сохраняем сырое значение в payload
         payload = dict(self.object.payload or {})
-        payload['card_number'] = self.object.card_number
+        payload['card_number'] = raw_card_number
         self.object.payload = payload
 
         sync_result = None
-        if 'card_number' in changed_fields:
-            sync_result = update_payment_requisite_data(
-                self.object.pk,
-                name=self.object.name,
-                agent_id=self.object.agent_id,
-                weight=self.object.weight,
-                card_number=self.object.card_number,
-                refill_method_types=self.object.refill_method_types,
-                users=self.object.users,
-                payment_requisite_filter_id=self.object.payment_requisite_filter_id,
+        # Отправляем на birpay сырое значение, если оно изменилось
+        raw_changed = raw_card_number != current_raw
+        log.info(
+            'Проверка изменения сырого значения',
+            raw_changed=raw_changed,
+            old_raw=current_raw[:50] if current_raw else '',
+            new_raw=raw_card_number[:50] if raw_card_number else '',
+        )
+        
+        if raw_changed:
+            log.info(
+                'Отправка обновления на Birpay',
+                requisite_id=self.object.pk,
+                card_number_raw=raw_card_number[:50] if raw_card_number else '',
             )
+            try:
+                # Отправляем полный payload, чтобы сохранить все существующие поля
+                sync_result = update_payment_requisite_data(
+                    self.object.pk,
+                    name=self.object.name,
+                    agent_id=self.object.agent_id,
+                    weight=self.object.weight,
+                    card_number=raw_card_number,  # Отправляем сырое значение на birpay
+                    refill_method_types=self.object.refill_method_types,
+                    users=self.object.users,
+                    payment_requisite_filter_id=self.object.payment_requisite_filter_id,
+                    full_payload=old_payload,  # Отправляем старый payload, чтобы сохранить все поля
+                )
+                log.info(
+                    'Результат обновления на Birpay',
+                    status_code=sync_result.get('status_code') if sync_result else None,
+                    success=sync_result.get('success') if sync_result else None,
+                    error=sync_result.get('error') if sync_result else None,
+                )
+            except Exception as e:
+                log.error('Ошибка при обновлении на Birpay', exc_info=True, error=str(e))
+                sync_result = {'error': str(e), 'success': False}
+        else:
+            log.debug('Сырое значение не изменилось, пропускаем отправку на Birpay')
 
-        self.object.save(update_fields=['card_number', 'active', 'payload'])
+        # Сохраняем объект с учетом всех измененных полей формы, включая works_on_asu
+        # card_number и payload всегда обновляются, так как мы их изменяем вручную
+        update_fields_list = ['card_number', 'payload']
+        if 'works_on_asu' in changed_fields:
+            update_fields_list.append('works_on_asu')
+        log.debug('Сохранение объекта', update_fields=update_fields_list)
+        self.object.save(update_fields=update_fields_list)
+        log.info('Объект успешно сохранен')
 
         status_code = sync_result.get('status_code') if sync_result else None
         if status_code and status_code >= 400:
+            error_msg = sync_result.get('data') or sync_result.get('error') or 'Неизвестная ошибка'
+            log.warning('Ошибка при обновлении на Birpay', status_code=status_code, error=error_msg)
             messages.warning(
                 self.request,
-                f"Реквизит обновлён только локально. Ошибка Birpay: {sync_result.get('data')}",
+                f"Реквизит обновлён только локально. Ошибка Birpay: {error_msg}",
             )
+        elif sync_result:
+            log.info('Реквизит успешно обновлен локально и на Birpay')
+            messages.success(self.request, 'Реквизит обновлён')
         else:
+            log.info('Реквизит обновлен только локально (без изменений для Birpay)')
             messages.success(self.request, 'Реквизит обновлён')
         return HttpResponseRedirect(self.get_success_url())
 
@@ -2451,8 +2566,12 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
                 try:
                     result = send_birpay_order_to_z_asu(order)
                     if result.get('success'):
-                        logger.info(f"BirpayOrder {order.birpay_id} успешно отправлен на Z-ASU, payment_id={result.get('payment_id')}")
-                        messages.success(self.request, f'Заявка отправлена на Z-ASU! Payment ID: {result.get("payment_id")}')
+                        payment_id = result.get('payment_id')
+                        logger.info(f"BirpayOrder {order.birpay_id} успешно отправлен на Z-ASU, payment_id={payment_id}")
+                        # Сохраняем payment_id в BirpayOrder
+                        order.payment_id = payment_id
+                        order.save(update_fields=['payment_id'])
+                        messages.success(self.request, f'Заявка отправлена на Z-ASU! Payment ID: {payment_id}')
                     else:
                         logger.error(f"Ошибка отправки BirpayOrder {order.birpay_id} на Z-ASU: {result.get('error')}")
                         messages.error(self.request, f'Ошибка отправки на Z-ASU: {result.get("error")}')
