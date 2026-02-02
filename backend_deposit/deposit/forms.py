@@ -417,7 +417,7 @@ class BirpayOrderCreateForm(forms.ModelForm):
             self.fields['card_number'].initial = '4111 1111 1111 1111'
             
             # Устанавливаем значение по умолчанию для URL чека (полный URL)
-            check_file_url = "http://127.0.0.1:8002/media/screens/574545888_from_R13_703695562.jpg"
+            check_file_url = "http://45.14.247.139/media/uploaded_pay_screens/Frame_38_ysLyLMQ.jpg"
             self.fields['check_file_url'].initial = check_file_url
         
         # Устанавливаем choices для статуса
