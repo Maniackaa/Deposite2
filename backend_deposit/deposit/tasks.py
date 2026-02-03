@@ -549,17 +549,19 @@ def process_birpay_order(data):
         download_birpay_check_file.delay(order.id, check_file_url)
         logger.info(f"Задача на скачивание файла для заказа {birpay_id} отправлена в celery.")
     
-    # Логика Z-ASU: проверка условия и отправка на ASU
-    if created and order.card_number and should_send_to_z_asu(order.card_number):
-        logger.info(f"BirpayOrder {birpay_id} соответствует условию Z-ASU, отправляем на ASU")
+    # Логика Z-ASU: отправка на ASU при создании заявки или если заявка уже есть, но payment_id ещё не сохранён (карта подходит)
+    should_send = order.card_number and should_send_to_z_asu(order.card_number) and (created or not order.payment_id)
+    if should_send:
+        logger.info(f"BirpayOrder {birpay_id} соответствует условию Z-ASU, отправляем на ASU (created={created}, payment_id={getattr(order, 'payment_id', None) or 'нет'})")
         try:
             result = send_birpay_order_to_z_asu(order)
             if result.get('success'):
                 payment_id = result.get('payment_id')
                 logger.info(f"BirpayOrder {birpay_id} успешно отправлен на Z-ASU, payment_id={payment_id}")
-                # Сохраняем payment_id в BirpayOrder
-                order.payment_id = payment_id
-                order.save(update_fields=['payment_id'])
+                # Сохраняем payment_id в BirpayOrder (только если API вернул непустой id)
+                if payment_id:
+                    order.payment_id = str(payment_id)
+                    order.save(update_fields=['payment_id'])
             else:
                 logger.error(f"Ошибка отправки BirpayOrder {birpay_id} на Z-ASU: {result.get('error')}")
         except Exception as err:

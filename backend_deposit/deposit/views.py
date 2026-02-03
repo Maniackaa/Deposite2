@@ -2591,8 +2591,9 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
                     if result.get('success'):
                         payment_id = result.get('payment_id')
                         logger.info(f"BirpayOrder {order.birpay_id} успешно отправлен на Z-ASU, payment_id={payment_id}")
-                        order.payment_id = payment_id
-                        order.save(update_fields=['payment_id'])
+                        if payment_id:
+                            order.payment_id = str(payment_id)
+                            order.save(update_fields=['payment_id'])
                         messages.success(self.request, f'Заявка отправлена на Z-ASU! Payment ID: {payment_id}')
                     else:
                         logger.error(f"Ошибка отправки BirpayOrder {order.birpay_id} на Z-ASU: {result.get('error')}")

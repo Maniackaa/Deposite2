@@ -525,9 +525,12 @@ def send_birpay_order_to_z_asu(birpay_order) -> dict:
         
         logger.debug(f'Z-ASU API response: {response.status_code} {response.reason} {response.text}')
         
-        if response.status_code == 201:
+        # Успех: 201 Created или 200 OK (на случай прокси/вариаций)
+        if response.status_code in (200, 201):
             response_data = response.json()
-            payment_id = response_data.get('payment_id')
+            payment_id = response_data.get('payment_id') or response_data.get('id')
+            if payment_id is not None:
+                payment_id = str(payment_id)
             logger.info(f'Успешно создан Payment на Z-ASU: payment_id={payment_id}')
             return {
                 'success': True,
