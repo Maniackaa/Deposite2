@@ -118,22 +118,16 @@ class TestBirpayPanelBalanceCheck(TestCase):
         self.assertEqual(self.incoming_mismatch.check_balance, 1100.0)
         self.assertEqual(self.incoming_mismatch.balance, 1100.1)
     
-    @patch('core.birpay_func.change_amount_birpay')
-    @patch('core.birpay_func.approve_birpay_refill')
+    @patch('deposit.views.BirpayClient')
     @patch('deposit.views.send_message_tg')
-    def test_notification_sent_on_balance_mismatch_approve(self, mock_send_message_tg, mock_approve_birpay_refill, mock_change_amount_birpay):
+    def test_notification_sent_on_balance_mismatch_approve(self, mock_send_message_tg, mock_birpay_client_cls):
         """Тест: уведомление отправляется при approve с несовпадающим балансом"""
-        # Мокируем approve_birpay_refill для успешного ответа
+        # Мокируем BirpayClient для успешного ответа
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = 'OK'
-        mock_approve_birpay_refill.return_value = mock_response
-        
-        # Мокируем change_amount_birpay чтобы не пытаться изменить сумму
-        mock_change_response = Mock()
-        mock_change_response.status_code = 200
-        mock_change_response.text = 'OK'
-        mock_change_amount_birpay.return_value = mock_change_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
+        mock_birpay_client_cls.return_value.change_refill_amount.return_value = mock_response
         
         with patch('deposit.views.settings.ALARM_IDS', ['123456789']):
             url = reverse('deposit:birpay_panel')
@@ -186,22 +180,15 @@ class TestBirpayPanelBalanceCheck(TestCase):
             self.assertIn(str(self.incoming_mismatch.pay), message)
             self.assertIn(self.user.username, message)
     
-    @patch('core.birpay_func.change_amount_birpay')
-    @patch('core.birpay_func.approve_birpay_refill')
+    @patch('deposit.views.BirpayClient')
     @patch('deposit.views.send_message_tg')
-    def test_no_notification_on_balance_match_approve(self, mock_send_message_tg, mock_approve_birpay_refill, mock_change_amount_birpay):
+    def test_no_notification_on_balance_match_approve(self, mock_send_message_tg, mock_birpay_client_cls):
         """Тест: уведомление НЕ отправляется при approve с совпадающим балансом"""
-        # Мокируем approve_birpay_refill для успешного ответа
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = 'OK'
-        mock_approve_birpay_refill.return_value = mock_response
-        
-        # Мокируем change_amount_birpay чтобы не пытаться изменить сумму
-        mock_change_response = Mock()
-        mock_change_response.status_code = 200
-        mock_change_response.text = 'OK'
-        mock_change_amount_birpay.return_value = mock_change_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
+        mock_birpay_client_cls.return_value.change_refill_amount.return_value = mock_response
         
         # Для первой записи check_balance будет None, поэтому balance_mismatch будет False
         self.incoming_match.refresh_from_db()
@@ -225,22 +212,15 @@ class TestBirpayPanelBalanceCheck(TestCase):
             self.assertFalse(mock_send_message_tg.called, 
                           "send_message_tg НЕ должен быть вызван при совпадающем балансе")
     
-    @patch('core.birpay_func.change_amount_birpay')
-    @patch('core.birpay_func.approve_birpay_refill')
+    @patch('deposit.views.BirpayClient')
     @patch('deposit.views.send_message_tg')
-    def test_notification_contains_correct_data_approve(self, mock_send_message_tg, mock_approve_birpay_refill, mock_change_amount_birpay):
+    def test_notification_contains_correct_data_approve(self, mock_send_message_tg, mock_birpay_client_cls):
         """Тест: уведомление содержит правильные данные при approve"""
-        # Мокируем approve_birpay_refill для успешного ответа
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = 'OK'
-        mock_approve_birpay_refill.return_value = mock_response
-        
-        # Мокируем change_amount_birpay чтобы не пытаться изменить сумму
-        mock_change_response = Mock()
-        mock_change_response.status_code = 200
-        mock_change_response.text = 'OK'
-        mock_change_amount_birpay.return_value = mock_change_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
+        mock_birpay_client_cls.return_value.change_refill_amount.return_value = mock_response
         
         with patch('deposit.views.settings.ALARM_IDS', ['123456789', '987654321']):
             url = reverse('deposit:birpay_panel')
@@ -293,22 +273,15 @@ class TestBirpayPanelBalanceCheck(TestCase):
             # Проверяем chat_ids
             self.assertEqual(chat_ids, ['123456789', '987654321'])
     
-    @patch('core.birpay_func.change_amount_birpay')
-    @patch('core.birpay_func.approve_birpay_refill')
+    @patch('deposit.views.BirpayClient')
     @patch('deposit.views.send_message_tg')
-    def test_notification_error_handling_approve(self, mock_send_message_tg, mock_approve_birpay_refill, mock_change_amount_birpay):
+    def test_notification_error_handling_approve(self, mock_send_message_tg, mock_birpay_client_cls):
         """Тест: ошибка при отправке уведомления не прерывает выполнение при approve"""
-        # Мокируем approve_birpay_refill для успешного ответа
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = 'OK'
-        mock_approve_birpay_refill.return_value = mock_response
-        
-        # Мокируем change_amount_birpay чтобы не пытаться изменить сумму
-        mock_change_response = Mock()
-        mock_change_response.status_code = 200
-        mock_change_response.text = 'OK'
-        mock_change_amount_birpay.return_value = mock_change_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
+        mock_birpay_client_cls.return_value.change_refill_amount.return_value = mock_response
         
         # Мокируем send_message_tg чтобы он выбрасывал исключение
         mock_send_message_tg.side_effect = Exception("Telegram API error")

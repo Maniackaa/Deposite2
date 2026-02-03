@@ -50,217 +50,39 @@ def read_token():
 
 
 def find_birpay_from_id(birpay_id, results=1):
-    birpay_id = str(birpay_id).strip()
-    try:
-        token = read_token()
-        cookies = None
-        headers['Authorization'] = f'Bearer {token}'
-
-        json_data = {
-            'filter': {
-                'merchantTransactionId': birpay_id
-            },
-            'sort': {},
-            'limit': {
-                'lastId': 0,
-                'maxResults': results,
-                'descending': True,
-            },
-        }
-
-        response = requests.post(
-            'https://birpay-gate.com/api/operator/refill_order/find',
-            cookies=cookies,
-            headers=headers,
-            json=json_data,
-        )
-        logger.debug(f'find_birpay_from_id status_code: {response.status_code}')
-        if response.status_code == 401:
-            # Обновление токена
-            token = get_new_token()
-            headers['Authorization'] = f'Bearer {token}'
-            response = requests.post(
-                'https://birpay-gate.com/api/operator/refill_order/find',
-                cookies=cookies,
-                headers=headers,
-                json=json_data,
-            )
-
-        if response.status_code == 200:
-            data = response.json()
-            # for key, val in data[0].items():
-            #     print(f'{key}: {val}')
-            #     print('-------------------\n')
-            logger.info(f'Получено по birpay_id {birpay_id}: {data}')
-            if data:
-                row = data[0]
-                transaction_id = row.get('merchantTransactionId')
-                status = row.get('status')
-                sender = row.get('customerWalletId')
-                requisite = row.get('paymentRequisite')
-                pay = float(row.get('amount'))
-                operator = row.get('operator')
-                created_time = datetime.datetime.fromisoformat(row.get('createdAt'))
-                result = {
-                        'transaction_id': transaction_id,
-                        'status': status,
-                        'sender': sender,
-                        'requisite': requisite,
-                        'created_time': created_time,
-                        'pay': pay,
-                        'operator': operator,
-                    }
-                return result
-    except Exception as err:
-        logger.error(err, exc_info=True)
-        raise err
+    """Поиск заявки пополнения по merchant_transaction_id. Обёртка над BirpayClient.find_refill_order()."""
+    from core.birpay_client import BirpayClient
+    client = BirpayClient()
+    row = client.find_refill_order(str(birpay_id).strip(), results=results)
+    if not row:
+        return None
+    return {
+        'transaction_id': row.get('merchantTransactionId'),
+        'status': row.get('status'),
+        'sender': row.get('customerWalletId'),
+        'requisite': row.get('paymentRequisite'),
+        'created_time': datetime.datetime.fromisoformat(row.get('createdAt')) if row.get('createdAt') else None,
+        'pay': float(row.get('amount', 0)),
+        'operator': row.get('operator'),
+    }
 
 
 def get_refill_order_raw(merchant_tx_id, results=1):
-    """
-    Поиск заявки пополнения (refill) на birpay-gate по Merchant Transaction ID.
-    Возвращает сырой объект первой заявки из ответа API или None.
-    В birpay_func поиск заявок поддерживается только по полю merchantTransactionId.
-    """
-    merchant_tx_id = str(merchant_tx_id).strip()
-    if not merchant_tx_id:
-        return None
-    try:
-        token = read_token()
-        headers['Authorization'] = f'Bearer {token}'
-        json_data = {
-            'filter': {'merchantTransactionId': merchant_tx_id},
-            'sort': {},
-            'limit': {'lastId': 0, 'maxResults': results, 'descending': True},
-        }
-        response = requests.post(
-            'https://birpay-gate.com/api/operator/refill_order/find',
-            headers=headers,
-            json=json_data,
-        )
-        if response.status_code == 401:
-            token = get_new_token()
-            headers['Authorization'] = f'Bearer {token}'
-            response = requests.post(
-                'https://birpay-gate.com/api/operator/refill_order/find',
-                headers=headers,
-                json=json_data,
-            )
-        if response.status_code == 200:
-            data = response.json()
-            if data:
-                return data[0]
-        return None
-    except Exception as err:
-        logger.error(err, exc_info=True)
-        return None
+    """Поиск заявки пополнения по Merchant Transaction ID. Обёртка над BirpayClient.find_refill_order()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().find_refill_order(merchant_tx_id, results=results)
 
 
 def get_payout_order_raw(merchant_tx_id, results=1):
-    """
-    Поиск заявки выплаты (payout) на birpay-gate по Merchant Transaction ID.
-    Возвращает сырой объект первой заявки из ответа API или None.
-    В birpay_func поиск заявок поддерживается только по полю merchantTransactionId.
-    """
-    merchant_tx_id = str(merchant_tx_id).strip()
-    if not merchant_tx_id:
-        return None
-    try:
-        token = read_token()
-        headers['Authorization'] = f'Bearer {token}'
-        json_data = {
-            'filter': {'merchantTransactionId': merchant_tx_id},
-            'sort': {},
-            'limit': {'lastId': 0, 'maxResults': results, 'descending': True},
-        }
-        response = requests.post(
-            'https://birpay-gate.com/api/operator/payout_order/find',
-            headers=headers,
-            json=json_data,
-        )
-        if response.status_code == 401:
-            token = get_new_token()
-            headers['Authorization'] = f'Bearer {token}'
-            response = requests.post(
-                'https://birpay-gate.com/api/operator/payout_order/find',
-                headers=headers,
-                json=json_data,
-            )
-        if response.status_code == 200:
-            data = response.json()
-            if data:
-                return data[0]
-        return None
-    except Exception as err:
-        logger.error(err, exc_info=True)
-        return None
+    """Поиск заявки выплаты по Merchant Transaction ID. Обёртка над BirpayClient.find_payout_order()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().find_payout_order(merchant_tx_id, results=results)
 
 
-def get_birpays(results=512) -> dict:
-    # Полчение данных по первой таблице birpay
-    try:
-        token = read_token()
-        cookies = None
-        headers['Authorization'] = f'Bearer {token}'
-
-        json_data = {
-            'filter': {
-            },
-            'sort': {'isTrusted': True},
-            'limit': {
-                'lastId': 0,
-                'maxResults': results,
-                'descending': True,
-            },
-        }
-
-        response = requests.post(
-            'https://birpay-gate.com/api/operator/refill_order/find',
-            cookies=cookies,
-            headers=headers,
-            json=json_data,
-        )
-        logger.debug(f'find_birpay_from_id: {response.status_code}')
-        if response.status_code == 401:
-            # Обновление токена
-            token = get_new_token()
-            headers['Authorization'] = f'Bearer {token}'
-            response = requests.post(
-                'https://birpay-gate.com/api/operator/refill_order/find',
-                cookies=cookies,
-                headers=headers,
-                json=json_data,
-            )
-
-        if response.status_code == 200:
-            data = response.json()
-            # for key, val in data[0].items():
-            #     print(f'{key}: {val}')
-            #     print('-------------------\n')
-            logger.info(f'Получено : {len(data)}')
-            results = []
-            for row in data:
-                transaction_id = row.get('merchantTransactionId')
-                status = row.get('status')
-                sender = row.get('customerWalletId')
-                requisite = row.get('paymentRequisite')
-                pay = float(row.get('amount'))
-                operator = row.get('operator')
-                created_time = datetime.datetime.fromisoformat(row.get('createdAt'))
-                result = {
-                        'transaction_id': transaction_id,
-                        'status': status,
-                        'sender': sender,
-                        'requisite': requisite,
-                        'created_time': created_time,
-                        'pay': pay,
-                        'operator': operator,
-                    }
-                results.append(result)
-            return data
-    except Exception as err:
-        logger.error(err)
-        raise err
+def get_birpays(results=512) -> list:
+    """Получить список заявок на пополнение. Обёртка над BirpayClient.get_refill_orders()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().get_refill_orders(limit=results)
 
 
 def find_birpay_from_merch_transaction_id(merch_transaction_id, results=1):
@@ -332,13 +154,13 @@ def find_birpay_from_merch_transaction_id(merch_transaction_id, results=1):
 
 
 def send_request_birpay(url, method='POST', json_data=None) -> requests.Response:
+    """Низкоуровневый запрос (для обратной совместимости). Предпочтительно использовать BirpayClient."""
     token = read_token()
     headers['Authorization'] = f'Bearer {token}'
     if method == "POST":
         response = requests.post(url, headers=headers, json=json_data)
     else:
-        response = requests.put(url, headers=headers,json=json_data)
-
+        response = requests.put(url, headers=headers, json=json_data)
     if response.status_code == 401:
         token = get_new_token()
         headers['Authorization'] = f'Bearer {token}'
@@ -346,127 +168,41 @@ def send_request_birpay(url, method='POST', json_data=None) -> requests.Response
     logger.info(f'response.status_code: {response.status_code}')
     return response
 
-def change_amount_birpay(pk:int, amount:float) -> requests.Response:
-    logger.info(f'Меняем birpay_refill {pk} amount: {amount}')
-    url = 'https://birpay-gate.com/api/operator/refill_order/change/amount'
-    method='PUT'
-    json_data = {
-        'id': pk,
-        'amount': amount,
-    }
-    response = send_request_birpay(url=url, method=method, json_data=json_data)
-    logger.info(f'birpay_refill {pk}  amount: {amount} response.status_code: {response.status_code}. response.text: {response.text}')
-    return response
 
-def approve_birpay_refill(pk:int) -> requests.Response:
-    logger.info(f'Подтверждаем birpay_refill: {pk}')
-    url = 'https://birpay-gate.com/api/operator/refill_order/approve'
-    method='PUT'
-    json_data = {
-        'id': pk,
-    }
-    response = send_request_birpay(url=url, method=method, json_data=json_data)
-    logger.info(f'birpay_refill: {pk} response.status_code: {response.status_code}. response.text: {response.text}')
-    return response
+def change_amount_birpay(pk: int, amount: float) -> requests.Response:
+    """Изменить сумму заявки на пополнение. Обёртка над BirpayClient.change_refill_amount()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().change_refill_amount(pk, amount)
 
-# ------------------- ВТОРАЯ ТАБЛИЦА ------------------
+
+def approve_birpay_refill(pk: int) -> requests.Response:
+    """Подтвердить заявку на пополнение. Обёртка над BirpayClient.approve_refill()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().approve_refill(pk)
+
+# ------------------- Payout (выплаты), через BirpayClient ------------------
 async def get_birpay_withdraw(limit=512):
-    logger = structlog.get_logger('deposit')
-    token = read_token()
-    headers['Authorization'] = f'Bearer {token}'
-
-    json_data = {
-        "filter": {
-            "status": [
-                0,
-            ],
-        },
-        "sort": {
-            "isTrusted": True,
-        },
-        "limit": {
-            "lastId": 0,
-            "maxResults": limit,
-            "descending": True,
-        },
-    }
-
-    response = requests.post('https://birpay-gate.com/api/operator/payout_order/find', headers=headers, json=json_data)
-    logger.debug(f'response.status_code: {response.status_code}')
-    if response.status_code == 401:
-        # Обновление токена
-        token = get_new_token()
-        headers['Authorization'] = f'Bearer {token}'
-        response = requests.post('https://birpay-gate.com/api/operator/payout_order/find', headers=headers, json=json_data)
-    result = response.json()
-    return result
+    """Список заявок на выплату (status=0). Обёртка над BirpayClient.get_payout_orders()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().get_payout_orders(limit=limit)
 
 
 def approve_birpay_withdraw(withdraw_id, transaction_id):
-    logger = structlog.get_logger('deposit')
-    logger = logger.bind(birpay_withdraw_id=withdraw_id, transaction_id=transaction_id)
-    json_data = {
-        "id": withdraw_id,
-        "operatorTransactionId": transaction_id,
-    }
-    token = read_token()
-    headers['Authorization'] = f'Bearer {token}'
-    response = requests.put('https://birpay-gate.com/api/operator/payout_order/approve', headers=headers, json=json_data)
-    if response.status_code == 401:
-        # Обновление токена
-        token = get_new_token()
-        headers['Authorization'] = f'Bearer {token}'
-        response = requests.put('https://birpay-gate.com/api/operator/payout_order/approve', headers=headers, json=json_data)
-    result = response.json()
-    logger.debug(f'approve_birpay_withdraw {withdraw_id} {transaction_id}: {response.status_code}. result: {result}')
-    return result
+    """Подтвердить заявку на выплату. Обёртка над BirpayClient.approve_payout()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().approve_payout(withdraw_id, transaction_id)
 
 
 def decline_birpay_withdraw(withdraw_id, transaction_id):
-    logger = structlog.get_logger('deposit')
-    logger = logger.bind(birpay_withdraw_id=withdraw_id, transaction_id=transaction_id)
-    json_data = {
-        "id": withdraw_id,
-        "reasonDecline": "err"
-    }
-    token = read_token()
-    headers['Authorization'] = f'Bearer {token}'
-    response = requests.put('https://birpay-gate.com/api/operator/payout_order/decline', headers=headers, json=json_data)
-    if response.status_code == 401:
-        token = get_new_token()
-        headers['Authorization'] = f'Bearer {token}'
-        response = requests.put('https://birpay-gate.com/api/operator/payout_order/decline', headers=headers, json=json_data)
-    result = response.json()
-    logger.debug(f'decline_birpay_withdraw {withdraw_id} {transaction_id}: {response.status_code}. result: {result}')
-    return result
+    """Отклонить заявку на выплату. Обёртка над BirpayClient.decline_payout()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().decline_payout(withdraw_id, reason='err')
 
-#### Запросы для получения реквизитов #############
+#### Запросы для получения реквизитов (через BirpayClient) #############
 def get_payment_requisite_data():
-    logger = structlog.get_logger('deposit')
-    token = read_token()
-    headers['Authorization'] = f'Bearer {token}'
-    json_data = {
-        'filter': {},
-        'sort': {
-            'isTrusted': True,
-        },
-        'limit': {
-            'lastId': 0,
-            'maxResults': 512,
-            'descending': False,
-        },
-    }
-
-    response = requests.post('https://birpay-gate.com/api/operator/payment_requisite/find', headers=headers,
-                             json=json_data)
-    if response.status_code == 401:
-        token = get_new_token()
-        headers['Authorization'] = f'Bearer {token}'
-        response = requests.post('https://birpay-gate.com/api/operator/payment_requisite/find', headers=headers,
-                                 json=json_data)
-    logger.debug(f'response: {response.status_code}')
-    result = response.json()
-    return result
+    """Получить все реквизиты Birpay. Обёртка над BirpayClient.get_requisites()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().get_requisites()
 
 
 def update_payment_requisite_data(
@@ -482,110 +218,21 @@ def update_payment_requisite_data(
     payment_requisite_filter_id: int | None = None,
     full_payload: dict | None = None,
 ):
-    """
-    Обновление реквизита (номер карты + активность) одним запросом.
-    
-    Args:
-        full_payload: Полный payload объекта. Если передан, используется он с обновленным card_number.
-                      Если None, создается новый payload только с card_number.
-    """
-    logger = structlog.get_logger('deposit').bind(requisite_id=requisite_id)
-    refill_method_types = refill_method_types or []
-    users = users or []
-    
-    # Преобразуем users: оставляем только ID
-    users_ids = []
-    for user in users:
-        if isinstance(user, dict):
-            user_id = user.get('id')
-            if user_id is not None:
-                users_ids.append({'id': user_id})
-        elif isinstance(user, (int, str)):
-            # Если передан просто ID
-            users_ids.append({'id': int(user)})
-
-    # Формируем payload: если передан полный payload, используем его и обновляем card_number
-    # Иначе создаем новый payload только с card_number
-    if full_payload is not None:
-        payload_data = dict(full_payload)
-        payload_data['card_number'] = card_number
-        logger.debug('Используется полный payload с обновленным card_number', payload_keys=list(payload_data.keys()))
-    else:
-        payload_data = {'card_number': card_number}
-        logger.debug('Создается новый payload только с card_number')
-
-    token = read_token()
-    headers['Authorization'] = f'Bearer {token}'
-    json_data = {
-        'id': requisite_id,
-        'name': name,
-        'active': active,
-        'weight': weight,
-        'refillMethodTypes': refill_method_types,
-        'agent': {
-            'id': agent_id,
-        },
-        'payload': payload_data,
-        'users': users_ids,
-    }
-    if payment_requisite_filter_id:
-        json_data['paymentRequisiteFilterId'] = payment_requisite_filter_id
-    if active is None:
-        json_data.pop('active')
-
-    logger.info(
-        'Updating Birpay requisite',
-        requisite_id=requisite_id,
-        card_number=card_number[:50] if card_number else '',
-        card_number_length=len(card_number) if card_number else 0,
-        payload_keys=list(json_data.keys()),
-        payload_card_number=payload_data.get('card_number', '')[:50] if payload_data.get('card_number') else '',
-        full_json_data=json_data,  # Логируем полный JSON для отладки
+    """Обновление реквизита (номер карты и др.). Обёртка над BirpayClient.update_requisite()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().update_requisite(
+        requisite_id,
+        name=name,
+        agent_id=agent_id,
+        weight=weight,
+        card_number=card_number,
+        active=active,
+        refill_method_types=refill_method_types,
+        users=users,
+        payment_requisite_filter_id=payment_requisite_filter_id,
+        full_payload=full_payload,
     )
 
-    response = requests.put('https://birpay-gate.com/api/operator/payment_requisite', headers=headers, json=json_data)
-    logger.debug(
-        'Birpay PUT request sent',
-        url='https://birpay-gate.com/api/operator/payment_requisite',
-        status_code=response.status_code,
-    )
-    
-    if response.status_code == 401:
-        logger.warning('Unauthorized, getting new token')
-        token = get_new_token()
-        headers['Authorization'] = f'Bearer {token}'
-        response = requests.put('https://birpay-gate.com/api/operator/payment_requisite', headers=headers,
-                                json=json_data)
-        logger.debug('Birpay PUT request retried', status_code=response.status_code)
-    
-    try:
-        response_json = response.json()
-    except ValueError:
-        response_json = {'raw': response.text}
-        logger.warning('Failed to parse JSON response', raw_response=response.text[:200])
-
-    logger.info(
-        'Birpay requisite update result',
-        status_code=response.status_code,
-        success=response.status_code in (200, 201),
-        response=response_json,
-    )
-
-    result = {
-        'status_code': response.status_code,
-        'data': response_json,
-        'success': response.status_code in (200, 201),
-    }
-    
-    if not result['success']:
-        result['error'] = response_json.get('error') or response_json.get('detail') or str(response_json)
-        logger.warning(
-            'Birpay requisite update failed',
-            status_code=response.status_code,
-            error=result['error'],
-        )
-    
-    return result
 
 def set_payment_requisite_active(
     requisite_id: int,
@@ -599,16 +246,15 @@ def set_payment_requisite_active(
     users: list | None = None,
     payment_requisite_filter_id: int | None = None,
 ):
-    """
-    Изменение статуса активности реквизита с передачей обязательных параметров.
-    """
-    return update_payment_requisite_data(
+    """Изменение статуса активности реквизита. Обёртка над BirpayClient.set_requisite_active()."""
+    from core.birpay_client import BirpayClient
+    return BirpayClient().set_requisite_active(
         requisite_id,
+        active,
         name=name,
         agent_id=agent_id,
         weight=weight,
         card_number=card_number,
-        active=active,
         refill_method_types=refill_method_types,
         users=users,
         payment_requisite_filter_id=payment_requisite_filter_id,

@@ -65,14 +65,13 @@ class SMSBindingTest(TestCase):
         self.client = Client()
         self.client.force_login(self.user)
     
-    @patch('deposit.views.approve_birpay_refill')
-    def test_sms_binding_success(self, mock_approve):
+    @patch('deposit.views.BirpayClient')
+    def test_sms_binding_success(self, mock_birpay_client_cls):
         """Тест успешной привязки SMS к заказу"""
-        # Мокаем успешный ответ от API
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Данные для POST запроса (как в реальной форме)
         post_data = {
@@ -92,7 +91,7 @@ class SMSBindingTest(TestCase):
         self.assertEqual(response.status_code, 200)
         
         # Проверяем, что API был вызван
-        mock_approve.assert_called_once_with(pk=self.birpay_order.birpay_id)
+        mock_birpay_client_cls.return_value.approve_refill.assert_called_once_with(self.birpay_order.birpay_id)
         
         # Проверяем изменения в базе данных
         self.birpay_order.refresh_from_db()
@@ -111,14 +110,13 @@ class SMSBindingTest(TestCase):
         self.assertEqual(self.birpay_order.status, 1)  # approved
         self.assertEqual(self.birpay_order.status_internal, 1)  # approved
     
-    @patch('deposit.views.approve_birpay_refill')
-    def test_birpay_order_display_in_table(self, mock_approve):
+    @patch('deposit.views.BirpayClient')
+    def test_birpay_order_display_in_table(self, mock_birpay_client_cls):
         """Тест отображения заказа в таблице birpay_orders после привязки SMS"""
-        # Мокаем успешный ответ от API
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Данные для POST запроса
         post_data = {
@@ -160,14 +158,13 @@ class SMSBindingTest(TestCase):
         self.assertEqual(self.birpay_order.incoming, self.incoming)
         self.assertEqual(self.birpay_order.incomingsms_id, str(self.incoming.id))
     
-    @patch('deposit.views.approve_birpay_refill')
-    def test_incoming_binding_via_merch_tx_id(self, mock_approve):
+    @patch('deposit.views.BirpayClient')
+    def test_incoming_binding_via_merch_tx_id(self, mock_birpay_client_cls):
         """Тест привязки Incoming к BirpayOrder через MerchTxID в форме incomings"""
-        # Мокаем успешный ответ от API
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Создаем отдельный Incoming
         separate_incoming = Incoming.objects.create(
@@ -219,7 +216,7 @@ class SMSBindingTest(TestCase):
         self.assertEqual(response.status_code, 200)
         
         # Проверяем, что API был вызван
-        mock_approve.assert_called_once_with(pk=separate_order.birpay_id)
+        mock_birpay_client_cls.return_value.approve_refill.assert_called_once_with(separate_order.birpay_id)
         
         # Проверяем изменения в базе данных
         separate_order.refresh_from_db()

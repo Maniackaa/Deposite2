@@ -56,6 +56,7 @@ from deposit.forms import (
     BirpayOrderCreateForm,
     OperatorStatsDayForm,
     RequsiteZajonForm,
+    RequisiteCardEditForm,
 )
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
@@ -77,20 +78,7 @@ from deposit.models import (
     RequsiteZajon,
 )
 
-from core.birpay_func import (
-    get_birpay_withdraw,
-    get_new_token,
-    approve_birpay_withdraw,
-    decline_birpay_withdraw,
-    get_birpays,
-    change_amount_birpay,
-    approve_birpay_refill,
-    get_payment_requisite_data,
-    update_payment_requisite_data,
-    set_payment_requisite_active,
-    get_refill_order_raw,
-    get_payout_order_raw,
-)
+from core.birpay_client import BirpayClient
 
 from users.models import Options
 
@@ -183,7 +171,7 @@ def sync_requsite_zajon():
         'error': None,
     }
     try:
-        remote_data = get_payment_requisite_data()
+        remote_data = BirpayClient().get_requisites()
     except Exception as err:
         logger.error('Не удалось получить реквизиты Birpay', exc_info=True)
         sync_result['error'] = str(err)
@@ -376,7 +364,7 @@ class RequsiteZajonUpdateView(StaffOnlyPerm, UpdateView):
             )
             try:
                 # Отправляем полный payload, чтобы сохранить все существующие поля
-                sync_result = update_payment_requisite_data(
+                sync_result = BirpayClient().update_requisite(
                     self.object.pk,
                     name=self.object.name,
                     agent_id=self.object.agent_id,
@@ -441,13 +429,13 @@ class RequsiteZajonToggleActiveView(StaffOnlyPerm, View):
         else:
             new_active_bool = new_active == '1'
 
-        result = set_payment_requisite_active(
+        result = BirpayClient().set_requisite_active(
             requisite.pk,
             new_active_bool,
             name=requisite.name,
             agent_id=requisite.agent_id,
             weight=requisite.weight,
-            card_number=requisite.card_number,
+            card_number=requisite.card_number or (requisite.payload.get('card_number') if requisite.payload else '') or '',
             refill_method_types=requisite.refill_method_types,
             users=requisite.users,
             payment_requisite_filter_id=requisite.payment_requisite_filter_id,
@@ -1596,11 +1584,11 @@ class WithdrawWebhookReceive(APIView):
             result = {}
             if status == 9:
                 logger.info(f'Подтверждаем на birpay {birpay_withdraw_id}')
-                result = approve_birpay_withdraw(birpay_withdraw_id, transaction_id)
+                result = BirpayClient().approve_payout(birpay_withdraw_id, transaction_id)
 
             elif status == -1:
                 logger.info(f'Отклоняем на birpay {birpay_withdraw_id}')
-                result = decline_birpay_withdraw(birpay_withdraw_id, transaction_id)
+                result = BirpayClient().decline_payout(birpay_withdraw_id, transaction_id)
 
             logger.info(f'result: {result}')
             if result.get('errors'):
@@ -2074,7 +2062,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                     raise ValidationError(text)
                 else:
                     logger.info(f'Меняем amount с {order.amount} на {new_amount}')
-                    response = change_amount_birpay(pk=order.birpay_id, amount=new_amount)
+                    response = BirpayClient().change_refill_amount(order.birpay_id, new_amount)
                     if response.status_code == 200:
                         text = f"Сумма {order} mtx_id {order.merchant_transaction_id} изменена с {order.amount} на {new_amount}"
                         logger.info(text)
@@ -2159,10 +2147,10 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                         
                         # Логика Z-ASU: если DEBUG=True, не отправляем запрос, считаем успешным
                         if settings.DEBUG:
-                            logger.info(f'DEBUG=True: пропускаем отправку approve_birpay_refill для {order.birpay_id}, считаем успешным')
+                            logger.info(f'DEBUG=True: пропускаем отправку approve_refill для {order.birpay_id}, считаем успешным')
                             response = type('MockResponse', (), {'status_code': 200, 'text': 'OK (DEBUG mode)'})()
                         else:
-                            response = approve_birpay_refill(pk=order.birpay_id)
+                            response = BirpayClient().approve_refill(order.birpay_id)
                         
                         if response.status_code != 200:
                             text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
@@ -2630,9 +2618,51 @@ def _birpay_raw_result_to_display(raw_dict):
     return items
 
 
-class ZASUManagementView(SuperuserOnlyPerm, TemplateView):
-    """Страница управления Z-ASU (только для суперюзера)"""
+class ZASUManagementView(SuperuserOnlyPerm, View):
+    """Страница управления Z-ASU (только для суперюзера). Форма редактирования номера карты по ID реквизита."""
     template_name = 'deposit/z_asu_management.html'
+
+    def get(self, request, *args, **kwargs):
+        context = {'requisite_card_form': RequisiteCardEditForm()}
+        return render(request, self.template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        form = RequisiteCardEditForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {'requisite_card_form': form})
+        requisite_id = form.cleaned_data['requisite_id']
+        card_number_raw = form.cleaned_data['card_number']
+        requisite = get_object_or_404(RequsiteZajon, pk=requisite_id)
+        old_payload = requisite.payload or {}
+        try:
+            sync_result = BirpayClient().update_requisite(
+                requisite.pk,
+                name=requisite.name,
+                agent_id=requisite.agent_id,
+                weight=requisite.weight,
+                card_number=card_number_raw,
+                refill_method_types=requisite.refill_method_types or [],
+                users=requisite.users or [],
+                payment_requisite_filter_id=requisite.payment_requisite_filter_id,
+                full_payload=old_payload,
+            )
+        except Exception as e:
+            logger.exception('Z-ASU: ошибка обновления реквизита на Birpay')
+            messages.error(request, f'Ошибка Birpay: {e}')
+            return render(request, self.template_name, {'requisite_card_form': form})
+        # Обновляем локальную модель
+        requisite.card_number = re.sub(r'\D', '', card_number_raw)[:16] if re.sub(r'\D', '', card_number_raw) else ''
+        requisite.payload = dict(old_payload)
+        requisite.payload['card_number'] = card_number_raw
+        requisite.save(update_fields=['card_number', 'payload'])
+        if sync_result.get('success'):
+            messages.success(request, f'Реквизит {requisite_id}: номер карты обновлён локально и на Birpay.')
+        else:
+            messages.warning(
+                request,
+                f'Реквизит {requisite_id} обновлён локально. Birpay: {sync_result.get("error", "ошибка")}.',
+            )
+        return HttpResponseRedirect(reverse('deposit:z_asu_management'))
 
 
 class BirpayGateStatusCheckView(SuperuserOnlyPerm, View):
@@ -2664,10 +2694,11 @@ class BirpayGateStatusCheckView(SuperuserOnlyPerm, View):
             error = 'Введите Merchant Tx ID.'
         else:
             try:
+                client = BirpayClient()
                 if order_type == 'refill':
-                    result = get_refill_order_raw(merchant_tx_id)
+                    result = client.find_refill_order(merchant_tx_id)
                 else:
-                    result = get_payout_order_raw(merchant_tx_id)
+                    result = client.find_payout_order(merchant_tx_id)
                 if result is None:
                     error = f'Заявка с Merchant Tx ID «{merchant_tx_id}» не найдена (тип: {order_type}).'
                 else:

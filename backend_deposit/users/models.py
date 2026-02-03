@@ -307,6 +307,28 @@ class Options(SingletonModel):
     z_asu_login = models.CharField(verbose_name='Логин для Z-ASU', default='login')
     z_asu_password = models.CharField(verbose_name='Пароль для Z-ASU', default='password')
 
+    birpay_host = models.CharField(
+        verbose_name='Birpay API: хост',
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Например https://birpay-gate.com. Пусто — из BIRPAY_HOST или по умолчанию birpay-gate.com',
+    )
+    birpay_login = models.CharField(
+        verbose_name='Birpay API: логин',
+        max_length=128,
+        blank=True,
+        default='',
+        help_text='Пусто — из BIRPAY_LOGIN',
+    )
+    birpay_password = models.CharField(
+        verbose_name='Birpay API: пароль',
+        max_length=128,
+        blank=True,
+        default='',
+        help_text='Пусто — из BIRPAY_PASSWORD',
+    )
+
     gpt_chek_is_active = models.BooleanField(verbose_name='Делать проерку чеков GPT', default=0)
     # gpt_prompt = models.TextField(verbose_name='Запрос для чеков', default='')
     gpt_auto_approve = models.BooleanField(default=False)

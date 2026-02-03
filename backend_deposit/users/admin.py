@@ -124,6 +124,10 @@ class OptionsAdmin(admin.ModelAdmin):
             'fields': ('z_asu_login', 'z_asu_password'),
             'description': 'Логика Z-ASU: учетные данные для взаимодействия с Payment проектом'
         }),
+        ('Birpay API (реквизиты и др.)', {
+            'fields': ('birpay_host', 'birpay_login', 'birpay_password'),
+            'description': 'Хост и учётные данные для Birpay API (реквизиты Zajon и др.). Пусто — из BIRPAY_HOST, BIRPAY_LOGIN, BIRPAY_PASSWORD'
+        }),
         ('GPT проверка чеков', {
             'fields': ('gpt_chek_is_active', 'gpt_auto_approve')
         }),

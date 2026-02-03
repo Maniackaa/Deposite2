@@ -10,7 +10,6 @@ import structlog
 import json
 import datetime
 import pytz
-from asgiref.sync import async_to_sync
 from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -24,7 +23,7 @@ from structlog.contextvars import bind_contextvars, clear_contextvars
 from core.asu_pay_func import create_asu_withdraw, create_payment_v2, \
     send_sms_code_v2, should_send_to_z_asu, send_birpay_order_to_z_asu, \
     confirm_z_asu_payment, decline_z_asu_payment, confirm_z_asu_transaction, decline_z_asu_transaction
-from core.birpay_func import get_birpay_withdraw, find_birpay_from_id, get_birpays, approve_birpay_refill
+from core.birpay_client import BirpayClient
 from core.birpay_new_func import get_um_transactions, create_payment_data_from_new_transaction, send_transaction_action
 from core.global_func import send_message_tg, TZ, Timer, mask_compare
 from deposit.func import find_possible_incomings
@@ -114,7 +113,18 @@ def check_incoming(self, pk, count=0):
                     )
             except Exception:
                 pass
-        check = find_birpay_from_id(birpay_id=incoming_check.birpay_id)
+        row = BirpayClient().find_refill_order(str(incoming_check.birpay_id).strip())
+        check = None
+        if row:
+            check = {
+                'transaction_id': row.get('merchantTransactionId'),
+                'status': row.get('status'),
+                'sender': row.get('customerWalletId'),
+                'requisite': row.get('paymentRequisite'),
+                'created_time': datetime.datetime.fromisoformat(row.get('createdAt')) if row.get('createdAt') else None,
+                'pay': float(row.get('amount', 0)),
+                'operator': row.get('operator'),
+            }
     except Exception as err:
         logger.error(f'Ошибка проверки incoming в birpay: {err}')
         try:
@@ -330,7 +340,7 @@ def send_new_transactions_from_um_to_asu_v2():
 def send_new_transactions_from_birpay_to_asu():
     # Задача по запросу выплат с бирпая со статусом pending (0).
     logger = structlog.get_logger('deposit')
-    withdraw_list = async_to_sync(get_birpay_withdraw)(limit=512)
+    withdraw_list = BirpayClient().get_payout_orders(limit=512)
     total_amount = 0
     results = []
     limit = 10
@@ -853,7 +863,7 @@ def send_image_to_gpt_task(self, birpay_id):
                 # Вызываем approve_birpay_refill только после успешной привязки SMS (вне транзакции)
                 # Это гарантирует, что только один поток сможет подтвердить заказ в Birpay API
                 if sms_bound_successfully:
-                    response = approve_birpay_refill(pk=order.birpay_id)
+                    response = BirpayClient().approve_refill(order.birpay_id)
                     if response.status_code != 200:
                         text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
                         logger.warning(text)
@@ -883,7 +893,7 @@ def send_image_to_gpt_task(self, birpay_id):
 @shared_task(priority=1, time_limit=5)
 def refresh_birpay_data():
 
-    birpay_data = get_birpays()
+    birpay_data = BirpayClient().get_refill_orders(limit=512)
     if birpay_data:
         if settings.DEBUG:
             birpay_data = birpay_data[:10]

@@ -156,18 +156,18 @@ class TestAutoApproveBirpayOrder(TestCase):
         mock_response.text = json.dumps({'result': json.dumps(gpt_data)})
         return mock_response
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_success_all_flags(self, mock_post, mock_approve):
+    def test_auto_approve_success_all_flags(self, mock_post, mock_birpay_client_cls):
         """Тест: успешное автоподтверждение при всех 8 флагах"""
         # Мокируем GPT API
         mock_post.return_value = self.create_gpt_response()
         
-        # Мокируем approve_birpay_refill
+        # Мокируем BirpayClient().approve_refill
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -190,12 +190,12 @@ class TestAutoApproveBirpayOrder(TestCase):
         # Проверяем, что все флаги установлены (8 флагов: 255 = 0b11111111)
         self.assertEqual(self.order.gpt_flags, 255)  # 0b11111111
         
-        # Проверяем, что approve_birpay_refill был вызван
-        mock_approve.assert_called_once_with(pk=self.order.birpay_id)
+        # Проверяем, что approve_refill был вызван
+        mock_birpay_client_cls.return_value.approve_refill.assert_called_once_with(self.order.birpay_id)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_missing_gpt_status_flag(self, mock_post, mock_approve):
+    def test_auto_approve_fails_missing_gpt_status_flag(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при отсутствии флага gpt_status"""
         
         # Мокируем GPT API с status=0
@@ -212,14 +212,14 @@ class TestAutoApproveBirpayOrder(TestCase):
         self.assertIsNone(self.order.incomingsms_id)
         
         # Проверяем, что approve_birpay_refill НЕ был вызван
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
         
         # Проверяем, что не все флаги установлены (должно быть меньше 255)
         self.assertNotEqual(self.order.gpt_flags, 255)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_wrong_amount(self, mock_post, mock_approve):
+    def test_auto_approve_fails_wrong_amount(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при несовпадении суммы"""
         
         # Мокируем GPT API с другой суммой
@@ -233,11 +233,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_wrong_recipient(self, mock_post, mock_approve):
+    def test_auto_approve_fails_wrong_recipient(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при несовпадении получателя"""
         
         # Мокируем GPT API с другим получателем
@@ -251,11 +251,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_wrong_time(self, mock_post, mock_approve):
+    def test_auto_approve_fails_wrong_time(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при неправильном времени"""
         
         # Мокируем GPT API с временем вне допустимого диапазона (±1 час)
@@ -272,11 +272,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_no_sms(self, mock_post, mock_approve):
+    def test_auto_approve_fails_no_sms(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при отсутствии подходящей SMS"""
         
         # Удаляем SMS
@@ -293,11 +293,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_multiple_sms(self, mock_post, mock_approve):
+    def test_auto_approve_fails_multiple_sms(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при нескольких подходящих SMS"""
         
         # Создаем вторую подходящую SMS
@@ -325,11 +325,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS (неоднозначность)
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_sms_already_bound(self, mock_post, mock_approve):
+    def test_auto_approve_fails_sms_already_bound(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает если SMS уже привязана"""
         
         # Привязываем SMS к другому заказу
@@ -347,11 +347,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_moshennik(self, mock_post, mock_approve):
+    def test_auto_approve_fails_moshennik(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает для мошенника"""
         
         # Добавляем пользователя в список мошенников
@@ -369,16 +369,16 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
         
         # Проверяем, что SMS помечена комментарием (если найдена)
         self.incoming.refresh_from_db()
         if self.incoming.comment:
             self.assertIn('мошенника', self.incoming.comment)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_painter(self, mock_post, mock_approve):
+    def test_auto_approve_fails_painter(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает для художника"""
         
         # Добавляем пользователя в список художников
@@ -396,11 +396,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_gpt_auto_approve_disabled(self, mock_post, mock_approve):
+    def test_auto_approve_fails_gpt_auto_approve_disabled(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при отключенном gpt_auto_approve"""
         
         # Отключаем автоподтверждение
@@ -418,11 +418,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_insufficient_user_orders(self, mock_post, mock_approve):
+    def test_auto_approve_fails_insufficient_user_orders(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при недостаточном количестве заказов"""
         
         # Удаляем заказы пользователя (оставляем меньше 5)
@@ -439,11 +439,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_low_user_reputation(self, mock_post, mock_approve):
+    def test_auto_approve_fails_low_user_reputation(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при низкой репутации пользователя"""
         
         # Изменяем статусы заказов так, чтобы процент подтвержденных был < 40%
@@ -464,11 +464,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_sms_wrong_card_mask(self, mock_post, mock_approve):
+    def test_auto_approve_fails_sms_wrong_card_mask(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при несовпадении маски карты в SMS"""
         
         # Изменяем получателя в SMS на другую маску
@@ -486,11 +486,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_sms_wrong_amount(self, mock_post, mock_approve):
+    def test_auto_approve_fails_sms_wrong_amount(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при несовпадении суммы в SMS"""
         
         # Изменяем сумму в SMS
@@ -508,11 +508,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_balance_mismatch(self, mock_post, mock_approve):
+    def test_auto_approve_fails_balance_mismatch(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при несовпадении расчетного и фактического баланса (баланс изменен после создания)"""
         
         # Изменяем баланс в SMS так, чтобы он не совпадал с расчетным
@@ -528,7 +528,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -538,16 +538,16 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS (не все флаги установлены)
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
         
         # Проверяем, что флаг balance_match не установлен
         # Должны быть установлены все флаги кроме balance_match
         # Просто проверяем, что не все флаги установлены (не 255)
         self.assertNotEqual(self.order.gpt_flags, 255)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_balance_mismatch_on_creation(self, mock_post, mock_approve):
+    def test_auto_approve_fails_balance_mismatch_on_creation(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при несовпадении расчетного и фактического баланса (изначально при создании)"""
         
         # Удаляем текущий incoming и создаем новый с изначально несовпадающим балансом
@@ -582,7 +582,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -592,14 +592,14 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS (не все флаги установлены)
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
         
         # Проверяем, что флаг balance_match не установлен
         self.assertNotEqual(self.order.gpt_flags, 255)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_when_check_balance_is_none(self, mock_post, mock_approve):
+    def test_auto_approve_fails_when_check_balance_is_none(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает, если check_balance не вычислен (None)"""
         
         # Сохраняем ID для исключения
@@ -634,7 +634,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -644,14 +644,14 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS (не все флаги установлены)
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
         
         # Проверяем, что флаг balance_match не установлен
         self.assertNotEqual(self.order.gpt_flags, 255)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_balance_match_with_rounding_tolerance(self, mock_post, mock_approve):
+    def test_auto_approve_balance_match_with_rounding_tolerance(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение работает при округлении до 0.1 - значения округляются одинаково"""
         
         # Удаляем текущий incoming и создаем новый с небольшой погрешностью округления
@@ -690,7 +690,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -704,11 +704,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         # Проверяем, что все 8 флагов установлены
         self.assertEqual(self.order.gpt_flags, 255)
         # Проверяем, что автоподтверждение произошло
-        mock_approve.assert_called_once()
+        mock_birpay_client_cls.return_value.approve_refill.assert_called_once()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_balance_match_with_rounding_both_up(self, mock_post, mock_approve):
+    def test_auto_approve_balance_match_with_rounding_both_up(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение работает когда оба значения округляются вверх до 0.1"""
         
         # Удаляем текущий incoming и prev_incoming из setUp, чтобы создать новые с нужными значениями
@@ -771,7 +771,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -785,11 +785,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         # Проверяем, что все 8 флагов установлены
         self.assertEqual(self.order.gpt_flags, 255)
         # Проверяем, что автоподтверждение произошло
-        mock_approve.assert_called_once()
+        mock_birpay_client_cls.return_value.approve_refill.assert_called_once()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_balance_match_fails_at_0_1_threshold(self, mock_post, mock_approve):
+    def test_auto_approve_balance_match_fails_at_0_1_threshold(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не работает при разнице 0.1 - округленные значения не совпадают"""
         
         # Удаляем текущий incoming и создаем новый с разницей ровно 0.1
@@ -828,7 +828,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -838,14 +838,14 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS (флаг balance_match не установлен)
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
         
         # Проверяем, что флаг balance_match не установлен (не все флаги установлены)
         self.assertNotEqual(self.order.gpt_flags, 255)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_balance_match_fails_above_0_1_threshold(self, mock_post, mock_approve):
+    def test_auto_approve_balance_match_fails_above_0_1_threshold(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не работает при разнице больше 0.1 - округленные значения не совпадают"""
         
         # Удаляем текущий incoming и создаем новый с разницей больше 0.1
@@ -884,7 +884,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"success": true}'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -894,14 +894,14 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS (флаг balance_match не установлен)
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
         
         # Проверяем, что флаг balance_match не установлен (не все флаги установлены)
         self.assertNotEqual(self.order.gpt_flags, 255)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_handles_api_error(self, mock_post, mock_approve):
+    def test_auto_approve_handles_api_error(self, mock_post, mock_birpay_client_cls):
         """Тест: обработка ошибки API при автоподтверждении"""
         
         # Мокируем GPT API
@@ -911,7 +911,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         mock_response = Mock()
         mock_response.status_code = 500
         mock_response.text = 'Internal Server Error'
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -931,11 +931,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         self.assertEqual(self.incoming.birpay_id, self.order.merchant_transaction_id)
         
         # Проверяем, что approve_birpay_refill был вызван
-        mock_approve.assert_called_once_with(pk=self.order.birpay_id)
+        mock_birpay_client_cls.return_value.approve_refill.assert_called_once_with(self.order.birpay_id)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_success_with_different_time_window(self, mock_post, mock_approve):
+    def test_auto_approve_success_with_different_time_window(self, mock_post, mock_birpay_client_cls):
         """Тест: успешное автоподтверждение при SMS в пределах временного окна (±2 минуты)"""
         
         # Создаем SMS с временем в пределах окна (±2 минуты от времени чека)
@@ -948,7 +948,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         # Мокируем approve_birpay_refill
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
@@ -958,11 +958,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ привязан к SMS
         self.assertEqual(self.order.incoming, self.incoming)
-        mock_approve.assert_called_once()
+        mock_birpay_client_cls.return_value.approve_refill.assert_called_once()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_fails_sms_outside_time_window(self, mock_post, mock_approve):
+    def test_auto_approve_fails_sms_outside_time_window(self, mock_post, mock_birpay_client_cls):
         """Тест: автоподтверждение не срабатывает при SMS вне временного окна"""
         
         # Создаем SMS с временем вне окна (±2 минуты)
@@ -980,11 +980,11 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_success_all_conditions_met(self, mock_post, mock_approve):
+    def test_auto_approve_success_all_conditions_met(self, mock_post, mock_birpay_client_cls):
         """Тест: успешное автоподтверждение при выполнении всех условий"""
         
         # Мокируем GPT API с правильными данными
@@ -993,7 +993,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         # Мокируем approve_birpay_refill
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_approve.return_value = mock_response
+        mock_birpay_client_cls.return_value.approve_refill.return_value = mock_response
         
         # Вызываем задачу
         result = send_image_to_gpt_task(self.order.birpay_id)
@@ -1009,14 +1009,14 @@ class TestAutoApproveBirpayOrder(TestCase):
         self.assertEqual(self.incoming.birpay_id, self.order.merchant_transaction_id)
         self.assertEqual(self.order.gpt_flags, 255)  # 0b11111111 (все 8 флагов)
         self.assertFalse(self.order.gpt_processing)
-        mock_approve.assert_called_once_with(pk=self.order.birpay_id)
+        mock_birpay_client_cls.return_value.approve_refill.assert_called_once_with(self.order.birpay_id)
         
         # Проверяем, что результат содержит информацию о флагах
         self.assertIsNotNone(result)
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_gpt_api_error(self, mock_post, mock_approve):
+    def test_auto_approve_gpt_api_error(self, mock_post, mock_birpay_client_cls):
         """Тест: обработка ошибки GPT API"""
         
         # Мокируем GPT API с ошибкой
@@ -1034,7 +1034,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(self.order.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
         
         # Проверяем, что ошибка записана в gpt_data
         # Ошибка записывается в блоке else (строка 530), но order.save() не вызывается явно
@@ -1052,9 +1052,9 @@ class TestAutoApproveBirpayOrder(TestCase):
         # gpt_data может быть пустым из-за бага в коде (refresh_from_db() перезагружает данные)
         # Но основное поведение - заказ не привязан и API не вызван - проверено выше
     
-    @patch('deposit.tasks.approve_birpay_refill')
+    @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
-    def test_auto_approve_no_check_file(self, mock_post, mock_approve):
+    def test_auto_approve_no_check_file(self, mock_post, mock_birpay_client_cls):
         """Тест: обработка отсутствия файла чека"""
         # Создаем order без файла чека
         order_without_file = BirpayOrder.objects.create(
@@ -1084,7 +1084,7 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что заказ НЕ привязан к SMS
         self.assertIsNone(order_without_file.incoming)
-        mock_approve.assert_not_called()
+        mock_birpay_client_cls.return_value.approve_refill.assert_not_called()
         mock_post.assert_not_called()
         
         # Примечание: функция возвращает строку с флагами из блока finally (строка 668),

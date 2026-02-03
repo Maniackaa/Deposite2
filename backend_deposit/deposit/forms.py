@@ -362,6 +362,45 @@ class RequsiteZajonForm(forms.ModelForm):
         return raw_card_number
 
 
+class RequisiteCardEditForm(forms.Form):
+    """Форма редактирования номера карты реквизита по ID (страница Z-ASU)."""
+    requisite_id = forms.IntegerField(
+        label='ID реквизита',
+        min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Например: 2090'}),
+        help_text='ID реквизита в Birpay (должен быть в списке реквизитов Zajon).',
+    )
+    card_number = forms.CharField(
+        label='Новый номер карты',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': '16 цифр или сырое значение с текстом'}),
+        help_text='Номер карты (16 цифр) или сырое значение из Birpay.',
+    )
+
+    def clean_requisite_id(self):
+        rid = self.cleaned_data.get('requisite_id')
+        if rid is not None and not RequsiteZajon.objects.filter(pk=rid).exists():
+            raise forms.ValidationError(
+                f'Реквизит с ID {rid} не найден. Синхронизируйте реквизиты со страницы «Реквизиты Zajon».'
+            )
+        return rid
+
+    def clean_card_number(self):
+        raw = (self.cleaned_data.get('card_number') or '').strip()
+        if not raw:
+            raise forms.ValidationError('Введите номер карты.')
+        digits = re.sub(r'\D', '', raw)
+        if len(digits) < 16:
+            raise forms.ValidationError(
+                f'В значении должно быть минимум 16 цифр. Найдено: {len(digits)}.'
+            )
+        card_16 = digits[:16]
+        if not luhn_check(card_16):
+            raise forms.ValidationError(
+                f'Номер карты {card_16} не прошёл проверку Луна.'
+            )
+        return raw
+
+
 class BirpayOrderCreateForm(forms.ModelForm):
     """Форма для ручного создания тестовых BirpayOrder"""
     
