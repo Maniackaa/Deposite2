@@ -1,4 +1,5 @@
 import hashlib
+import io
 import time
 from enum import Enum, Flag, auto
 from pathlib import PurePosixPath
@@ -410,10 +411,29 @@ def send_new_transactions_from_birpay_to_asu():
     return results
 
 
+def _verify_image_complete(image_bytes: bytes) -> bool:
+    """
+    Проверяет, что изображение полностью загружено и не обрезано (truncated).
+    Вызывает PIL Image.load() — для обрезанных файлов выбрасывается OSError.
+    Возвращает True, если изображение валидно, False иначе.
+    """
+    if not image_bytes:
+        return False
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(image_bytes))
+        img.load()  # при truncated файле здесь будет OSError
+        return True
+    except (OSError, Exception):
+        return False
+
+
 def _download_birpay_check_file_sync(order_id, check_file_url):
     """
     Синхронная функция скачивания чека для тестовых заявок.
     Выполняет ту же логику, что и Celery задача, но без retry и delay.
+    Перед сохранением и отправкой в GPT проверяет целостность изображения (PIL),
+    чтобы не отправлять обрезанные файлы.
     """
     from deposit.models import BirpayOrder
     try:
@@ -426,9 +446,35 @@ def _download_birpay_check_file_sync(order_id, check_file_url):
             merchant_transaction_id=order.merchant_transaction_id,
             birpay_order_id=order.id
         )
-        response = requests.get(check_file_url)
+        response = requests.get(check_file_url, timeout=30, stream=True)
         if response.ok:
-            file_content = response.content
+            # Читаем тело полностью: при наличии Content-Length — ровно столько байт (защита от truncated)
+            content_length = response.headers.get('Content-Length')
+            if content_length is not None:
+                try:
+                    expected = int(content_length)
+                    file_content = b''.join(response.iter_content(chunk_size=8192))
+                    if len(file_content) != expected:
+                        logger.warning(
+                            f"Чек BirpayOrder {order.birpay_id}: получено {len(file_content)} байт, ожидалось {expected}",
+                            birpay_id=order.birpay_id,
+                            birpay_order_id=order.id,
+                        )
+                        raise Exception(f"Download incomplete: got {len(file_content)}, expected {expected}")
+                except ValueError:
+                    file_content = b''.join(response.iter_content(chunk_size=8192))
+            else:
+                file_content = b''.join(response.iter_content(chunk_size=8192))
+            response.close()
+            # Убеждаемся, что изображение скачано полностью (не truncated) перед сохранением и отправкой в GPT
+            if not _verify_image_complete(file_content):
+                logger.warning(
+                    f"Чек BirpayOrder {order.birpay_id} (order_id={order_id}): изображение обрезано или невалидно, повторная попытка скачивания",
+                    birpay_id=order.birpay_id,
+                    birpay_order_id=order.id,
+                    merchant_transaction_id=order.merchant_transaction_id,
+                )
+                raise Exception("Image truncated or invalid (PIL verify failed)")
             suffix_path = urlparse(check_file_url).path
             ext = PurePosixPath(suffix_path).suffix.lower()
             suffix = ext if ext else ".jpg"
@@ -531,6 +577,7 @@ def process_birpay_order(data):
     bind_contextvars(birpay_id=birpay_id, merchant_transaction_id=merchant_transaction_id, birpay_order_id=order.id)
 
     updated = False
+    updated_fields = []
 
     if not created:
         for field, value in order_data.items():
@@ -538,8 +585,12 @@ def process_birpay_order(data):
                 logger.info(f"Поле '{field}' изменено: {getattr(order, field)} → {value}")
                 setattr(order, field, value)
                 updated = True
+                updated_fields.append(field)
         if updated:
-            order.save()
+            # Сохраняем только изменённые поля: не перезаписываем payment_id (его нет в order_data).
+            # Иначе при гонке (refresh загрузил заказ до сохранения payment_id) мы бы стёрли payment_id
+            # и сигнал Z-ASU не поставил бы задачу подтверждения на ASU.
+            order.save(update_fields=updated_fields)
     else:
         logger.info(f"Создан новый {order} birpay_id={birpay_id}")
 

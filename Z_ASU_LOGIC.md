@@ -69,6 +69,29 @@ Z-ASU - это специальная логика для взаимодейст
 
 ---
 
+## Последовательность шагов: заявка → чек → GPT → ASU
+
+Ниже — порядок обработки одной заявки Birpay от появления в системе до создания платежа на ASU и (позже) подтверждения по статусу.
+
+| № | Шаг | Где | Что происходит |
+|---|-----|-----|----------------|
+| 1 | **Появление заявки в Birpay** | Внешняя система | В Birpay создаётся заявка на пополнение (refill). В payload есть ссылка на чек: `check_file` или `receipt`. |
+| 2 | **Периодический опрос Birpay** | `refresh_birpay_data` (Celery) | Задача по расписанию вызывает `get_birpays()`, получает список заявок и для каждой вызывает `process_birpay_order(row)`. |
+| 3 | **Создание/обновление BirpayOrder** | `process_birpay_order` (`deposit/tasks.py`) | По `birpay_id` делается `get_or_create`: создаётся новая запись BirpayOrder или обновляются поля из ответа Birpay (status, updated_at, operator, raw_data и т.д.). Сохраняются только изменённые поля (`update_fields`), чтобы не затирать `payment_id`. |
+| 4 | **Постановка задачи на скачивание чека** | `process_birpay_order` | Если в данных есть `check_file`/`receipt`, у заказа ещё нет файла чека (`check_file`) и скачивание не помечено как проваленное (`check_file_failed`): выставляется `check_file_failed=True` (резерв), ставится задача `download_birpay_check_file.delay(order.id, check_file_url)`. |
+| 5 | **Скачивание чека** | `download_birpay_check_file` → `_download_birpay_check_file_sync` | По URL скачивается файл, сохраняется в `order.check_file`, считается MD5 (`check_hash`), при необходимости выставляется `check_is_double`. Если чек не дубль и заказ не «художник»: `gpt_processing=True`, ставится задача `send_image_to_gpt_task.delay(order.birpay_id)`. |
+| 6 | **Отправка в GPT** | `send_image_to_gpt_task` | Чек (из `order.check_file`) отправляется в GPT. По ответу выставляются флаги (`gpt_flags` и т.д.). При успешном авто-подтверждении: привязка SMS, `order.status = 1`, вызов Birpay API `approve_birpay_refill`. Подтверждение на ASU идёт только по смене `status` на 1 (сигнал ставит задачу). |
+| 7 | **Создание заявки на ASU** | `process_birpay_order` (тот же вызов, что шаг 3) | После создания/обновления заказа: `order.refresh_from_db(fields=['payment_id'])`. Если есть `card_number`, карта подходит под Z-ASU (`should_send_to_z_asu`) и заявка новая или без `payment_id` — вызывается `send_birpay_order_to_z_asu(order)`. При ответе 201/200 в BirpayOrder сохраняется `payment_id` (`update_fields=['payment_id']`). |
+| 8 | **Подтверждение на ASU** | Сигнал `birpay_order_z_asu_on_status_change` + Celery | Когда у BirpayOrder в БД появляется `status=1` (после refresh из Birpay или после авто-подтверждения в `send_image_to_gpt_task`), срабатывает сигнал. Если есть `payment_id`, в очередь ставится `confirm_z_asu_transaction_task.delay(payment_id=...)`. |
+
+**Важно:**
+
+- Создание заявки на ASU (шаг 7) выполняется в том же цикле `process_birpay_order`, что и создание BirpayOrder (шаг 3), то есть **до** скачивания чека и GPT. Условие: карта из реквизита с «Работает на ASU» и отсутствие `payment_id` (или только что созданная заявка).
+- Скачивание чека (шаг 5) и отправка в GPT (шаг 6) идут асинхронно (отдельные Celery-задачи).
+- Подтверждение на ASU (шаг 8) происходит только после того, как в БД у BirpayOrder станет `status=1` (например, после следующего `refresh_birpay_data` или сразу после авто-подтверждения в GPT).
+
+---
+
 ## 1. Создание Payment от BirpayOrder
 
 ### Условие активации
