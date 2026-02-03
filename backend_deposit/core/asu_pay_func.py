@@ -525,24 +525,36 @@ def send_birpay_order_to_z_asu(birpay_order) -> dict:
         
         logger.debug(f'Z-ASU API response: {response.status_code} {response.reason} {response.text}')
         
-        # Успех: 201 Created или 200 OK (на случай прокси/вариаций)
-        if response.status_code in (200, 201):
+        # Идемпотентность: ASU возвращает строго 201 при создании, 200 при уже существующем Payment (дубликат)
+        # Логика депозита: только 201 считаем созданием заявки; 200 — успех с payment_id (сохраняем и не шлём повторно)
+        if response.status_code == 201:
             response_data = response.json()
             payment_id = response_data.get('payment_id') or response_data.get('id')
             if payment_id is not None:
                 payment_id = str(payment_id)
-            logger.info(f'Успешно создан Payment на Z-ASU: payment_id={payment_id}')
+            logger.info(f'Payment создан на Z-ASU (201): payment_id={payment_id}')
             return {
                 'success': True,
                 'payment_id': payment_id,
+                'created': True,
             }
-        else:
-            error_text = response.text or response.reason or 'Unknown error'
-            logger.error(f'Ошибка создания Payment на Z-ASU: {response.status_code} {error_text}')
+        if response.status_code == 200:
+            response_data = response.json()
+            payment_id = response_data.get('payment_id') or response_data.get('id')
+            if payment_id is not None:
+                payment_id = str(payment_id)
+            logger.info(f'Payment уже существует на Z-ASU (200, идемпотентность): payment_id={payment_id}')
             return {
-                'success': False,
-                'error': f'HTTP {response.status_code}: {error_text}',
+                'success': True,
+                'payment_id': payment_id,
+                'created': False,
             }
+        error_text = response.text or response.reason or 'Unknown error'
+        logger.error(f'Ошибка создания Payment на Z-ASU: {response.status_code} {error_text}')
+        return {
+            'success': False,
+            'error': f'HTTP {response.status_code}: {error_text}',
+        }
             
     except Exception as err:
         logger.error(f'Исключение при отправке BirpayOrder на Z-ASU: {err}', exc_info=True)

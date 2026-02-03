@@ -550,6 +550,8 @@ def process_birpay_order(data):
         logger.info(f"Задача на скачивание файла для заказа {birpay_id} отправлена в celery.")
     
     # Логика Z-ASU: отправка на ASU при создании заявки или если заявка уже есть, но payment_id ещё не сохранён (карта подходит)
+    # Перечитываем из БД, чтобы не отправить дважды при параллельных вызовах (например два refresh_birpay_data подряд)
+    order.refresh_from_db(fields=['payment_id'])
     should_send = order.card_number and should_send_to_z_asu(order.card_number) and (created or not order.payment_id)
     if should_send:
         logger.info(f"BirpayOrder {birpay_id} соответствует условию Z-ASU, отправляем на ASU (created={created}, payment_id={getattr(order, 'payment_id', None) or 'нет'})")
@@ -557,8 +559,11 @@ def process_birpay_order(data):
             result = send_birpay_order_to_z_asu(order)
             if result.get('success'):
                 payment_id = result.get('payment_id')
-                logger.info(f"BirpayOrder {birpay_id} успешно отправлен на Z-ASU, payment_id={payment_id}")
-                # Сохраняем payment_id в BirpayOrder (только если API вернул непустой id)
+                created = result.get('created', False)
+                logger.info(
+                    f"BirpayOrder {birpay_id} Z-ASU: payment_id={payment_id}, created={created}"
+                )
+                # Сохраняем payment_id в BirpayOrder (и при 201, и при 200 — идемпотентность)
                 if payment_id:
                     order.payment_id = str(payment_id)
                     order.save(update_fields=['payment_id'])
