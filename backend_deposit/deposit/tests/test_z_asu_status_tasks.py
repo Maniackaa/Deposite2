@@ -7,6 +7,25 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 from deposit.models import BirpayOrder, RequsiteZajon
+from deposit.tasks import refresh_birpay_data
+
+
+def _birpay_row(birpay_id, merchant_tx_id, status=0, card_number='4111111111111111', amount=100.0):
+    """Данные одной заявки как возвращает get_birpays() для process_birpay_order."""
+    now = timezone.now()
+    return {
+        'id': birpay_id,
+        'merchantTransactionId': merchant_tx_id,
+        'createdAt': now.isoformat(),
+        'updatedAt': now.isoformat(),
+        'merchantUserId': 'user1',
+        'merchant': {'name': 'Test'},
+        'customerName': 'Customer',
+        'amount': str(amount),
+        'status': status,
+        'payload': {},
+        'paymentRequisite': {'payload': {'card_number': card_number}},
+    }
 
 
 class TestZASUStatusTasks(TestCase):
@@ -122,3 +141,71 @@ class TestZASUStatusTasks(TestCase):
         self.order_with_payment_id.amount = 200.0
         self.order_with_payment_id.save(update_fields=['amount', 'status'])
         mock_confirm_task.delay.assert_not_called()
+
+
+class TestRefreshBirpayDataAsuConfirm(TestCase):
+    """
+    Полный путь refresh_birpay_data: при обновлении заявки со статусом 1 из Birpay
+    сигнал отрабатывает и ставит задачу подтверждения на ASU.
+    """
+
+    def setUp(self):
+        self.now = timezone.now()
+        RequsiteZajon.objects.create(
+            id=9002,
+            active=True,
+            agent_id=1,
+            agent_name='Test Agent',
+            name='Test Z-ASU requisite 2',
+            weight=0,
+            created_at=self.now,
+            updated_at=self.now,
+            card_number='4111111111111111',
+            works_on_asu=True,
+        )
+        # Заявка уже на ASU (есть payment_id), в Birpay ещё status=0
+        self.order = BirpayOrder.objects.create(
+            birpay_id=7001,
+            sended_at=self.now,
+            created_at=self.now,
+            updated_at=self.now,
+            merchant_transaction_id='mtx-refresh-7001',
+            merchant_user_id='user1',
+            card_number='4111111111111111',
+            status=0,
+            status_internal=0,
+            amount=100.0,
+            operator='op',
+            raw_data={},
+            payment_id='uuid-asu-confirm-from-refresh',
+        )
+
+    @patch('deposit.tasks.get_birpays')
+    @patch('deposit.tasks.confirm_z_asu_transaction_task')
+    def test_refresh_birpay_data_status_1_signal_queues_confirm_task(
+        self, mock_confirm_task, mock_get_birpays
+    ):
+        """
+        refresh_birpay_data получает из Birpay заявку со status=1.
+        process_birpay_order обновляет BirpayOrder (status 0 -> 1), сохраняет только изменённые поля.
+        Сигнал birpay_order_z_asu_on_status_change ставит confirm_z_asu_transaction_task.
+        """
+        # Симулируем ответ get_birpays(): заявка подтверждена в Birpay (status=1)
+        birpay_row = _birpay_row(
+            birpay_id=7001,
+            merchant_tx_id='mtx-refresh-7001',
+            status=1,
+            card_number='4111111111111111',
+            amount=100.0,
+        )
+        mock_get_birpays.return_value = [birpay_row]
+
+        refresh_birpay_data()
+
+        mock_get_birpays.assert_called_once()
+        mock_confirm_task.delay.assert_called_once_with(
+            payment_id='uuid-asu-confirm-from-refresh',
+            merchant_transaction_id=None,
+        )
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 1)
