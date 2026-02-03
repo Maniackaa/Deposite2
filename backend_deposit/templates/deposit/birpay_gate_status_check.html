@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Проверка статуса на birpay-gate{% endblock %}
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+<div class="container mt-4">
+    <h1 class="mb-4">Проверка статуса на birpay-gate</h1>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Поиск заявки</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                В birpay_func поиск заявок поддерживается по полю <strong>Merchant Transaction ID</strong>
+                (refill — пополнение, payout — выплата).
+            </p>
+            <form method="post" action="{% url 'deposit:birpay_gate_status_check' %}">
+                {% csrf_token %}
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label for="id_merchant_tx_id" class="form-label">Merchant Tx ID</label>
+                        <input type="text" name="merchant_tx_id" id="id_merchant_tx_id"
+                               class="form-control" value="{{ merchant_tx_id }}"
+                               placeholder="Введите Merchant Transaction ID" autofocus>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="id_order_type" class="form-label">Тип заявки</label>
+                        <select name="order_type" id="id_order_type" class="form-select">
+                            <option value="refill" {% if order_type == 'refill' %}selected{% endif %}>Refill (пополнение)</option>
+                            <option value="payout" {% if order_type == 'payout' %}selected{% endif %}>Payout (выплата)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Проверить</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    {% if result_items %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Данные заявки (актуальные с birpay-gate)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 30%;">Поле</th>
+                            <th>Значение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key, value in result_items %}
+                        <tr>
+                            <td class="text-nowrap"><code>{{ key }}</code></td>
+                            <td>
+                                {% if value|length > 80 or "{" in value or "[" in value %}
+                                    <pre class="mb-0 small bg-light p-2 rounded text-break">{{ value }}</pre>
+                                {% else %}
+                                    {{ value }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

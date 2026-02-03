@@ -611,6 +611,53 @@ class WithdrawTransaction(models.Model):
 #             logger.error(e)
 
 
+@receiver(pre_save, sender=BirpayOrder)
+def _birpay_order_pre_save_old_status(sender, instance: BirpayOrder, **kwargs):
+    """Сохраняем старый status перед сохранением для сигнала Z-ASU по смене статуса."""
+    if instance.pk:
+        try:
+            old = sender.objects.only('status').get(pk=instance.pk)
+            instance._old_birpay_status = old.status
+        except sender.DoesNotExist:
+            instance._old_birpay_status = None
+    else:
+        instance._old_birpay_status = None
+
+
+@receiver(post_save, sender=BirpayOrder)
+def birpay_order_z_asu_on_status_change(sender, instance: BirpayOrder, created, **kwargs):
+    """
+    Логика Z-ASU: при смене status на 1 — задача подтверждения на ASU;
+    при смене на 2 — задача отклонения на ASU.
+    Только если есть payment_id (заявка создавалась на ASU). Других проверок нет.
+    """
+    if created:
+        return
+    old_status = getattr(instance, '_old_birpay_status', None)
+    if old_status == instance.status:
+        return
+    # Статус может прийти из Birpay как int или str
+    try:
+        status_val = int(instance.status) if instance.status is not None else None
+    except (TypeError, ValueError):
+        status_val = None
+    if status_val not in (1, 2):
+        return
+    if not instance.payment_id:
+        return
+    from deposit.tasks import confirm_z_asu_transaction_task, decline_z_asu_transaction_task
+    payment_id = instance.payment_id
+    try:
+        if status_val == 1:
+            confirm_z_asu_transaction_task.delay(payment_id=payment_id, merchant_transaction_id=None)
+            logger.info(f'Логика Z-ASU: статус заявки {instance.pk} сменился на 1, поставлена задача подтверждения на ASU (payment_id={payment_id})')
+        elif status_val == 2:
+            decline_z_asu_transaction_task.delay(payment_id=payment_id, merchant_transaction_id=None)
+            logger.info(f'Логика Z-ASU: статус заявки {instance.pk} сменился на 2, поставлена задача отклонения на ASU (payment_id={payment_id})')
+    except Exception as e:
+        logger.error(f'Логика Z-ASU: не удалось поставить задачу ASU для заявки {instance.pk}: {e}', exc_info=True)
+
+
 class Message(models.Model):
     MESSAGE_TYPES = (
         ('admin', 'От админа'),

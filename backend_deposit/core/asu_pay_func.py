@@ -549,9 +549,73 @@ def send_birpay_order_to_z_asu(birpay_order) -> dict:
         }
 
 
+def confirm_z_asu_payment(payment_id: str) -> dict:
+    """
+    Подтверждение Payment на Z-ASU API по payment_id (точный поиск).
+    Логика Z-ASU: подтверждает Payment через endpoint confirm-payment.
+    
+    Args:
+        payment_id: UUID Payment на ASU
+    
+    Returns:
+        dict: success, payment_id или error
+    """
+    manager = _z_asu_manager
+    logger = manager.logger.bind(payment_id=payment_id, z_asu_api=True)
+    try:
+        logger.info(f'Подтверждение Payment {payment_id} на Z-ASU API (confirm-payment)')
+        request_data = {'payment_id': str(payment_id)}
+        url = f'{settings.ASU_HOST}/api/v2/z-asu/confirm-payment/'
+        response = manager.make_request('POST', url, json_data=request_data)
+        logger.debug(f'Z-ASU API confirm-payment response: {response.status_code} {response.reason} {response.text}')
+        if response.status_code == 200:
+            response_data = response.json()
+            pid = response_data.get('payment_id')
+            logger.info(f'Успешно подтвержден Payment на Z-ASU: payment_id={pid}')
+            return {'success': True, 'payment_id': pid}
+        error_text = response.text or response.reason or 'Unknown error'
+        logger.error(f'Ошибка подтверждения Payment на Z-ASU: {response.status_code} {error_text}')
+        return {'success': False, 'error': f'HTTP {response.status_code}: {error_text}'}
+    except Exception as err:
+        logger.error(f'Исключение при подтверждении Payment на Z-ASU: {err}', exc_info=True)
+        return {'success': False, 'error': str(err)}
+
+
+def decline_z_asu_payment(payment_id: str) -> dict:
+    """
+    Отклонение Payment на Z-ASU API по payment_id (точный поиск).
+    Логика Z-ASU: отклоняет Payment через endpoint decline-payment (статус -1).
+    
+    Args:
+        payment_id: UUID Payment на ASU
+    
+    Returns:
+        dict: success, payment_id или error
+    """
+    manager = _z_asu_manager
+    logger = manager.logger.bind(payment_id=payment_id, z_asu_api=True)
+    try:
+        logger.info(f'Отклонение Payment {payment_id} на Z-ASU API (decline-payment)')
+        request_data = {'payment_id': str(payment_id)}
+        url = f'{settings.ASU_HOST}/api/v2/z-asu/decline-payment/'
+        response = manager.make_request('POST', url, json_data=request_data)
+        logger.debug(f'Z-ASU API decline-payment response: {response.status_code} {response.reason} {response.text}')
+        if response.status_code == 200:
+            response_data = response.json()
+            pid = response_data.get('payment_id')
+            logger.info(f'Успешно отклонен Payment на Z-ASU: payment_id={pid}')
+            return {'success': True, 'payment_id': pid}
+        error_text = response.text or response.reason or 'Unknown error'
+        logger.error(f'Ошибка отклонения Payment на Z-ASU: {response.status_code} {error_text}')
+        return {'success': False, 'error': f'HTTP {response.status_code}: {error_text}'}
+    except Exception as err:
+        logger.error(f'Исключение при отклонении Payment на Z-ASU: {err}', exc_info=True)
+        return {'success': False, 'error': str(err)}
+
+
 def confirm_z_asu_transaction(merchant_transaction_id: str) -> dict:
     """
-    Подтверждение транзакции на Z-ASU API.
+    Подтверждение транзакции на Z-ASU API по merchant_transaction_id (fallback).
     Логика Z-ASU: подтверждает транзакцию по merchant_transaction_id через Z-ASU API endpoint.
     Endpoint сам ищет Payment через ORM и подтверждает его.
     
@@ -603,6 +667,60 @@ def confirm_z_asu_transaction(merchant_transaction_id: str) -> dict:
             
     except Exception as err:
         logger.error(f'Исключение при подтверждении транзакции на Z-ASU: {err}', exc_info=True)
+        return {
+            'success': False,
+            'error': str(err),
+        }
+
+
+def decline_z_asu_transaction(merchant_transaction_id: str) -> dict:
+    """
+    Отклонение транзакции на Z-ASU API.
+    Логика Z-ASU: отклоняет транзакцию по merchant_transaction_id через Z-ASU API endpoint.
+    Endpoint ищет Payment через ORM и переводит в статус -1 (Declined).
+    
+    Args:
+        merchant_transaction_id: merchant_transaction_id (order_id) из BirpayOrder
+    
+    Returns:
+        dict: Результат с ключами:
+            - success: bool - успешность операции
+            - payment_id: str - UUID Payment (если успешно)
+            - error: str - описание ошибки (если неуспешно)
+    """
+    manager = _z_asu_manager
+    logger = manager.logger.bind(
+        merchant_transaction_id=merchant_transaction_id,
+        z_asu_api=True
+    )
+    
+    try:
+        logger.info(f'Отклонение транзакции {merchant_transaction_id} на Z-ASU API')
+        
+        request_data = {'merchant_transaction_id': merchant_transaction_id}
+        url = f'{settings.ASU_HOST}/api/v2/z-asu/decline-transaction/'
+        response = manager.make_request('POST', url, json_data=request_data)
+        
+        logger.debug(f'Z-ASU API decline-transaction response: {response.status_code} {response.reason} {response.text}')
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            payment_id = response_data.get('payment_id')
+            logger.info(f'Успешно отклонена транзакция на Z-ASU: merchant_transaction_id={merchant_transaction_id}, payment_id={payment_id}')
+            return {
+                'success': True,
+                'payment_id': payment_id,
+            }
+        else:
+            error_text = response.text or response.reason or 'Unknown error'
+            logger.error(f'Ошибка отклонения транзакции на Z-ASU: {response.status_code} {error_text}')
+            return {
+                'success': False,
+                'error': f'HTTP {response.status_code}: {error_text}',
+            }
+            
+    except Exception as err:
+        logger.error(f'Исключение при отклонении транзакции на Z-ASU: {err}', exc_info=True)
         return {
             'success': False,
             'error': str(err),

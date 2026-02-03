@@ -116,6 +116,86 @@ def find_birpay_from_id(birpay_id, results=1):
         raise err
 
 
+def get_refill_order_raw(merchant_tx_id, results=1):
+    """
+    Поиск заявки пополнения (refill) на birpay-gate по Merchant Transaction ID.
+    Возвращает сырой объект первой заявки из ответа API или None.
+    В birpay_func поиск заявок поддерживается только по полю merchantTransactionId.
+    """
+    merchant_tx_id = str(merchant_tx_id).strip()
+    if not merchant_tx_id:
+        return None
+    try:
+        token = read_token()
+        headers['Authorization'] = f'Bearer {token}'
+        json_data = {
+            'filter': {'merchantTransactionId': merchant_tx_id},
+            'sort': {},
+            'limit': {'lastId': 0, 'maxResults': results, 'descending': True},
+        }
+        response = requests.post(
+            'https://birpay-gate.com/api/operator/refill_order/find',
+            headers=headers,
+            json=json_data,
+        )
+        if response.status_code == 401:
+            token = get_new_token()
+            headers['Authorization'] = f'Bearer {token}'
+            response = requests.post(
+                'https://birpay-gate.com/api/operator/refill_order/find',
+                headers=headers,
+                json=json_data,
+            )
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                return data[0]
+        return None
+    except Exception as err:
+        logger.error(err, exc_info=True)
+        return None
+
+
+def get_payout_order_raw(merchant_tx_id, results=1):
+    """
+    Поиск заявки выплаты (payout) на birpay-gate по Merchant Transaction ID.
+    Возвращает сырой объект первой заявки из ответа API или None.
+    В birpay_func поиск заявок поддерживается только по полю merchantTransactionId.
+    """
+    merchant_tx_id = str(merchant_tx_id).strip()
+    if not merchant_tx_id:
+        return None
+    try:
+        token = read_token()
+        headers['Authorization'] = f'Bearer {token}'
+        json_data = {
+            'filter': {'merchantTransactionId': merchant_tx_id},
+            'sort': {},
+            'limit': {'lastId': 0, 'maxResults': results, 'descending': True},
+        }
+        response = requests.post(
+            'https://birpay-gate.com/api/operator/payout_order/find',
+            headers=headers,
+            json=json_data,
+        )
+        if response.status_code == 401:
+            token = get_new_token()
+            headers['Authorization'] = f'Bearer {token}'
+            response = requests.post(
+                'https://birpay-gate.com/api/operator/payout_order/find',
+                headers=headers,
+                json=json_data,
+            )
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                return data[0]
+        return None
+    except Exception as err:
+        logger.error(err, exc_info=True)
+        return None
+
+
 def get_birpays(results=512) -> dict:
     # Полчение данных по первой таблице birpay
     try:
@@ -538,8 +618,8 @@ def set_payment_requisite_active(
 async def main():
     token = get_new_token()
     print(token)
-    result = get_payment_requisite_data()
-    pprint(result)
+    # result = get_payment_requisite_data()
+    # pprint(result)
     # res = update_payment_requisite_data(
     #     1480,
     #     name='Agent_Zajon_AZN_azcashier5',
@@ -553,9 +633,9 @@ async def main():
     # print(res)
 
     #13691648
-    # birpay = find_birpay_from_id('888308930')
-    # print(birpay)
-    # t = find_birpay_from_merch_transaction_id(45829239)
+    birpay = find_birpay_from_id('1029930386')
+    print(birpay)
+    # t = find_birpay_from_merch_transaction_id('1029928944')
     # pprint(t)
     # t = find_birpay_from_merch_transaction_id('889136356')
     # pprint(t)

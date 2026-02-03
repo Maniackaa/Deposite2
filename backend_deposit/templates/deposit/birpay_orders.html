@@ -95,7 +95,7 @@
             <tbody>
             {% for order in page_obj %}
                 <tr>
-                    <td>{{ order.id }}{% if order.payment_id %}<span title="Payment ID на ASU: {{ order.payment_id }}" style="color: #20c997; font-weight: bold; margin-left: 3px;">⚡</span>{% endif %}</td>
+                    <td>{{ order.id }}{% if order.payment_id %}{% if asu_payments_base_url %}<a href="{{ asu_payments_base_url }}{{ order.payment_id }}/" target="_blank" rel="noopener" title="Открыть Payment на ASU: {{ order.payment_id }}">{% endif %}<span style="color: #20c997; font-weight: bold; margin-left: 3px; font-size: 1.1em;">⚡</span>{% if asu_payments_base_url %}</a>{% endif %}{% endif %}</td>
                     <td>
                         {{ order.incoming.id|default_if_none:"" }} {{ order.incoming.pay|default_if_none:"" }}
                     </td>

@@ -314,44 +314,40 @@ Content-Type: application/json
 
 ---
 
-## 4. Подтверждение заявки в birpay_panel с апрувом на ASU
+## 4. Подтверждение и отклонение на ASU только при смене status (единая точка входа)
 
-### Логика подтверждения
+**Логика:** Подтверждение/отклонение на ASU выполняется **только из одного места** — по смене поля `status` модели `BirpayOrder`:
+
+- **status меняется на 1** (подтверждено в Birpay) → ставится задача подтверждения на ASU (статус 9).
+- **status меняется на 2** (отклонено в Birpay) → ставится задача отклонения на ASU (статус -1).
+
+Задачи ставятся только если карта заявки в реквизитах Zajon с опцией «Работает на ASU» (`should_send_to_z_asu(order.card_number)`).
+
+**Поиск Payment на ASU:** при наличии у заявки `payment_id` (ID Payment на ASU) используются endpoint'ы **confirm-payment** и **decline-payment** (поиск по `payment_id`). Если `payment_id` нет — fallback на **confirm-transaction** / **decline-transaction** по `merchant_transaction_id`.
+
+**Реализация:**
+
+1. **Сигналы** (`deposit/models.py`):
+   - `pre_save` на `BirpayOrder` сохраняет старый `status` в `instance._old_birpay_status`.
+   - `post_save` на `BirpayOrder`: если запись не новая, `_old_birpay_status != status` и `status in (1, 2)` и `should_send_to_z_asu(instance.card_number)` — ставится соответствующая Celery-задача.
+
+2. **Задачи** (`deposit/tasks.py`): `confirm_z_asu_transaction_task` и `decline_z_asu_transaction_task` принимают `payment_id=None` и `merchant_transaction_id=None`. Если задан `payment_id` — вызываются `confirm_z_asu_payment` / `decline_z_asu_payment` (endpoint'ы confirm-payment, decline-payment). Иначе — `confirm_z_asu_transaction` / `decline_z_asu_transaction` (confirm-transaction, decline-transaction по `merchant_transaction_id`).
+
+3. **Где меняется status на 1 или 2:**
+   - **birpay_panel:** при ручном подтверждении заявки с привязкой к Incoming выставляется `order.status = 1` и сохраняется заявка — сигнал ставит задачу подтверждения на ASU.
+   - **Автоподтверждение (GPT):** в задаче `send_image_to_gpt_task` после успешного `approve_birpay_refill` заявка сохраняется с `order.status = 1` — сигнал ставит задачу подтверждения на ASU.
+   - **Отклонение:** при отклонении заявки в Birpay выставляется `order.status = 2` и сохраняется — сигнал ставит задачу отклонения на ASU.
+
+Прямых вызовов confirm/decline из views или задач больше нет.
+
+### Подтверждение заявки в birpay_panel
 
 При подтверждении заявки с привязкой к Incoming на странице `birpay_panel`:
 
-1. **Проверка DEBUG режима:**
-   - Если `DEBUG=True`, запрос на `approve_birpay_refill` не отправляется
-   - Считается успешным автоматически
-
-2. **Подтверждение в birpay:**
-   - Вызывается `approve_birpay_refill(pk=order.birpay_id)`
-   - Если успешно (HTTP 200), заявка подтверждается
-
-3. **Сохранение заявки:**
-   - Заявка сохраняется в транзакции (`transaction.atomic()`)
-   - Привязывается к Incoming (SMS)
-   - Обновляется статус заявки
-
-4. **Логика Z-ASU - подтверждение на ASU (в конце обработки):**
-   
-   **Условия выполнения:**
-   - ✅ Заявка успешно подтверждена в birpay (`response.status_code == 200` или `DEBUG=True`)
-   - ✅ Заявка успешно сохранена в транзакции (привязана к Incoming, обновлен статус)
-   - ✅ Проверка `should_send_to_z_asu(order.card_number)` возвращает `True`
-     - Карта найдена в реквизитах Zajon с `works_on_asu=True` и `active=True`
-   
-   **Процесс:**
-   - Вызывается `confirm_z_asu_transaction(order.merchant_transaction_id)`
-   - Endpoint `/api/v2/z-asu/confirm-transaction/` ищет Payment через ORM по `order_id=merchant_transaction_id` и `source='z_asu'`
-   - Если Payment найден, переводит его в статус 9 (Confirmed)
-   - **Важно:** Выполняется в конце, после сохранения заявки, чтобы не блокировать основную транзакцию при недоступности сервера ASU
-
-5. **Сообщение пользователю:**
-   - Добавляется информация об успешности апрува на ASU:
-     - " успешно апрувнуто на ASU (Payment {payment_id})" - если успешно
-     - " ошибка апрува на ASU: {error}" - если ошибка
-     - " исключение при апруве на ASU: {error}" - если исключение
+1. Проверка DEBUG: при `DEBUG=True` запрос на `approve_birpay_refill` не отправляется, считается успешным.
+2. Вызов `approve_birpay_refill(pk=order.birpay_id)`.
+3. При успехе (HTTP 200): выставляются `order.status = 1`, `order.status_internal = 1`, привязка к Incoming, сохранение в транзакции.
+4. Подтверждение на ASU выполняется только по смене `status` на 1 (сигнал ставит задачу).
 
 ### Функция подтверждения транзакции
 
@@ -367,13 +363,9 @@ Content-Type: application/json
 
 При **автоматическом подтверждении** заявки в задаче `send_image_to_gpt_task` (когда включено `gpt_auto_approve`, все 8 флагов GPT установлены, найдена однозначная SMS и привязка прошла успешно):
 
-1. Вызывается `approve_birpay_refill(pk=order.birpay_id)`.
-2. При успешном ответе (HTTP 200) выполняется **подтверждение на ASU** по той же логике, что и в birpay_panel:
-   - Проверка `should_send_to_z_asu(order.card_number)`.
-   - Вызов `confirm_z_asu_transaction(order.merchant_transaction_id)`.
-   - Ошибки апрува на ASU логируются и не отменяют уже выполненное подтверждение в Birpay.
-
-**Файл:** `deposit/tasks.py` (блок после успешного `approve_birpay_refill` в ветке автоподтверждения).
+1. В транзакции выставляются `order.status = 1`, привязка к Incoming, сохранение заявки.
+2. Вызывается `approve_birpay_refill(pk=order.birpay_id)` (вне транзакции).
+3. Подтверждение на ASU выполняется только по смене `status` на 1 (сигнал при сохранении ставит задачу `confirm_z_asu_transaction_task`).
 
 ---
 
@@ -504,7 +496,8 @@ Z-ASU API имеет отдельную Swagger документацию:
 | `/api/v2/z-asu/create-payment/` | POST | Создание Payment для Z-ASU |
 | `/api/v2/z-asu/confirm-payment/` | POST | Подтверждение Payment по payment_id (статус 9) |
 | `/api/v2/z-asu/decline-payment/` | POST | Отклонение Payment по payment_id (статус -1) |
-| `/api/v2/z-asu/confirm-transaction/` | POST | Подтверждение транзакции по merchant_transaction_id (ищет Payment через ORM) |
+| `/api/v2/z-asu/confirm-transaction/` | POST | Подтверждение транзакции по merchant_transaction_id (ищет Payment через ORM, статус 9) |
+| `/api/v2/z-asu/decline-transaction/` | POST | Отклонение транзакции по merchant_transaction_id (ищет Payment через ORM, статус -1) |
 
 ---
 

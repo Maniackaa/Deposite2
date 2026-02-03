@@ -14,6 +14,13 @@
                 </div>
                 <div class="card-body">
                     <div class="list-group">
+                        <a href="{% url 'deposit:birpay_gate_status_check' %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">Проверка статуса на birpay-gate</h5>
+                            </div>
+                            <p class="mb-1">Проверить актуальные данные заявки по Merchant Tx ID (refill или payout)</p>
+                            <small class="text-muted">Поиск по полю merchantTransactionId</small>
+                        </a>
                         <a href="{% url 'deposit:birpay_order_create' %}" class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
                                 <h5 class="mb-1">Создание заявки</h5>

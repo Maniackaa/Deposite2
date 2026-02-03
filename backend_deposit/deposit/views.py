@@ -36,7 +36,7 @@ from matplotlib import pyplot as plt
 from rest_framework.views import APIView
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from core.asu_pay_func import create_asu_withdraw, should_send_to_z_asu, send_birpay_order_to_z_asu, confirm_z_asu_transaction
+from core.asu_pay_func import create_asu_withdraw, should_send_to_z_asu, send_birpay_order_to_z_asu
 from core.birpay_new_func import get_um_transactions, send_transaction_action
 from core.global_func import TZ, mask_compare, send_message_tg
 from core.stat_func import cards_report, bad_incomings, get_img_for_day_graph, day_reports_birpay_confirm, \
@@ -88,6 +88,8 @@ from core.birpay_func import (
     get_payment_requisite_data,
     update_payment_requisite_data,
     set_payment_requisite_active,
+    get_refill_order_raw,
+    get_payout_order_raw,
 )
 
 from users.models import Options
@@ -1758,6 +1760,10 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
         context = super().get_context_data(**kwargs)
         context['search_form'] = self.filterset.form
         
+        # Базовый URL страницы Payment на ASU (для ссылки по payment_id в столбце ID)
+        asu_host = getattr(settings, 'ASU_HOST', '') or ''
+        context['asu_payments_base_url'] = (asu_host.rstrip('/') + '/payments/') if asu_host else ''
+        
         # Загружаем Options один раз для всего контекста
         options = Options.load()
         context['gpt_auto_approve'] = options.gpt_auto_approve
@@ -2184,31 +2190,7 @@ class BirpayPanelView(StaffOnlyPerm, ListView):
                                 incoming_to_approve.merchant_user_id = order.merchant_user_id
                                 incoming_to_approve.save()
                                 logger.info(f'"Заявка {order} mtx_id {order.merchant_transaction_id} успешно подтверждена')
-                            
-                            # Логика Z-ASU: после успешного подтверждения в birpay и сохранения заявки апрувим на ASU
-                            # Выполняем в конце, чтобы не блокировать основную транзакцию при недоступности сервера ASU
-                            asu_approve_message = ''
-                            if should_send_to_z_asu(order.card_number):
-                                logger.info(f'Логика Z-ASU: заявка {order.merchant_transaction_id} требует подтверждения на ASU')
-                                try:
-                                    # Подтверждаем транзакцию на ASU через новый endpoint
-                                    # Endpoint сам найдет Payment через ORM по merchant_transaction_id
-                                    confirm_result = confirm_z_asu_transaction(order.merchant_transaction_id)
-                                    if confirm_result.get('success'):
-                                        payment_id = confirm_result.get('payment_id', 'N/A')
-                                        asu_approve_message = f' успешно апрувнуто на ASU (Payment {payment_id})'
-                                        logger.info(f'Логика Z-ASU: транзакция {order.merchant_transaction_id} успешно подтверждена на ASU (Payment {payment_id})')
-                                    else:
-                                        error_msg = confirm_result.get('error', 'Unknown error')
-                                        asu_approve_message = f' ошибка апрува на ASU: {error_msg}'
-                                        logger.error(f'Логика Z-ASU: ошибка подтверждения транзакции {order.merchant_transaction_id} на ASU: {error_msg}')
-                                except Exception as e:
-                                    asu_approve_message = f' исключение при апруве на ASU: {str(e)}'
-                                    logger.error(f'Логика Z-ASU: исключение при подтверждении на ASU: {e}', exc_info=True)
-                            
-                            # Добавляем информацию об апруве на ASU в сообщение
-                            if asu_approve_message:
-                                messages.add_message(request, messages.INFO, text + asu_approve_message)
+                            # Логика Z-ASU: подтверждение на ASU выполняется только по смене status на 1 (сигнал ставит задачу)
 
             # Очищаем контекст после завершения обработки заказа
             clear_contextvars()
@@ -2628,6 +2610,75 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
         return response
 
 
+def _birpay_raw_result_to_display(raw_dict):
+    """Преобразует сырой ответ birpay API в список (ключ, строка для отображения)."""
+    if not raw_dict:
+        return []
+    items = []
+    for key, value in raw_dict.items():
+        if isinstance(value, (dict, list)):
+            try:
+                display = json.dumps(value, ensure_ascii=False, indent=2)
+            except (TypeError, ValueError):
+                display = str(value)
+        elif value is None:
+            display = '—'
+        else:
+            display = str(value)
+        items.append((key, display))
+    return items
+
+
 class ZASUManagementView(SuperuserOnlyPerm, TemplateView):
     """Страница управления Z-ASU (только для суперюзера)"""
     template_name = 'deposit/z_asu_management.html'
+
+
+class BirpayGateStatusCheckView(SuperuserOnlyPerm, View):
+    """
+    Проверка актуальных данных заявки на birpay-gate по Merchant Tx ID.
+    Поддерживается поиск только по полю merchantTransactionId (Refill и Payout).
+    """
+    template_name = 'deposit/birpay_gate_status_check.html'
+
+    def get(self, request):
+        return render(request, self.template_name, {
+            'order_type': 'refill',
+            'merchant_tx_id': '',
+            'result': None,
+            'error': None,
+        })
+
+    def post(self, request):
+        merchant_tx_id = (request.POST.get('merchant_tx_id') or '').strip()
+        order_type = request.POST.get('order_type', 'refill').strip().lower()
+        if order_type not in ('refill', 'payout'):
+            order_type = 'refill'
+
+        error = None
+        result = None
+        result_items = None
+
+        if not merchant_tx_id:
+            error = 'Введите Merchant Tx ID.'
+        else:
+            try:
+                if order_type == 'refill':
+                    result = get_refill_order_raw(merchant_tx_id)
+                else:
+                    result = get_payout_order_raw(merchant_tx_id)
+                if result is None:
+                    error = f'Заявка с Merchant Tx ID «{merchant_tx_id}» не найдена (тип: {order_type}).'
+                else:
+                    result_items = _birpay_raw_result_to_display(result)
+            except Exception as e:
+                logger.error(f'Ошибка запроса к birpay-gate: {e}', exc_info=True)
+                error = str(e)
+
+        return render(request, self.template_name, {
+            'order_type': order_type,
+            'merchant_tx_id': merchant_tx_id,
+            'result': result,
+            'result_items': result_items,
+            'error': error,
+        })
