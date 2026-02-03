@@ -594,14 +594,7 @@ def process_birpay_order(data):
     else:
         logger.info(f"Создан новый {order} birpay_id={birpay_id}")
 
-    if check_file_url and not order.check_file and not order.check_file_failed:
-        order.check_file_failed = True   # Резервируем скачивание — повторно не поставим
-        order.save(update_fields=['check_file_failed'])
-        download_birpay_check_file.delay(order.id, check_file_url)
-        logger.info(f"Задача на скачивание файла для заказа {birpay_id} отправлена в celery.")
-    
-    # Логика Z-ASU: отправка на ASU при создании заявки или если заявка уже есть, но payment_id ещё не сохранён (карта подходит)
-    # Перечитываем из БД, чтобы не отправить дважды при параллельных вызовах (например два refresh_birpay_data подряд)
+    # 1) Сначала Z-ASU: создание заявки на ASU (если нужно). Так к моменту отправки в GPT payment_id уже в БД.
     order.refresh_from_db(fields=['payment_id'])
     should_send = order.card_number and should_send_to_z_asu(order.card_number) and (created or not order.payment_id)
     if should_send:
@@ -614,7 +607,6 @@ def process_birpay_order(data):
                 logger.info(
                     f"BirpayOrder {birpay_id} Z-ASU: payment_id={payment_id}, created={created}"
                 )
-                # Сохраняем payment_id в BirpayOrder (и при 201, и при 200 — идемпотентность)
                 if payment_id:
                     order.payment_id = str(payment_id)
                     order.save(update_fields=['payment_id'])
@@ -622,7 +614,14 @@ def process_birpay_order(data):
                 logger.error(f"Ошибка отправки BirpayOrder {birpay_id} на Z-ASU: {result.get('error')}")
         except Exception as err:
             logger.error(f"Исключение при отправке BirpayOrder {birpay_id} на Z-ASU: {err}", exc_info=True)
-    
+
+    # 2) После ASU — задача на скачивание чека; после скачивания — отправка в GPT (если нужно).
+    if check_file_url and not order.check_file and not order.check_file_failed:
+        order.check_file_failed = True
+        order.save(update_fields=['check_file_failed'])
+        download_birpay_check_file.delay(order.id, check_file_url)
+        logger.info(f"Задача на скачивание файла для заказа {birpay_id} отправлена в celery.")
+
     return order, created, updated
 
 
@@ -793,6 +792,10 @@ def send_image_to_gpt_task(self, birpay_id):
                 incoming_sms = incomings_with_correct_card_and_order_amount[0]
                 logger.info(
                     f'Попытка автоматического подтверждения {order} {order.merchant_transaction_id}: смс{incoming_sms.id}')
+                
+                # Перечитываем payment_id из БД: заказ мог быть загружен до того, как process_birpay_order
+                # сохранил payment_id (другой воркер). Без актуального payment_id сигнал не поставит задачу подтверждения на ASU.
+                order.refresh_from_db(fields=['payment_id'])
                 
                 # Используем транзакцию с блокировкой для предотвращения race condition
                 sms_bound_successfully = False

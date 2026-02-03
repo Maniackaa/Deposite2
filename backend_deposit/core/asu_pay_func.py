@@ -475,11 +475,11 @@ def should_send_to_z_asu(card_number: str) -> bool:
             # Нормализуем карту из базы для сравнения (убираем пробелы и дефисы)
             normalized_req_card = req_card.replace(' ', '').replace('-', '')
             if normalized_req_card == cleaned_card:
-                logger.info(f'Логика Z-ASU: найдена карта {cleaned_card} в реквизите {req["id"]} ({req["name"]}) с works_on_asu=True')
+                # logger.info(f'Логика Z-ASU: найдена карта {cleaned_card} в реквизите {req["id"]} ({req["name"]}) с works_on_asu=True')
                 return True
     
     # Логируем для отладки
-    logger.debug(f'Логика Z-ASU: не найдено реквизитов с картой {cleaned_card} и works_on_asu=True. Всего реквизитов с works_on_asu=True: {all_z_asu_requisites.count()}')
+    # logger.debug(f'Логика Z-ASU: не найдено реквизитов с картой {cleaned_card} и works_on_asu=True. Всего реквизитов с works_on_asu=True: {all_z_asu_requisites.count()}')
     
     return False
 
