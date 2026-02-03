@@ -3,15 +3,28 @@
 """
 import pytest
 from unittest.mock import patch, Mock
-from django.test import TestCase, Client
+from django.test import TestCase, Client, RequestFactory
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.urls import reverse
+from django.middleware.csrf import get_token
+from django.contrib.sessions.middleware import SessionMiddleware
+from django.http import HttpResponse
 import datetime
 import pytz
 
 from deposit.models import BirpayOrder, Incoming
 from core.global_func import TZ
+
+
+def _get_csrf_token(client):
+    """Получить CSRF-токен для тестового клиента (не зависит от куки в ответе GET)."""
+    request = RequestFactory().get('/')
+    SessionMiddleware(lambda r: HttpResponse()).process_request(request)
+    request.session.save()
+    token = get_token(request)
+    client.cookies['csrftoken'] = token
+    return token
 
 
 @pytest.mark.django_db
@@ -123,10 +136,8 @@ class TestBirpayPanelBalanceCheck(TestCase):
         mock_change_amount_birpay.return_value = mock_change_response
         
         with patch('deposit.views.settings.ALARM_IDS', ['123456789']):
-            # Выполняем POST запрос на birpay_panel с действием approve
             url = reverse('deposit:birpay_panel')
-            csrf_token = self.client.get(url).cookies['csrftoken'].value
-            
+            csrf_token = _get_csrf_token(self.client)
             response = self.client.post(url, {
                 'csrfmiddlewaretoken': csrf_token,
                 'orderconfirm_{}'.format(self.order.id): str(self.incoming_mismatch.id),
@@ -197,10 +208,8 @@ class TestBirpayPanelBalanceCheck(TestCase):
         self.assertIsNone(self.incoming_match.check_balance)
         
         with patch('deposit.views.settings.ALARM_IDS', ['123456789']):
-            # Выполняем POST запрос на birpay_panel с действием approve
             url = reverse('deposit:birpay_panel')
-            csrf_token = self.client.get(url).cookies['csrftoken'].value
-            
+            csrf_token = _get_csrf_token(self.client)
             response = self.client.post(url, {
                 'csrfmiddlewaretoken': csrf_token,
                 'orderconfirm_{}'.format(self.order.id): str(self.incoming_match.id),
@@ -235,7 +244,7 @@ class TestBirpayPanelBalanceCheck(TestCase):
         
         with patch('deposit.views.settings.ALARM_IDS', ['123456789', '987654321']):
             url = reverse('deposit:birpay_panel')
-            csrf_token = self.client.get(url).cookies['csrftoken'].value
+            csrf_token = _get_csrf_token(self.client)
             response = self.client.post(url, {
                 'csrfmiddlewaretoken': csrf_token,
                 'orderconfirm_{}'.format(self.order.id): str(self.incoming_mismatch.id),
@@ -306,8 +315,7 @@ class TestBirpayPanelBalanceCheck(TestCase):
         
         with patch('deposit.views.settings.ALARM_IDS', ['123456789']):
             url = reverse('deposit:birpay_panel')
-            csrf_token = self.client.get(url).cookies['csrftoken'].value
-            # Запрос должен выполниться успешно, несмотря на ошибку отправки
+            csrf_token = _get_csrf_token(self.client)
             response = self.client.post(url, {
                 'csrfmiddlewaretoken': csrf_token,
                 'orderconfirm_{}'.format(self.order.id): str(self.incoming_mismatch.id),
