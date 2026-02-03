@@ -215,15 +215,27 @@ Content-Type: application/json
 - `notify_apk_new_payment.delay(payment_id)` - для APK/APK_MANUAL клиентов
 - `notify_p2p_deposite_mode_update.delay(apk_p2p_user_id)` - для P2P кошельков
 
-### Ответы API
+### Ответы API (идемпотентность)
 
-**Успех (201 Created):**
+**ASU возвращает строго 201 при создании заявки, 200 — при идемпотентности (платёж уже существует).**
+
+**Создание заявки (201 Created):**
 ```json
 {
     "payment_id": "4792fc56-6ab9-4b6e-ad8a-f0ca23fc2a63",
     "status": "success"
 }
 ```
+
+**Идемпотентность (200 OK)** — при повторном запросе с тем же `merchant_transaction_id` Payment уже существует, возвращается существующий `payment_id`:
+```json
+{
+    "payment_id": "4792fc56-6ab9-4b6e-ad8a-f0ca23fc2a63",
+    "status": "success"
+}
+```
+
+**Логика Deposit:** только ответ **201** считается созданием заявки (`created=True`); при **200** заявка считается уже существующей (`created=False`), но `payment_id` сохраняется в BirpayOrder, чтобы не отправлять запрос повторно.
 
 **Ошибка (400 Bad Request):**
 ```json
@@ -321,17 +333,15 @@ Content-Type: application/json
 - **status меняется на 1** (подтверждено в Birpay) → ставится задача подтверждения на ASU (статус 9).
 - **status меняется на 2** (отклонено в Birpay) → ставится задача отклонения на ASU (статус -1).
 
-Задачи ставятся только если карта заявки в реквизитах Zajon с опцией «Работает на ASU» (`should_send_to_z_asu(order.card_number)`).
-
-**Поиск Payment на ASU:** при наличии у заявки `payment_id` (ID Payment на ASU) используются endpoint'ы **confirm-payment** и **decline-payment** (поиск по `payment_id`). Если `payment_id` нет — fallback на **confirm-transaction** / **decline-transaction** по `merchant_transaction_id`.
+**Задачи ставятся только при наличии у заявки `payment_id`** (заявка создавалась на ASU). Других проверок (реквизиты Zajon, fallback по `merchant_transaction_id`) нет.
 
 **Реализация:**
 
 1. **Сигналы** (`deposit/models.py`):
    - `pre_save` на `BirpayOrder` сохраняет старый `status` в `instance._old_birpay_status`.
-   - `post_save` на `BirpayOrder`: если запись не новая, `_old_birpay_status != status` и `status in (1, 2)` и `should_send_to_z_asu(instance.card_number)` — ставится соответствующая Celery-задача.
+   - `post_save` на `BirpayOrder`: если запись не новая, `_old_birpay_status != status`, `status in (1, 2)` и **есть `instance.payment_id`** — ставится соответствующая Celery-задача (в задачу передаётся только `payment_id`).
 
-2. **Задачи** (`deposit/tasks.py`): `confirm_z_asu_transaction_task` и `decline_z_asu_transaction_task` принимают `payment_id=None` и `merchant_transaction_id=None`. Если задан `payment_id` — вызываются `confirm_z_asu_payment` / `decline_z_asu_payment` (endpoint'ы confirm-payment, decline-payment). Иначе — `confirm_z_asu_transaction` / `decline_z_asu_transaction` (confirm-transaction, decline-transaction по `merchant_transaction_id`).
+2. **Задачи** (`deposit/tasks.py`): `confirm_z_asu_transaction_task` и `decline_z_asu_transaction_task` принимают `payment_id` и `merchant_transaction_id=None`. Вызываются `confirm_z_asu_payment(payment_id)` / `decline_z_asu_payment(payment_id)` — endpoint'ы **confirm-payment** и **decline-payment** (поиск по `payment_id`).
 
 3. **Где меняется status на 1 или 2:**
    - **birpay_panel:** при ручном подтверждении заявки с привязкой к Incoming выставляется `order.status = 1` и сохраняется заявка — сигнал ставит задачу подтверждения на ASU.
@@ -725,9 +735,10 @@ Z-ASU API имеет отдельную Swagger документацию:
    - Кошельки агентов с `works_on_zajon=True` исключаются из автоматического назначения при фильтрации
    - Это предотвращает назначение кошельков агентам, которые работают на Zajon и обрабатывают платежи вручную
 
-9. **Подтверждение на ASU в конце обработки**
-   - Подтверждение на ASU выполняется после сохранения заявки, чтобы не блокировать основную транзакцию
-   - При недоступности сервера ASU основная транзакция уже сохранена и не блокируется таймаутами
+9. **Подтверждение/отклонение на ASU по смене status**
+   - Задачи confirm/decline на ASU ставятся **только при наличии у заявки `payment_id`** (заявка создавалась на ASU)
+   - Других проверок (реквизиты Zajon, fallback по merchant_transaction_id) для постановки задачи нет
+   - Подтверждение на ASU выполняется после сохранения заявки (сигнал ставит задачу), чтобы не блокировать основную транзакцию
 
 ---
 
@@ -773,3 +784,4 @@ def z_asu_create_payment(request):
 - Добавлено поле `works_on_asu` в модель `RequsiteZajon` для настройки работы с ASU через интерфейс редактирования реквизитов
 - Добавлена визуализация ID реквизита как бирюзовой лампочки для реквизитов с `works_on_asu=True`
 - Добавлена фильтрация кошельков агентов с `works_on_zajon=True` при назначении кошельков (исключаются из автоматического назначения)
+- **Подтверждение/отклонение на ASU:** задачи ставятся только при наличии у заявки `payment_id`; проверок по реквизитам Zajon и fallback по merchant_transaction_id нет
