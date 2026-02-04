@@ -1571,7 +1571,7 @@ class WithdrawWebhookReceive(APIView):
 
             elif status == -1:
                 logger.info(f'Отклоняем на birpay {birpay_withdraw_id}')
-                result = BirpayClient().decline_payout(birpay_withdraw_id, transaction_id)
+                result = BirpayClient().decline_payout(birpay_withdraw_id, reason='err')
 
             logger.info(f'result: {result}')
             if result.get('errors'):
