@@ -3,7 +3,7 @@
 Документация REST API модуля `deposit/views_birpay_api.py`. Этот API предоставляет проекту ASU (Payment) доступ к Birpay **только через Депозит**: ASU не обращается к Birpay напрямую.
 
 - **Базовый URL:** `{DEPOSIT_HOST}/api/birpay/`
-- **Аутентификация:** Bearer-токен (`BIRPAY_API_SECRET`) или JWT пользователя Депозита (staff/superuser). JWT получается через `POST {DEPOSIT_HOST}/api/token/` (логин/пароль из SupportOptions на ASU).
+- **Аутентификация:** только JWT пользователя Депозита (staff/superuser). JWT получается через `POST {DEPOSIT_HOST}/api/token/` (логин/пароль из SupportOptions на ASU). Заголовок: `Authorization: Bearer <JWT>`.
 
 ---
 
@@ -11,9 +11,8 @@
 
 ### Permission: BirpayAPIPermission
 
-- **Доступ разрешён**, если:
-  - заголовок `Authorization: Bearer <secret>` и `secret == settings.BIRPAY_API_SECRET` (или `DEPOSIT_BIRPAY_API_SECRET`), **или**
-  - пользователь аутентифицирован и является staff или superuser (JWT Депозита).
+- **Доступ разрешён**, если пользователь аутентифицирован по JWT (или сессии Депозита) и является **staff** или **superuser**.
+- На Депозите в DRF включён `JWTAuthentication`: Bearer JWT проверяется (подпись, срок), из токена берётся пользователь и подставляется в `request.user`.
 - Иначе доступ запрещён (403).
 
 ---

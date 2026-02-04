@@ -2,9 +2,9 @@
 REST API (DRF) для работы с Birpay через класс BirpayClient.
 Используется сервисом Депозит; проект ASU обращается к этому API, а не к Birpay напрямую.
 При обновлении реквизита используется единый сервис update_requisite_on_birpay (ID + overrides).
+Аутентификация: только JWT (логин/пароль в SupportOptions на ASU → POST /api/token/ Депозита) или сессия Депозита; пользователь должен быть staff или superuser.
 """
 import structlog
-from django.conf import settings
 from django.http import Http404
 from rest_framework import status
 from rest_framework.permissions import IsAdminUser
@@ -19,22 +19,9 @@ from deposit.models import RequsiteZajon
 logger = structlog.get_logger('deposit')
 
 
-def _birpay_api_token_valid(request) -> bool:
-    """Проверка Bearer-токена для вызовов из ASU (Payment)."""
-    secret = getattr(settings, 'BIRPAY_API_SECRET', None) or getattr(settings, 'DEPOSIT_BIRPAY_API_SECRET', None)
-    if not secret:
-        return False
-    auth = request.META.get('HTTP_AUTHORIZATION') or ''
-    if auth.startswith('Bearer '):
-        return auth[7:].strip() == secret
-    return False
-
-
 class BirpayAPIPermission(IsAdminUser):
-    """Доступ: Bearer-токен (ASU) или суперпользователь/админ (Deposit)."""
+    """Доступ: аутентифицированный пользователь Депозита с is_staff или is_superuser (JWT от ASU или сессия)."""
     def has_permission(self, request, view):
-        if _birpay_api_token_valid(request):
-            return True
         return (
             request.user
             and getattr(request.user, 'is_authenticated', False)
