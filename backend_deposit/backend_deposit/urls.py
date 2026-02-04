@@ -20,6 +20,8 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    # Birpay API (для ASU и др. — работа с Birpay только через этот API)
+    path('api/birpay/', include('deposit.urls_birpay_api', namespace='api_birpay')),
 ]
 
 

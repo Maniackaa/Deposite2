@@ -396,6 +396,8 @@ REMOTE_SERVER = os.getenv('REMOTE_SERVER')
 
 BIRPAY_NEW_LOGIN = os.getenv('BIRPAY_NEW_LOGIN')
 BIRPAY_NEW_PASSWORD = os.getenv('BIRPAY_NEW_PASSWORD')
+# Секрет для вызовов API Birpay с проекта ASU (Payment). Задать BIRPAY_API_SECRET в env.
+BIRPAY_API_SECRET = os.getenv('BIRPAY_API_SECRET', '')
 # ASUPAY_LOGIN = os.getenv('ASUPAY_LOGIN')
 # ASUPAY_PASSWORD = os.getenv('ASUPAY_PASSWORD')
 # ASUPAY_LOGIN = os.getenv('ASUPAY_LOGIN')

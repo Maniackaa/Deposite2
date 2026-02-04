@@ -79,6 +79,7 @@ from deposit.models import (
 )
 
 from core.birpay_client import BirpayClient
+from deposit.birpay_requisite_service import update_requisite_on_birpay
 
 from users.models import Options
 
@@ -363,17 +364,9 @@ class RequsiteZajonUpdateView(StaffOnlyPerm, UpdateView):
                 card_number_raw=raw_card_number[:50] if raw_card_number else '',
             )
             try:
-                # Отправляем полный payload, чтобы сохранить все существующие поля
-                sync_result = BirpayClient().update_requisite(
+                sync_result = update_requisite_on_birpay(
                     self.object.pk,
-                    name=self.object.name,
-                    agent_id=self.object.agent_id,
-                    weight=self.object.weight,
-                    card_number=raw_card_number,  # Отправляем сырое значение на birpay
-                    refill_method_types=self.object.refill_method_types,
-                    users=self.object.users,
-                    payment_requisite_filter_id=self.object.payment_requisite_filter_id,
-                    full_payload=old_payload,  # Отправляем старый payload, чтобы сохранить все поля
+                    {'card_number': raw_card_number},
                 )
                 log.info(
                     'Результат обновления на Birpay',
@@ -429,17 +422,7 @@ class RequsiteZajonToggleActiveView(StaffOnlyPerm, View):
         else:
             new_active_bool = new_active == '1'
 
-        result = BirpayClient().set_requisite_active(
-            requisite.pk,
-            new_active_bool,
-            name=requisite.name,
-            agent_id=requisite.agent_id,
-            weight=requisite.weight,
-            card_number=requisite.card_number or (requisite.payload.get('card_number') if requisite.payload else '') or '',
-            refill_method_types=requisite.refill_method_types,
-            users=requisite.users,
-            payment_requisite_filter_id=requisite.payment_requisite_filter_id,
-        )
+        result = update_requisite_on_birpay(pk, {'active': new_active_bool})
         status_code = result.get('status_code') if result else None
         if status_code and status_code >= 400:
             messages.warning(
@@ -2632,25 +2615,14 @@ class ZASUManagementView(SuperuserOnlyPerm, View):
             return render(request, self.template_name, {'requisite_card_form': form})
         requisite_id = form.cleaned_data['requisite_id']
         card_number_raw = form.cleaned_data['card_number']
-        requisite = get_object_or_404(RequsiteZajon, pk=requisite_id)
-        old_payload = requisite.payload or {}
         try:
-            sync_result = BirpayClient().update_requisite(
-                requisite.pk,
-                name=requisite.name,
-                agent_id=requisite.agent_id,
-                weight=requisite.weight,
-                card_number=card_number_raw,
-                refill_method_types=requisite.refill_method_types or [],
-                users=requisite.users or [],
-                payment_requisite_filter_id=requisite.payment_requisite_filter_id,
-                full_payload=old_payload,
-            )
+            sync_result = update_requisite_on_birpay(requisite_id, {'card_number': card_number_raw})
         except Exception as e:
             logger.exception('Z-ASU: ошибка обновления реквизита на Birpay')
             messages.error(request, f'Ошибка Birpay: {e}')
             return render(request, self.template_name, {'requisite_card_form': form})
-        # Обновляем локальную модель
+        requisite = get_object_or_404(RequsiteZajon, pk=requisite_id)
+        old_payload = requisite.payload or {}
         requisite.card_number = re.sub(r'\D', '', card_number_raw)[:16] if re.sub(r'\D', '', card_number_raw) else ''
         requisite.payload = dict(old_payload)
         requisite.payload['card_number'] = card_number_raw

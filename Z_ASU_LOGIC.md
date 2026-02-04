@@ -4,28 +4,30 @@
 
 ## Краткое резюме: настройка для взаимодействия двух проектов
 
-### Deposit (Django, порт 8002)
+### Deposit (Django)
 
 | Что настроить | Где | Описание |
 |---------------|-----|----------|
-| **ASU_HOST** | `.env` или `settings.py` | URL Payment-системы, например `http://127.0.0.1:8000` |
+| **ASU_HOST** | `.env` или `settings.py` | Адрес хоста ASU/Payment (значение ASU_HOST) |
 | **Z-ASU логин / пароль** | Админка → Options (синглтон) | Учётные данные пользователя с `username='Z-ASU'` в Payment; используются для JWT при вызовах Z-ASU API |
 | **Реквизиты Zajon** | Редактирование реквизита → «Работает на ASU» | Включить опцию у реквизитов, по картам которых заявки должны уходить в Payment |
 
-### Payment (FastAPI, порт 8000)
+### Payment (ASU)
 
 | Что настроить | Где | Описание |
 |---------------|-----|----------|
-| **DEPOSIT_HOST** | `.env` или `settings.py` | URL Deposit-системы, например `http://127.0.0.1:8002`; нужен для пересылки SMS в депозит |
-| **Пользователь Z-ASU** | БД / админка | Пользователь с `username='Z-ASU'` (логин/пароль совпадают с теми, что указаны в Options в Deposit) |
+| **DEPOSIT_HOST** | `.env` или `settings.py` | Адрес хоста Deposit (значение DEPOSIT_HOST); для пересылки SMS и для Birpay API Депозита |
+| **Deposit API: логин и пароль** | SupportOptions (админка) | **Deposit API: логин** (например `Z-ASU`), **Deposit API: пароль** — учётные данные пользователя на Депозите с is_staff. Токен получается по API (`POST {DEPOSIT_HOST}/api/token/`), кэш под капотом. |
+| **Пользователь Z-ASU** | БД / админка | Пользователь с `username='Z-ASU'` (логин/пароль совпадают с теми, что указаны в Options в Deposit) — для вызовов Deposit → Payment. |
 | **Merchant Z-ASU** | БД / админка | Запись `Merchant` с `name='Z-ASU'` |
 | **Карты и реквизиты** | CreditCard, PayRequisite, Wallet | Для каждой карты из реквизитов Deposit с «Работает на ASU»: есть CreditCard, активный PayRequisite (pay_type='p2p') и активный Wallet |
 | **Агенты «Работает на Zajon»** | Профиль агента → «Работает на Zajon» | Включить у агентов, чьи SMS должны пересылаться в Deposit без авто-подтверждения платежа |
 
 ### Сводка взаимодействия
 
-- **Deposit → Payment:** HTTP + JWT к `ASU_HOST` (создание платежа, подтверждение транзакции). Токен берётся по Z-ASU логину/паролю из Options.
-- **Payment → Deposit:** HTTP POST на `DEPOSIT_HOST/sms/` при пересылке SMS от агентов с «Работает на Zajon».
+- **Deposit → Payment:** HTTP + JWT к `ASU_HOST` (создание платежа, подтверждение транзакции). Токен берётся по Z-ASU логину/паролю из Options (`token_z_asu.txt`).
+- **Payment → Deposit (SMS):** HTTP POST на `DEPOSIT_HOST/sms/` при пересылке SMS от агентов с «Работает на Zajon».
+- **Payment → Deposit (Birpay API):** HTTP + Bearer к `{DEPOSIT_HOST}/api/birpay/` (реквизиты, refill/payout заявки). Токен получается по логину/паролю: `POST {DEPOSIT_HOST}/api/token/` (кэш под капотом), при 401 — обновление и повтор запроса.
 
 Подробности — в разделах ниже.
 
@@ -33,13 +35,14 @@
 
 ## Обзор
 
-Z-ASU - это специальная логика для взаимодействия между двумя проектами:
-- **Deposit** (Django, порт 8002) - депозитная система
-- **Payment** (FastAPI/ASGI, порт 8000) - платежная система
+Z-ASU — это специальная логика для взаимодействия между двумя проектами:
+- **Deposit** (Django) — депозитная система; единственная точка обращения к Birpay API; предоставляет REST API `/api/birpay/` для ASU. Адрес — DEPOSIT_HOST.
+- **Payment** (ASU, Django) — платежная система; обращается к Birpay только через API Депозита. Адрес — ASU_HOST.
 
 Логика Z-ASU обеспечивает:
-1. Автоматическое создание Payment в Payment системе при создании BirpayOrder в Deposit системе (при определенных условиях)
-2. Пересылку SMS от агентов с опцией "Работает на Zajon" в систему депозит без автоматического подтверждения платежей
+1. Автоматическое создание Payment в Payment при создании BirpayOrder в Deposit (при определённых условиях).
+2. Пересылку SMS от агентов с опцией «Работает на Zajon» в систему депозит без автоматического подтверждения платежей.
+3. Работу ASU с реквизитами и заявками Birpay только через API Депозита (токен по логину/паролю — `POST /api/token/`).
 
 ---
 
@@ -50,9 +53,14 @@ Z-ASU - это специальная логика для взаимодейст
 ```
 ┌─────────────────┐         HTTP + JWT          ┌─────────────────┐
 │   Deposit       │ ──────────────────────────> │    Payment      │
-│   (Django)      │                              │   (FastAPI)     │
-│   Port: 8002    │ <────────────────────────── │   Port: 8000    │
-└─────────────────┘      SMS forwarding         └─────────────────┘
+│   (Django)      │   create-payment, confirm    │   (ASU)         │
+│   DEPOSIT_HOST  │ <────────────────────────── │   ASU_HOST     │
+└─────────────────┘   SMS forwarding           └─────────────────┘
+        │                        │
+        │  Birpay API            │  Birpay API (Bearer/JWT)
+        │  /api/birpay/          │  requisites, refill, payout
+        │                        │  Token: POST /api/token/ (логин/пароль)
+        └────────────────────────┘
 ```
 
 ### Компоненты
@@ -62,10 +70,10 @@ Z-ASU - это специальная логика для взаимодейст
    - Отправка запросов на Payment API
    - Прием пересылаемых SMS
 
-2. **Payment проект** (`H:\Dev\Payment\backend_payment\`)
+2. **Payment проект** (ASU, `H:\Dev\Payment\backend_payment\`)
    - API endpoint для создания Payment (`/api/v2/z-asu/create-payment/`)
-   - Обработка SMS от APK агентов
-   - Пересылка SMS в Deposit систему
+   - Обработка SMS от APK агентов, пересылка SMS в Deposit
+   - Клиент Birpay API Депозита (`DepositBirpayAPIClient`): реквизиты, заявки refill/payout; токен по логину/паролю (`POST {DEPOSIT_HOST}/api/token/`, кэш под капотом)
 
 ---
 
@@ -150,15 +158,15 @@ Content-Type: application/json
 }
 ```
 
-### Аутентификация
+### Аутентификация (Deposit → Payment)
 
-Используется JWT токен, полученный через `/api/v2/token/` с учетными данными Z-ASU:
+Используется JWT токен, полученный через `POST {ASU_HOST}/api/v1/token/` с учётными данными Z-ASU:
 - Логин: `Options.z_asu_login`
 - Пароль: `Options.z_asu_password`
 
-Токен хранится в файле `token_z_asu.txt` в корне проекта Deposit.
+Токен хранится в файле `token_z_asu.txt` в корне проекта Deposit. Менеджер: `ASUAccountManager(ACCOUNT_Z_ASU)` в `core/asu_pay_func.py`; при 401 токен обновляется и запрос повторяется.
 
-**Важно:** Доступ к Z-ASU API разрешен только для пользователя с `username='Z-ASU'`. Проверка выполняется через permission класс `IsZASUUser`.
+**Важно:** Доступ к Z-ASU API разрешён только для пользователя с `username='Z-ASU'`. Проверка выполняется через permission класс `IsZASUUser`.
 
 ---
 
@@ -480,33 +488,84 @@ Content-Type: application/json
 
 ---
 
+## 5.1. Birpay API Депозита и получение токена на ASU
+
+Работа с Birpay (реквизиты, заявки refill/payout) со стороны ASU идёт **только через API Депозита**. Депозит — единственная точка обращения к Birpay; ASU вызывает `{DEPOSIT_HOST}/api/birpay/` с Bearer-токеном.
+
+### Эндпоинты Birpay API (Deposit)
+
+| Эндпоинт | Метод | Описание |
+|----------|--------|----------|
+| `/api/birpay/requisites/` | GET | Список реквизитов Birpay |
+| `/api/birpay/requisites/<id>/` | PUT | Обновить реквизит. Body: только изменяемые поля (например `card_number`). Данные готовит единый сервис из модели RequsiteZajon. |
+| `/api/birpay/requisites/<id>/set-active/` | POST | Включить/выключить реквизит. Body: `{"active": true\|false}`. Данные из модели. |
+| `/api/birpay/refill-orders/find/` | GET | Найти заявку пополнения по `merchant_transaction_id` |
+| `/api/birpay/payout-orders/find/` | GET | Найти заявку выплаты по `merchant_transaction_id` |
+| и др. | — | См. `deposit/urls_birpay_api.py` на Депозите |
+
+### Единый сервис обновления реквизита (Deposit)
+
+Редактирование реквизита (форма `/requisite-zajon/<id>/`, API `PUT /api/birpay/requisites/<id>/`, Z-ASU форма) не дублирует код: все вызовы идут через **`deposit/birpay_requisite_service.py`**.
+
+- **`update_requisite_on_birpay(requisite_id, overrides)`** — единственная точка обновления реквизита в Birpay.
+- Передаётся только **ID реквизита и словарь переопределений** (например `{'card_number': '...'}` или `{'active': True}`).
+- Сервис загружает реквизит из модели **RequsiteZajon**, объединяет с `overrides` (name, agent_id, weight, refill_method_types, users, payload берутся из модели; при `agent_id=0` в overrides используется значение из модели), вызывает **BirpayClient**.update_requisite или set_requisite_active.
+- Форма и API передают только нужные поля; подготовка полного payload для Birpay — в сервисе.
+
+### Аутентификация Birpay API (Deposit)
+
+- **Bearer-токен:** либо статический (`Authorization: Bearer <BIRPAY_API_SECRET>`), либо JWT пользователя Депозита.
+- **JWT:** пользователь должен быть staff или superuser; токен получается через `POST {DEPOSIT_HOST}/api/token/` (username, password) — стандартный Simple JWT.
+
+### Получение токена на ASU (Payment)
+
+По образцу того, как **Депозит** получает токен для ASU (`core/asu_pay_func.py` → `POST {ASU_HOST}/api/v1/token/`), на **Payment** токен с Депозита получается по логину и паролю:
+
+- В SupportOptions задаются **Deposit API: логин** (например `Z-ASU`) и **Deposit API: пароль** — учётные данные пользователя на Депозите с правами staff.  
+- Клиент выполняет `POST {DEPOSIT_HOST}/api/token/` с телом `{"username": "...", "password": "..."}`.  
+- В ответе берётся `access` (JWT), кэшируется под капотом (файл `token_deposit.txt` в `BASE_DIR`).  
+- При ответе 401 от Birpay API токен обновляется и запрос к Birpay API повторяется один раз.
+
+**Файлы на Payment:**
+
+- `deposit/deposit_deposit_token.py` — менеджер токена (аналог `ASUAccountManager` на Депозите): учётные данные из SupportOptions, запрос к `/api/token/`, кэш в файл, `get_token()` / `get_new_token()`.
+- `deposit/deposit_birpay_api_client.py` — клиент Birpay API Депозита: базовый URL из `DEPOSIT_HOST`, токен — статический или из менеджера токена; при 401 и режиме «токен по API» — обновление токена и повтор запроса.
+
+**На Депозите:** пользователь Z-ASU (логин/пароль из SupportOptions на ASU) должен существовать и иметь `is_staff=True` (или `is_superuser`), чтобы после получения JWT через `/api/token/` иметь доступ к `/api/birpay/`.
+
+---
+
 ## 6. Конфигурация
 
 ### Переменные окружения
 
 **Deposit проект:**
-- `ASU_HOST` - URL Payment системы (например, `http://localhost:8000`)
+- `ASU_HOST` — адрес хоста ASU/Payment
+- `BIRPAY_API_SECRET` (или `DEPOSIT_BIRPAY_API_SECRET`) — статический Bearer-токен для доступа к `/api/birpay/` (опционально; также допускается JWT пользователя staff/superuser)
 
 **Payment проект:**
-- `DEPOSIT_HOST` - URL Deposit системы (например, `http://localhost:8002`)
+- `DEPOSIT_HOST` — адрес хоста Deposit
 
 ### Настройки в базе данных
 
-**Deposit проект - Options (Singleton):**
-- `z_asu_login` - Логин для Z-ASU аккаунта
-- `z_asu_password` - Пароль для Z-ASU аккаунта
+**Deposit проект — Options (Singleton):**
+- `z_asu_login` — Логин для Z-ASU аккаунта (вызовы ASU API)
+- `z_asu_password` — Пароль для Z-ASU аккаунта
 
-**Deposit проект - RequsiteZajon:**
+**Deposit проект — RequsiteZajon:**
 - `works_on_asu` - Опция "Работает на ASU" (BooleanField, default=False)
   - Если включено, заявки с этой картой будут отправляться на Z-ASU API
   - Настраивается в форме редактирования реквизита (`requisite-zajon/pk/`)
   - В списке реквизитов ID отображается как бирюзовая лампочка для реквизитов с `works_on_asu=True`
 
-**Payment проект - Profile.agent_data:**
-- `works_on_zajon` - Опция для агентов (boolean)
-  - Если включено, все распознанные SMS от этого агента пересылаются в систему депозит
+**Payment проект — SupportOptions (Singleton):**
+- `deposit_api_username` — Логин пользователя Депозита для Birpay API (например `Z-ASU`)
+- `deposit_api_password` — Пароль пользователя Депозита; токен запрашивается `POST {DEPOSIT_HOST}/api/token/`, кэш под капотом
 
-**Payment проект - Merchant:**
+**Payment проект — Profile.agent_data:**
+- `works_on_zajon` — Опция для агентов (boolean); если включено, все распознанные SMS от этого агента пересылаются в систему депозит
+
+**Payment проект — Merchant:**
 - Должен существовать Merchant с `name='Z-ASU'`
 
 ---
@@ -538,19 +597,30 @@ Z-ASU API имеет отдельную Swagger документацию:
 ### Deposit проект
 
 **Файлы:**
-- `core/asu_pay_func.py` - Функции для работы с Z-ASU API
-  - `should_send_to_z_asu()` - Проверка условия (ищет карту в реквизитах с `works_on_asu=True`)
-  - `send_birpay_order_to_z_asu()` - Отправка на Payment API
-  - `confirm_z_asu_transaction()` - Подтверждение транзакции по merchant_transaction_id
-  - `ASUAccountManager` - Менеджер аккаунтов (ASU и Z-ASU)
+- `core/asu_pay_func.py` — Функции для работы с Z-ASU API (Deposit → Payment)
+  - `should_send_to_z_asu()` — Проверка условия (ищет карту в реквизитах с `works_on_asu=True`)
+  - `send_birpay_order_to_z_asu()` — Отправка на Payment API
+  - `confirm_z_asu_transaction()` — Подтверждение транзакции по merchant_transaction_id
+  - `ASUAccountManager` — Менеджер аккаунтов (ASU и Z-ASU); получение JWT с Payment по `POST {ASU_HOST}/api/v1/token/`, кэш в `token_asu.txt` / `token_z_asu.txt`
 
-- `deposit/tasks.py` - Celery задачи
+- `deposit/birpay_requisite_service.py` — **Единый сервис обновления реквизита в Birpay**
+  - `update_requisite_on_birpay(requisite_id, overrides)` — принимает только ID и изменяемые поля; данные готовит из модели RequsiteZajon, вызывает BirpayClient. Используется формой `/requisite-zajon/<id>/`, API `PUT /api/birpay/requisites/<id>/`, Z-ASU формой, переключением активности.
+
+- `deposit/views_birpay_api.py` — REST API Birpay для ASU (Payment → Deposit)
+  - Эндпоинты под префиксом `/api/birpay/`: реквизиты, refill-orders, payout-orders. Обновление реквизита — вызов `update_requisite_on_birpay(requisite_id, body)`.
+  - `BirpayAPIPermission`: доступ по Bearer (статический `BIRPAY_API_SECRET`) или JWT пользователя staff/superuser
+
+- `deposit/urls_birpay_api.py` — URL-маршруты Birpay API
+
+- `deposit/tasks.py` — Celery задачи
   - `process_birpay_order()` - Обработка BirpayOrder (вызывает Z-ASU логику)
 
 - `deposit/views.py` - Django views
   - `BirpayOrderCreateView` - Ручное создание BirpayOrder (вызывает Z-ASU логику)
   - `BirpayPanelView.post()` - Подтверждение заявки с апрувом на ASU (Z-ASU логика в конце обработки)
-  - `RequsiteZajonUpdateView.form_valid()` - Сохранение поля `works_on_asu` при редактировании реквизита
+  - `RequsiteZajonUpdateView.form_valid()` - Редактирование реквизита: вызов `update_requisite_on_birpay(pk, {'card_number': raw_card_number})`; сохранение `works_on_asu` и др.
+  - `ZASUManagementView.post()` - Редактирование номера карты по ID: вызов `update_requisite_on_birpay(requisite_id, {'card_number': ...})`.
+  - `RequsiteZajonToggleActiveView` - Переключение активности реквизита: вызов `update_requisite_on_birpay(pk, {'active': ...})`.
 
 - `deposit/models.py` - Модели
   - `RequsiteZajon` - Модель реквизитов Zajon с полем `works_on_asu` (BooleanField)
@@ -576,7 +646,15 @@ Z-ASU API имеет отдельную Swagger документацию:
 ### Payment проект
 
 **Файлы:**
-- `api/views.py` - API views
+- `deposit/deposit_deposit_token.py` — Получение JWT с Депозита по API (аналог ASUAccountManager на Депозите)
+  - Учётные данные из SupportOptions (`deposit_api_username`, `deposit_api_password`)
+  - `POST {DEPOSIT_HOST}/api/token/` → кэш access в `token_deposit.txt`, `get_token()` / `get_new_token()`
+
+- `deposit/deposit_birpay_api_client.py` — Клиент Birpay API Депозита; токен только по логину/паролю (DepositTokenManager), при 401 — обновление токена и повтор запроса. При обновлении реквизита передаёт в API только нужные поля (например `card_number`); полные данные готовит сервис на Депозите.
+
+- `deposit/views_z_asu.py` — Views для Z-ASU управления (реквизиты, статус шлюза и др.) — вызывают DepositBirpayAPIClient
+
+- `api/views.py` — API views
   - `z_asu_create_payment()` - Endpoint для создания Payment
   - `z_asu_confirm_payment()` - Endpoint для подтверждения Payment по payment_id
   - `z_asu_decline_payment()` - Endpoint для отклонения Payment по payment_id
@@ -723,8 +801,8 @@ Z-ASU API имеет отдельную Swagger документацию:
 ## 13. Важные замечания
 
 1. **Токены JWT**
-   - Токены для ASU и Z-ASU хранятся отдельно (`token_asu.txt` и `token_z_asu.txt`)
-   - Токены автоматически обновляются при истечении
+   - **Deposit:** токены для ASU и Z-ASU хранятся отдельно (`token_asu.txt` и `token_z_asu.txt`); получаются по `POST {ASU_HOST}/api/v1/token/`; автоматически обновляются при 401.
+   - **Payment (ASU):** токен для Birpay API Депозита получается по логину/паролю (`POST {DEPOSIT_HOST}/api/token/`), кэш под капотом; при 401 — обновление и повтор запроса.
 
 2. **Принудительное назначение Wallet**
    - Для Z-ASU Payment пропускается обычный поиск `work_wallet`
@@ -762,7 +840,8 @@ Z-ASU API имеет отдельную Swagger документацию:
    - Других проверок (реквизиты Zajon, fallback по merchant_transaction_id) для постановки задачи нет
    - Подтверждение на ASU выполняется после сохранения заявки (сигнал ставит задачу), чтобы не блокировать основную транзакцию
 
----
+10. **Birpay только через API Депозита**
+   - ASU обращается к Birpay **только** через API Депозита (`/api/birpay/`). Токен получается по логину/паролю (`POST /api/token/`, пользователь Депозита с is_staff).
 
 ---
 
@@ -788,22 +867,11 @@ def z_asu_create_payment(request):
 ## Версия документа
 
 **Дата создания:** 2026-01-30  
-**Последнее обновление:** 2026-01-30
+**Последнее обновление:** 2026-02-04
 
 **Изменения:**
-- Добавлена проверка доступа через permission класс `IsZASUUser`
-- Добавлены endpoints для подтверждения и отклонения Payment
-- Добавлен endpoint для подтверждения транзакции по merchant_transaction_id
-- Добавлена логика подтверждения на ASU после успешного подтверждения в birpay_panel (в конце обработки)
-- Добавлена проверка DEBUG режима для `approve_birpay_refill`
-- Интегрирован `WalletAssignmentResult.apply_to_payment()` для единообразной логики назначения кошелька и уменьшения баланса агента
-- **Изменена логика определения работы с ASU:** теперь проверяется наличие карты в реквизитах Zajon с опцией `works_on_asu=True` вместо проверки конкретного номера карты `4111 1111 1111 1111`
-- Добавлено поле `works_on_asu` в модель `RequsiteZajon` для настройки работы с ASU через интерфейс редактирования реквизитов
-- Добавлена визуализация ID реквизита как бирюзовой лампочки для реквизитов с `works_on_asu=True` в списке реквизитов
-- Добавлена фильтрация кошельков агентов с `works_on_zajon=True` при назначении кошельков (исключаются из автоматического назначения)
-- Оптимизирована фильтрация кошельков: используется один запрос для получения списка агентов вместо фильтрации через JSONField в JOIN
-- **Изменена логика определения работы с ASU:** теперь проверяется наличие карты в реквизитах Zajon с опцией `works_on_asu=True` вместо проверки конкретного номера карты
-- Добавлено поле `works_on_asu` в модель `RequsiteZajon` для настройки работы с ASU через интерфейс редактирования реквизитов
-- Добавлена визуализация ID реквизита как бирюзовой лампочки для реквизитов с `works_on_asu=True`
-- Добавлена фильтрация кошельков агентов с `works_on_zajon=True` при назначении кошельков (исключаются из автоматического назначения)
-- **Подтверждение/отклонение на ASU:** задачи ставятся только при наличии у заявки `payment_id`; проверок по реквизитам Zajon и fallback по merchant_transaction_id нет
+- Добавлен подраздел **Единый сервис обновления реквизита (Deposit)**: `deposit/birpay_requisite_service.py`, функция `update_requisite_on_birpay(requisite_id, overrides)`. Форма `/requisite-zajon/<id>/`, API `PUT /api/birpay/requisites/<id>/`, Z-ASU форма и переключение активности передают только ID и изменяемые поля; данные для Birpay готовит сервис из модели RequsiteZajon, дублирования кода нет.
+- В **эндпоинты Birpay API** добавлен `PUT /api/birpay/requisites/<id>/` (body — только изменяемые поля), `POST /api/birpay/requisites/<id>/set-active/` (body: `{"active": true|false}`).
+- В **файлы и компоненты** добавлен `deposit/birpay_requisite_service.py`; обновлены описания `views_birpay_api.py`, `RequsiteZajonUpdateView.form_valid`, `ZASUManagementView.post`, `RequsiteZajonToggleActiveView`; уточнён клиент на Payment (передаёт только нужные поля, данные готовит сервис на Депозите).
+- Добавлен раздел **5.1. Birpay API Депозита и получение токена на ASU**: ASU обращается к Birpay только через API Депозита (`/api/birpay/`); токен по логину/паролю (`POST /api/token/`), кэш под капотом; файлы `deposit_deposit_token.py`, `deposit_birpay_api_client.py` на Payment.
+- Обновлена сводка взаимодействия, таблица настройки Payment, архитектура, конфигурация; файлы и компоненты; важные замечания; аутентификация Deposit → Payment; унифицированы формулировки.

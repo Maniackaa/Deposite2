@@ -288,25 +288,6 @@ class OperatorStatsDayForm(forms.Form):
     date = forms.DateField(label='День', widget=forms.DateInput(attrs={'type': 'date'}))
 
 
-def luhn_check(card_number):
-    """
-    Проверка номера карты по алгоритму Луна (Luhn algorithm).
-    Возвращает True, если номер валиден.
-    """
-    def digits_of(n):
-        return [int(d) for d in str(n)]
-    
-    digits = digits_of(card_number)
-    odd_digits = digits[-1::-2]  # Цифры на нечетных позициях (справа налево)
-    even_digits = digits[-2::-2]  # Цифры на четных позициях (справа налево)
-    
-    checksum = sum(odd_digits)
-    for d in even_digits:
-        checksum += sum(digits_of(d * 2))
-    
-    return checksum % 10 == 0
-
-
 class RequsiteZajonForm(forms.ModelForm):
     # Поле для редактирования сырого значения из payload
     raw_card_number = forms.CharField(
@@ -335,31 +316,12 @@ class RequsiteZajonForm(forms.ModelForm):
             self.fields['raw_card_number'].initial = payload.get('card_number', '') or self.instance.card_number or ''
     
     def clean_raw_card_number(self):
-        raw_card_number = self.cleaned_data.get('raw_card_number', '').strip()
-        
-        if not raw_card_number:
-            return raw_card_number  # Пустое значение допустимо
-        
-        # Извлекаем только цифры из сырого значения
-        cleaned_digits = re.sub(r'\D', '', raw_card_number)
-        
-        # Проверяем, что найдено достаточно цифр для номера карты
-        if len(cleaned_digits) < 16:
-            raise forms.ValidationError(
-                f'В сыром значении должно быть минимум 16 цифр для номера карты. Найдено: {len(cleaned_digits)}'
-            )
-        
-        # Берем первые 16 цифр (номер карты)
-        card_number = cleaned_digits[:16]
-        
-        # Проверяем алгоритм Луна
-        if not luhn_check(card_number):
-            raise forms.ValidationError(
-                f'Номер карты {card_number} не прошел проверку по алгоритму Луна. Проверьте правильность номера карты в сыром значении.'
-            )
-        
-        # Возвращаем сырое значение (оно будет сохранено в payload)
-        return raw_card_number
+        from deposit.birpay_requisite_service import validate_card_number_raw
+        raw_card_number = self.cleaned_data.get('raw_card_number', '')
+        try:
+            return validate_card_number_raw(raw_card_number, allow_empty=True)
+        except ValueError as e:
+            raise forms.ValidationError(str(e))
 
 
 class RequisiteCardEditForm(forms.Form):
@@ -385,20 +347,12 @@ class RequisiteCardEditForm(forms.Form):
         return rid
 
     def clean_card_number(self):
+        from deposit.birpay_requisite_service import validate_card_number_raw
         raw = (self.cleaned_data.get('card_number') or '').strip()
-        if not raw:
-            raise forms.ValidationError('Введите номер карты.')
-        digits = re.sub(r'\D', '', raw)
-        if len(digits) < 16:
-            raise forms.ValidationError(
-                f'В значении должно быть минимум 16 цифр. Найдено: {len(digits)}.'
-            )
-        card_16 = digits[:16]
-        if not luhn_check(card_16):
-            raise forms.ValidationError(
-                f'Номер карты {card_16} не прошёл проверку Луна.'
-            )
-        return raw
+        try:
+            return validate_card_number_raw(raw, allow_empty=False)
+        except ValueError as e:
+            raise forms.ValidationError(str(e))
 
 
 class BirpayOrderCreateForm(forms.ModelForm):

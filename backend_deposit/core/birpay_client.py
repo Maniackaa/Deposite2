@@ -200,15 +200,33 @@ class BirpayClient:
             json_data['paymentRequisiteFilterId'] = payment_requisite_filter_id
 
         log = logger.bind(requisite_id=requisite_id)
-        log.info('Birpay update_requisite', card_number_len=len(card_number) if card_number else 0)
+        log.info(
+            'Birpay update_requisite: отправка',
+            card_number_len=len(card_number) if card_number else 0,
+            refill_method_types_count=len(refill_method_types),
+            users_ids=users_ids,
+            agent_id=agent_id,
+        )
         resp = self._request('PUT', '/api/operator/payment_requisite', json_data=json_data)
         try:
             response_json = resp.json()
         except ValueError:
             response_json = {'raw': resp.text[:500]}
-            log.warning('Birpay update_requisite non-JSON response', raw=resp.text[:200])
+            log.warning('Birpay update_requisite: ответ не JSON', raw=resp.text[:200])
         success = resp.status_code in (200, 201)
-        log.info('Birpay update_requisite result', status_code=resp.status_code, success=success)
+        log.info(
+            'Birpay update_requisite: ответ',
+            status_code=resp.status_code,
+            success=success,
+        )
+        if not success:
+            log.warning(
+                'Birpay update_requisite: ошибка Birpay',
+                status_code=resp.status_code,
+                code=response_json.get('code') if isinstance(response_json, dict) else None,
+                message=response_json.get('message') if isinstance(response_json, dict) else None,
+                data=response_json,
+            )
         result = {
             'status_code': resp.status_code,
             'data': response_json,
