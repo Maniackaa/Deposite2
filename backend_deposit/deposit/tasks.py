@@ -757,8 +757,9 @@ def send_image_to_gpt_task(self, birpay_id):
 
             now = timezone.now()
             gpt_imho_result = BirpayOrder.GPTIMHO(0)
-            # Мнение GPT
-            if gpt_status:
+            # Мнение GPT: флаг gpt_status только при статусе 1 (подтверждён).
+            # status -1 = "İcrada" / в процессе — не считаем успешным, не апрувим.
+            if gpt_status == 1:
                 gpt_imho_result |= BirpayOrder.GPTIMHO.gpt_status
 
             # Проверка суммы в чеке
