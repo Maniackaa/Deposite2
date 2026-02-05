@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Просмотр ссылки в iframe{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="row mb-3">
+        <div class="col-md-8">
+            <label for="iframe-url" class="form-label">Ссылка</label>
+            <input type="url"
+                   id="iframe-url"
+                   class="form-control"
+                   placeholder="https://example.com"
+                   value="{{ initial_url }}">
+        </div>
+        <div class="col-md-4">
+            <label for="iframe-proxy" class="form-label">Прокси (необязательно)</label>
+            <input type="text"
+                   id="iframe-proxy"
+                   class="form-control"
+                   placeholder="host:port:user:password"
+                   value="{{ initial_proxy }}"
+                   title="Формат как birpay_check_proxy: host:port:user:password">
+        </div>
+    </div>
+    <div class="row mb-2">
+        <div class="col">
+            <button type="button" class="btn btn-primary" id="iframe-load-btn">Открыть в iframe</button>
+            <span class="text-muted ms-2 small">Если указан прокси — страница загружается через него на сервере.</span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <iframe id="content-frame"
+                    title="Контент по ссылке"
+                    class="border rounded w-100"
+                    style="min-height: 70vh; height: 70vh;"
+                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                    allow="fullscreen">
+            </iframe>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+(function() {
+    var urlInput = document.getElementById('iframe-url');
+    var proxyInput = document.getElementById('iframe-proxy');
+    var frame = document.getElementById('content-frame');
+    var loadBtn = document.getElementById('iframe-load-btn');
+    var proxyUrlBase = '{% url "deposit:iframe_proxy" %}';
+
+    function loadUrl() {
+        var url = (urlInput.value || '').trim();
+        if (!url) return;
+        if (!/^https?:\/\//i.test(url)) {
+            url = 'https://' + url;
+        }
+        var proxy = (proxyInput.value || '').trim();
+        if (proxy) {
+            var sep = proxyUrlBase.indexOf('?') >= 0 ? '&' : '?';
+            frame.src = proxyUrlBase + sep + 'url=' + encodeURIComponent(url) + '&proxy=' + encodeURIComponent(proxy);
+        } else {
+            frame.src = url;
+        }
+    }
+
+    loadBtn.addEventListener('click', loadUrl);
+    urlInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); loadUrl(); }
+    });
+    proxyInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); loadUrl(); }
+    });
+
+    if (urlInput.value.trim()) {
+        loadUrl();
+    }
+})();
+</script>
+{% endblock %}

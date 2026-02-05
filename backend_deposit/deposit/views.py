@@ -7,6 +7,9 @@ import uuid
 from http import HTTPStatus
 from tempfile import NamedTemporaryFile
 from types import NoneType
+from urllib.parse import urlparse
+
+import requests
 
 import numpy as np
 import pandas as pd
@@ -31,6 +34,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.views import View
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, TemplateView
 from matplotlib import pyplot as plt
 from rest_framework.views import APIView
@@ -60,8 +64,14 @@ from deposit.forms import (
 )
 from deposit.func import find_possible_incomings
 from deposit.permissions import SuperuserOnlyPerm, StaffOnlyPerm
-from deposit.tasks import check_incoming, refresh_birpay_data, \
-    send_image_to_gpt_task, download_birpay_check_file, _download_birpay_check_file_sync
+from deposit.tasks import (
+    check_incoming,
+    refresh_birpay_data,
+    send_image_to_gpt_task,
+    download_birpay_check_file,
+    _download_birpay_check_file_sync,
+    _parse_check_proxy,
+)
 from deposit.views_api import response_sms_template
 from ocr.ocr_func import (make_after_save_deposit, response_text_from_image)
 from deposit.models import (
@@ -1501,6 +1511,75 @@ def check_screen(request):
             print(form.errors)
     context['form'] = form
     return render(request, template, context)
+
+
+def _iframe_proxy_url_allowed(target_url):
+    """Проверка URL для прокси: только http/https, запрет внутренних хостов (SSRF)."""
+    try:
+        parsed = urlparse(target_url)
+        if parsed.scheme not in ('http', 'https'):
+            return False
+        host = (parsed.hostname or '').strip().lower()
+        if not host or host in ('localhost', '127.0.0.1'):
+            return False
+        if host.startswith('127.'):
+            return False
+        if host.startswith('10.'):
+            return False
+        if host.startswith('172.'):
+            parts = host.split('.')
+            if len(parts) >= 2 and 16 <= int(parts[1]) <= 31:
+                return False
+        if host.startswith('192.168.'):
+            return False
+        return True
+    except Exception:
+        return False
+
+
+@xframe_options_exempt
+@login_required(login_url='users:login')
+def iframe_proxy_view(request):
+    """
+    Прокси для iframe: GET url=... и опционально proxy=host:port:user:password.
+    Загружает страницу через requests с прокси и отдаёт ответ в iframe.
+    """
+    if request.method != 'GET':
+        return HttpResponseBadRequest('Only GET')
+    target_url = (request.GET.get('url') or '').strip()
+    if not target_url:
+        return HttpResponseBadRequest('Missing url')
+    if not _iframe_proxy_url_allowed(target_url):
+        return HttpResponseForbidden('URL not allowed')
+    proxy_str = (request.GET.get('proxy') or '').strip()
+    proxy_dict = _parse_check_proxy(proxy_str) if proxy_str else None
+    try:
+        resp = requests.get(
+            target_url,
+            timeout=30,
+            proxies=proxy_dict,
+            headers={'User-Agent': request.META.get('HTTP_USER_AGENT', '') or 'Mozilla/5.0'},
+            allow_redirects=True,
+        )
+    except requests.RequestException as e:
+        logger.warning('iframe_proxy request failed', url=target_url, error=str(e))
+        return HttpResponse(
+            f'<html><body><p>Ошибка загрузки через прокси: {e!s}</p></body></html>',
+            status=502,
+            content_type='text/html; charset=utf-8',
+        )
+    content_type = resp.headers.get('Content-Type') or 'application/octet-stream'
+    return HttpResponse(resp.content, status=resp.status_code, content_type=content_type)
+
+
+@xframe_options_exempt
+@login_required(login_url='users:login')
+def iframe_view(request):
+    """Страница с полем для вставки ссылки и отображением в iframe. Разрешено открывать в iframe."""
+    initial_url = request.GET.get('url', '').strip()
+    initial_proxy = request.GET.get('proxy', '').strip()
+    context = {'initial_url': initial_url, 'initial_proxy': initial_proxy}
+    return render(request, 'deposit/iframe_view.html', context)
 
 
 @staff_member_required(login_url='users:login')

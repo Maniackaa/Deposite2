@@ -55,6 +55,8 @@ urlpatterns = [
 
     path('check_sms/', views.check_sms, name='check_sms'),
     path('check_screen/', views.check_screen, name='check_screen'),
+    path('iframe/', views.iframe_view, name='iframe_view'),
+    path('iframe-proxy/', views.iframe_proxy_view, name='iframe_proxy'),
 
     # Работа с um и asu-pay
     # path('test_transactions/', views.test_transactions, name='test_transactions'),
