@@ -332,6 +332,13 @@ class Options(SingletonModel):
     gpt_chek_is_active = models.BooleanField(verbose_name='Делать проерку чеков GPT', default=0)
     # gpt_prompt = models.TextField(verbose_name='Запрос для чеков', default='')
     gpt_auto_approve = models.BooleanField(default=False)
+    birpay_check_proxy = models.CharField(
+        verbose_name='Прокси для скачивания чека Birpay',
+        max_length=512,
+        blank=True,
+        default='',
+        help_text='Формат: host:port:user:password. Если без прокси скачивание не удалось — повторная попытка с прокси.',
+    )
     birpay_moshennik_list = ArrayField(models.CharField(max_length=1000), blank=True, default=list)
     birpay_painter_list = ArrayField(models.CharField(max_length=1000), blank=True, default=list)
     card_monitoring_minutes = models.PositiveIntegerField(verbose_name='Время мониторинга карт (минуты)', default=20)

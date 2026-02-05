@@ -1,0 +1,14 @@
+---
+description: В PowerShell перед Python/pytest всегда активировать виртуальное окружение
+alwaysApply: true
+---
+
+# Терминал: PowerShell, виртуальное окружение
+
+В проекте используется **PowerShell на Windows**. Перед любой командой Python (pytest, manage.py, скрипты) нужно **активировать виртуальное окружение**, иначе будет ModuleNotFoundError (django и др.).
+
+## Правило
+
+При предложении или запуске команд в терминале:
+1. Сначала активировать venv.
+2. Потом выполнять python / pytest / manage.py.

@@ -3,7 +3,7 @@ import io
 import time
 from enum import Enum, Flag, auto
 from pathlib import PurePosixPath
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 
 import requests
 import structlog
@@ -440,12 +440,32 @@ def _verify_image_complete(image_bytes: bytes) -> bool:
         return False
 
 
+def _parse_check_proxy(proxy_str):
+    """
+    Парсит строку прокси формата host:port:user:password.
+    Возвращает dict для requests (proxies) или None при пустой/невалидной строке.
+    """
+    s = (proxy_str or '').strip()
+    if not s:
+        return None
+    parts = s.split(':', 3)
+    if len(parts) != 4:
+        return None
+    host, port, user, password = parts
+    if not host or not port:
+        return None
+    # URL-encode логин/пароль на случай спецсимволов
+    user_enc = quote(user, safe='')
+    password_enc = quote(password, safe='')
+    proxy_url = f'http://{user_enc}:{password_enc}@{host}:{port}'
+    return {'http': proxy_url, 'https': proxy_url}
+
+
 def _download_birpay_check_file_sync(order_id, check_file_url):
     """
     Синхронная функция скачивания чека для тестовых заявок.
-    Выполняет ту же логику, что и Celery задача, но без retry и delay.
-    Перед сохранением и отправкой в GPT проверяет целостность изображения (PIL),
-    чтобы не отправлять обрезанные файлы.
+    Сначала попытка без прокси; при неудаче — повтор с прокси из Options.birpay_check_proxy (формат host:port:user:password).
+    Перед сохранением и отправкой в GPT проверяет целостность изображения (PIL).
     """
     from deposit.models import BirpayOrder
     try:
@@ -458,7 +478,26 @@ def _download_birpay_check_file_sync(order_id, check_file_url):
             merchant_transaction_id=order.merchant_transaction_id,
             birpay_order_id=order.id
         )
-        response = requests.get(check_file_url, timeout=30, stream=True)
+        response = None
+        try:
+            response = requests.get(check_file_url, timeout=30, stream=True)
+        except Exception:
+            pass
+        if (response is None or not response.ok):
+            opts = Options.load()
+            proxy_dict = _parse_check_proxy(getattr(opts, 'birpay_check_proxy', '') or '')
+            if proxy_dict:
+                try:
+                    response = requests.get(check_file_url, timeout=30, stream=True, proxies=proxy_dict)
+                except Exception:
+                    response = None
+        if response is None or not response.ok:
+            order.check_file_failed = True
+            order.save(update_fields=['check_file_failed'])
+            clear_contextvars()
+            raise Exception(
+                f"Failed: no response or status={getattr(response, 'status_code', 'N/A')}"
+            )
         if response.ok:
             # Читаем тело полностью: при наличии Content-Length — ровно столько байт (защита от truncated)
             content_length = response.headers.get('Content-Length')
@@ -512,11 +551,6 @@ def _download_birpay_check_file_sync(order_id, check_file_url):
             # Очищаем контекст после успешного завершения
             clear_contextvars()
             return f"OK: {filename}"
-        else:
-            order.check_file_failed = True
-            order.save(update_fields=['check_file_failed'])
-            clear_contextvars()
-            raise Exception(f"Failed: status={response.status_code}")
     except Exception as exc:
         order = BirpayOrder.objects.get(id=order_id)
         order.check_file_failed = True
