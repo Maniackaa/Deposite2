@@ -1723,7 +1723,7 @@ class BirpayOrderView(StaffOnlyPerm, ListView):
             delta=ExpressionWrapper(F('incoming__pay') - F('amount'), output_field=FloatField()),
         )
         # Оптимизация: загружаем связанные объекты одним запросом
-        qs = qs.select_related('incoming', 'confirmed_operator')
+        qs = qs.select_related('incoming', 'confirmed_operator', 'requisite')
         self.filterset = BirpayOrderFilter(self.request.GET, queryset=qs)
         return self.filterset.qs
 
@@ -2550,32 +2550,29 @@ class BirpayOrderCreateView(SuperuserOnlyPerm, CreateView):
                          has_check_file=bool(order.check_file), 
                          check_file_failed=order.check_file_failed)
 
-        # Логика Z-ASU: проверка условия и отправка на ASU
-        logger.debug(f"Проверка Z-ASU для BirpayOrder {order.birpay_id}: card_number={order.card_number}")
-        if order.card_number:
-            should_send = should_send_to_z_asu(order.card_number)
-            logger.debug(f"should_send_to_z_asu({order.card_number}) = {should_send}")
-            if should_send:
-                logger.info(f"BirpayOrder {order.birpay_id} соответствует условию Z-ASU, отправляем на ASU")
-                try:
-                    result = send_birpay_order_to_z_asu(order)
-                    if result.get('success'):
-                        payment_id = result.get('payment_id')
-                        logger.info(f"BirpayOrder {order.birpay_id} успешно отправлен на Z-ASU, payment_id={payment_id}")
-                        if payment_id:
-                            order.payment_id = str(payment_id)
-                            order.save(update_fields=['payment_id'])
-                        messages.success(self.request, f'Заявка отправлена на Z-ASU! Payment ID: {payment_id}')
-                    else:
-                        logger.error(f"Ошибка отправки BirpayOrder {order.birpay_id} на Z-ASU: {result.get('error')}")
-                        messages.error(self.request, f'Ошибка отправки на Z-ASU: {result.get("error")}')
-                except Exception as err:
-                    logger.error(f"Исключение при отправке BirpayOrder {order.birpay_id} на Z-ASU: {err}", exc_info=True)
-                    messages.error(self.request, f'Ошибка отправки на Z-ASU: {str(err)}')
-            else:
-                logger.debug(f"BirpayOrder {order.birpay_id} не соответствует условию Z-ASU (card_number={order.card_number})")
+        # Логика Z-ASU: проверка условия и отправка на ASU (по реквизиту works_on_asu)
+        logger.debug(f"Проверка Z-ASU для BirpayOrder {order.birpay_id}: requisite_id={order.requisite_id}")
+        should_send = should_send_to_z_asu(order)
+        logger.debug(f"should_send_to_z_asu(order) = {should_send}")
+        if should_send:
+            logger.info(f"BirpayOrder {order.birpay_id} соответствует условию Z-ASU (реквизит works_on_asu), отправляем на ASU")
+            try:
+                result = send_birpay_order_to_z_asu(order)
+                if result.get('success'):
+                    payment_id = result.get('payment_id')
+                    logger.info(f"BirpayOrder {order.birpay_id} успешно отправлен на Z-ASU, payment_id={payment_id}")
+                    if payment_id:
+                        order.payment_id = str(payment_id)
+                        order.save(update_fields=['payment_id'])
+                    messages.success(self.request, f'Заявка отправлена на Z-ASU! Payment ID: {payment_id}')
+                else:
+                    logger.error(f"Ошибка отправки BirpayOrder {order.birpay_id} на Z-ASU: {result.get('error')}")
+                    messages.error(self.request, f'Ошибка отправки на Z-ASU: {result.get("error")}')
+            except Exception as err:
+                logger.error(f"Исключение при отправке BirpayOrder {order.birpay_id} на Z-ASU: {err}", exc_info=True)
+                messages.error(self.request, f'Ошибка отправки на Z-ASU: {str(err)}')
         else:
-            logger.debug(f"BirpayOrder {order.birpay_id} не имеет card_number, пропускаем Z-ASU")
+            logger.debug(f"BirpayOrder {order.birpay_id} не соответствует условию Z-ASU (нет реквизита с works_on_asu)")
 
         # Сообщение об успехе только после гарантированного сохранения в БД
         messages.success(self.request, f'BirpayOrder успешно создан! ID: {order.id}, birpay_id: {order.birpay_id}')

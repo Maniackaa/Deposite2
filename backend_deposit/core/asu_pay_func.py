@@ -445,43 +445,22 @@ def create_z_asu_withdraw(withdraw_id, amount, card_data, target_phone, payload:
 # Функции для логики Z-ASU
 # ============================================================================
 
-def should_send_to_z_asu(card_number: str) -> bool:
+def should_send_to_z_asu(order) -> bool:
     """
     Проверка условия для отправки BirpayOrder на Z-ASU.
-    Логика Z-ASU: проверяет, есть ли карта в реквизитах Zajon с опцией "Работает на ASU".
-    
+    Логика Z-ASU: смотрим на привязанный реквизит (FK). Если у реквизита включено «Работает на ASU» — отправляем.
+
     Args:
-        card_number: Номер карты (может содержать пробелы)
-    
+        order: Объект BirpayOrder (должен иметь requisite_id или атрибут requisite).
+
     Returns:
-        bool: True если нужно отправить на Z-ASU, False иначе
+        bool: True если нужно отправить на Z-ASU (реквизит привязан и works_on_asu=True), False иначе.
     """
-    if not card_number:
+    requisite_id = getattr(order, 'requisite_id', None)
+    if requisite_id is None:
         return False
-    
-    # Убираем пробелы и дефисы для сравнения
-    cleaned_card = card_number.replace(' ', '').replace('-', '')
-    
-    # Проверяем, есть ли реквизит с этой картой и опцией works_on_asu=True
     from deposit.models import RequsiteZajon
-    
-    # Получаем все реквизиты с works_on_asu=True и проверяем карту в Python
-    # Это позволяет нормализовать карты независимо от формата хранения в базе
-    all_z_asu_requisites = RequsiteZajon.objects.filter(works_on_asu=True).values('id', 'name', 'card_number')
-    
-    for req in all_z_asu_requisites:
-        req_card = req['card_number']
-        if req_card:
-            # Нормализуем карту из базы для сравнения (убираем пробелы и дефисы)
-            normalized_req_card = req_card.replace(' ', '').replace('-', '')
-            if normalized_req_card == cleaned_card:
-                # logger.info(f'Логика Z-ASU: найдена карта {cleaned_card} в реквизите {req["id"]} ({req["name"]}) с works_on_asu=True')
-                return True
-    
-    # Логируем для отладки
-    # logger.debug(f'Логика Z-ASU: не найдено реквизитов с картой {cleaned_card} и works_on_asu=True. Всего реквизитов с works_on_asu=True: {all_z_asu_requisites.count()}')
-    
-    return False
+    return RequsiteZajon.objects.filter(pk=requisite_id, works_on_asu=True).exists()
 
 
 def send_birpay_order_to_z_asu(birpay_order) -> dict:

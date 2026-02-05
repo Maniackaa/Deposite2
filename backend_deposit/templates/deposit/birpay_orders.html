@@ -105,7 +105,7 @@
                     <td>{{ order.updated_at|date:"Y-m-d H:i:s" }}</td>
                     <td>{{ order.status }}</td>
                     <td>{{ order.amount }}</td>
-                    <td>{{ order.card_number }}</td>
+                    <td {% if order.requisite %}title="Реквизит: {{ order.requisite.name }} (id {{ order.requisite_id }})"{% endif %}>{{ order.card_number }}</td>
                     <td>
                         {% if order.is_moshennik%}
                             <span style="background: rgba(120,48,255,0.64)">{{ order.merchant_user_id }}</span>

@@ -363,7 +363,7 @@ class BirpayOrderCreateForm(forms.ModelForm):
         fields = [
             'birpay_id', 'merchant_transaction_id', 'merchant_user_id', 'amount',
             'status', 'created_at', 'updated_at', 'merchant_name', 'customer_name',
-            'card_number', 'operator', 'check_file_url'
+            'card_number', 'operator', 'requisite', 'check_file_url'
         ]
         widgets = {
             'birpay_id': forms.NumberInput(attrs={'class': 'form-control', 'required': True}),
@@ -377,6 +377,7 @@ class BirpayOrderCreateForm(forms.ModelForm):
             'customer_name': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 128}),
             'card_number': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 20, 'placeholder': '4111 1111 1111 1111 (для Z-ASU)'}),
             'operator': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 128}),
+            'requisite': forms.Select(attrs={'class': 'form-control'}),
             'check_file_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://example.com/receipt.jpg'}),
         }
     

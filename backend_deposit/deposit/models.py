@@ -18,7 +18,6 @@ from django_currentuser.middleware import get_current_authenticated_user
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from core.global_func import send_message_tg, Timer
-from deposit.tasks import check_incoming
 from ocr.views_api import *
 from users.models import Options
 
@@ -161,6 +160,7 @@ class BirpayOrder(models.Model):
     incomingsms_id = models.CharField(max_length=10, null=True, blank=True, unique=True, db_index=True)
     incoming = models.OneToOneField('Incoming', on_delete=SET_NULL, null=True, blank=True, related_name='birpay', db_index=True)
     payment_id = models.CharField('ID Payment на ASU', max_length=100, null=True, blank=True, db_index=True, help_text='ID Payment, созданного на ASU через Z-ASU API')
+    requisite = models.ForeignKey('RequsiteZajon', on_delete=SET_NULL, null=True, blank=True, related_name='birpay_orders', verbose_name='Реквизит (paymentRequisite)')
 
     class Meta:
         ordering = ('-created_at',)
@@ -419,7 +419,7 @@ class RequsiteZajon(models.Model):
     payment_requisite_filter_id = models.IntegerField('ID фильтра реквизита', null=True, blank=True)
     card_number = models.CharField('Номер карты', max_length=32, blank=True)
     works_on_asu = models.BooleanField('Работает на ASU', default=False, db_index=True, 
-                                       help_text='Если включено, заявки с этой картой будут отправляться на Z-ASU API')
+                                       help_text='Если включено, заявки с этим реквизитом (BirpayOrder.requisite) отправляются на Z-ASU API')
     refill_method_types = models.JSONField('Методы пополнения', default=list, blank=True)
     payload = models.JSONField('Параметры реквизита', default=dict, blank=True)
     users = models.JSONField('Операторы', default=list, blank=True)
@@ -458,6 +458,7 @@ def after_save_incoming(sender, instance: Incoming, created, raw, using, update_
                     birpay_id=instance.birpay_id,
                     pay_operator=instance.pay)
                 logger.info(f'new_check: {new_check.id} {new_check}')
+                from deposit.tasks import check_incoming
                 check_incoming.apply_async(kwargs={'pk': new_check.id, 'count': 0}, countdown=60)
 
     except Exception as err:

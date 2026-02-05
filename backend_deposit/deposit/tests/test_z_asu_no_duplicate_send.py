@@ -22,9 +22,16 @@ from deposit.models import BirpayOrder, RequsiteZajon
 from deposit.tasks import process_birpay_order
 
 
-def _birpay_data(birpay_id=5001, merchant_tx_id='mtx-5001', card_number='4111111111111111', amount=100.0):
-    """Минимальные данные от Birpay API для process_birpay_order."""
+# ID реквизита в setUp (works_on_asu=True) — без него Z-ASU отправка не выполняется
+REQUISITE_ID_Z_ASU = 9001
+
+
+def _birpay_data(birpay_id=5001, merchant_tx_id='mtx-5001', card_number='4111111111111111', amount=100.0, requisite_id=REQUISITE_ID_Z_ASU):
+    """Минимальные данные от Birpay API для process_birpay_order. requisite_id нужен для отправки на Z-ASU."""
     now = timezone.now()
+    payment_requisite = {'payload': {'card_number': card_number}}
+    if requisite_id is not None:
+        payment_requisite['id'] = requisite_id
     return {
         'id': birpay_id,
         'merchantTransactionId': merchant_tx_id,
@@ -36,7 +43,7 @@ def _birpay_data(birpay_id=5001, merchant_tx_id='mtx-5001', card_number='4111111
         'amount': str(amount),
         'status': 0,
         'payload': {},
-        'paymentRequisite': {'payload': {'card_number': card_number}},
+        'paymentRequisite': payment_requisite,
     }
 
 
@@ -96,7 +103,7 @@ class TestZASUNoDuplicateSend(TestCase):
 
     @patch('deposit.tasks.send_birpay_order_to_z_asu')
     def test_refresh_from_db_called_before_z_asu_send(self, mock_send):
-        """Перед решением «отправлять ли на ASU» вызывается refresh_from_db(fields=['payment_id']) — защита от двойной отправки."""
+        """Перед решением «отправлять ли на ASU» вызывается refresh_from_db с полями payment_id (и requisite_id) — защита от двойной отправки."""
         mock_send.return_value = {'success': True, 'payment_id': 'uuid-123'}
         data = _birpay_data(birpay_id=5003, merchant_tx_id='mtx-5003')
         original_refresh = BirpayOrder.refresh_from_db
@@ -108,8 +115,11 @@ class TestZASUNoDuplicateSend(TestCase):
 
         with patch.object(BirpayOrder, 'refresh_from_db', tracking_refresh):
             process_birpay_order(data)
-        refresh_with_payment_id = [c for c in call_tracker if c.get('fields') == ['payment_id']]
-        self.assertGreater(len(refresh_with_payment_id), 0, 'refresh_from_db(fields=["payment_id"]) должен быть вызван перед проверкой отправки на ASU')
+        # refresh_from_db(fields=['payment_id', 'requisite_id']) вызывается перед проверкой отправки
+        refresh_fields = [c.get('fields') for c in call_tracker if c.get('fields')]
+        has_payment_id_refresh = any('payment_id' in (f or []) for f in refresh_fields)
+        self.assertGreater(len(refresh_fields), 0, 'refresh_from_db(fields=...) должен быть вызван перед проверкой отправки на ASU')
+        self.assertTrue(has_payment_id_refresh, 'refresh_from_db должен включать payment_id в fields')
         mock_send.assert_called_once()
 
     @patch('deposit.tasks.send_birpay_order_to_z_asu')

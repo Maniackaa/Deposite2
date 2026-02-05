@@ -7,12 +7,15 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 from deposit.models import BirpayOrder, RequsiteZajon
-from deposit.tasks import refresh_birpay_data
+from deposit.tasks import process_birpay_order, refresh_birpay_data
 
 
-def _birpay_row(birpay_id, merchant_tx_id, status=0, card_number='4111111111111111', amount=100.0):
+def _birpay_row(birpay_id, merchant_tx_id, status=0, card_number='4111111111111111', amount=100.0, requisite_id=None):
     """Данные одной заявки как возвращает get_birpays() для process_birpay_order."""
     now = timezone.now()
+    payment_requisite = {'payload': {'card_number': card_number}}
+    if requisite_id is not None:
+        payment_requisite['id'] = requisite_id
     return {
         'id': birpay_id,
         'merchantTransactionId': merchant_tx_id,
@@ -24,7 +27,7 @@ def _birpay_row(birpay_id, merchant_tx_id, status=0, card_number='41111111111111
         'amount': str(amount),
         'status': status,
         'payload': {},
-        'paymentRequisite': {'payload': {'card_number': card_number}},
+        'paymentRequisite': payment_requisite,
     }
 
 
@@ -209,3 +212,76 @@ class TestRefreshBirpayDataAsuConfirm(TestCase):
         )
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 1)
+
+
+class TestProcessBirpayOrderSendsToZAsu(TestCase):
+    """При создании заявки с реквизитом works_on_asu=True делается попытка создания на ASU."""
+
+    def setUp(self):
+        self.now = timezone.now()
+        self.requisite_id = 9010
+        RequsiteZajon.objects.create(
+            id=self.requisite_id,
+            active=True,
+            agent_id=1,
+            agent_name='Test Agent',
+            name='Test Z-ASU requisite for create',
+            weight=0,
+            created_at=self.now,
+            updated_at=self.now,
+            card_number='4189800086502240',
+            works_on_asu=True,
+        )
+
+    @patch('deposit.tasks.send_birpay_order_to_z_asu')
+    def test_create_order_with_works_on_asu_requisite_calls_send_to_z_asu(self, mock_send):
+        """При создании заявки с привязанным реквизитом works_on_asu=True вызывается send_birpay_order_to_z_asu."""
+        mock_send.return_value = {'success': True, 'payment_id': 'test-payment-uuid', 'created': True}
+        data = _birpay_row(
+            birpay_id=8001,
+            merchant_tx_id='mtx-create-z-asu-8001',
+            status=0,
+            card_number='4189800086502240',
+            amount=20.0,
+            requisite_id=self.requisite_id,
+        )
+        order, created, updated = process_birpay_order(data)
+
+        self.assertTrue(created)
+        self.assertIsNotNone(order.requisite_id)
+        self.assertEqual(order.requisite_id, self.requisite_id)
+        mock_send.assert_called_once()
+        call_order = mock_send.call_args[0][0]
+        self.assertEqual(call_order.birpay_id, 8001)
+        self.assertEqual(call_order.requisite_id, self.requisite_id)
+
+    @patch('deposit.tasks.send_birpay_order_to_z_asu')
+    def test_create_order_with_requisite_works_on_asu_false_does_not_call_send(self, mock_send):
+        """При создании заявки с реквизитом works_on_asu=False отправка на ASU не вызывается."""
+        RequsiteZajon.objects.filter(pk=self.requisite_id).update(works_on_asu=False)
+        data = _birpay_row(
+            birpay_id=8002,
+            merchant_tx_id='mtx-no-z-asu-8002',
+            status=0,
+            requisite_id=self.requisite_id,
+        )
+        order, created, updated = process_birpay_order(data)
+
+        self.assertTrue(created)
+        self.assertEqual(order.requisite_id, self.requisite_id)
+        mock_send.assert_not_called()
+
+    @patch('deposit.tasks.send_birpay_order_to_z_asu')
+    def test_create_order_without_requisite_does_not_call_send(self, mock_send):
+        """При создании заявки без привязки реквизита отправка на ASU не вызывается."""
+        data = _birpay_row(
+            birpay_id=8003,
+            merchant_tx_id='mtx-no-requisite-8003',
+            status=0,
+            requisite_id=None,  # нет id в paymentRequisite
+        )
+        order, created, updated = process_birpay_order(data)
+
+        self.assertTrue(created)
+        self.assertIsNone(order.requisite_id)
+        mock_send.assert_not_called()

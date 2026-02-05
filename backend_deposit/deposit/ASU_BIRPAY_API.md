@@ -3,7 +3,7 @@
 Документация REST API модуля `deposit/views_birpay_api.py`. Этот API предоставляет проекту ASU (Payment) доступ к Birpay **только через Депозит**: ASU не обращается к Birpay напрямую.
 
 - **Базовый URL:** `{DEPOSIT_HOST}/api/birpay/`
-- **Аутентификация:** только JWT пользователя Депозита (staff/superuser). JWT получается через `POST {DEPOSIT_HOST}/api/token/` (логин/пароль из SupportOptions на ASU). Заголовок: `Authorization: Bearer <JWT>`.
+- **Аутентификация:** только JWT пользователя Депозита (staff/superuser). JWT получается через `POST {DEPOSIT_HOST}/api/token/` с логином и паролем из **SupportOptions на ASU** (Deposit API: логин, Deposit API: пароль). Учётные данные залогиненного пользователя не используются — только SupportOptions. Заголовок: `Authorization: Bearer <JWT>`.
 
 ---
 

@@ -31,6 +31,8 @@ from deposit.models import *
 from django.apps import apps
 from users.models import Options
 
+# При цикле models → ocr.views_api → tasks → models в * нет RequsiteZajon; получаем при первом обращении
+RequsiteZajon = None
 
 User = get_user_model()
 
@@ -580,8 +582,21 @@ def process_birpay_order(data):
     elif 'user' in data and data['user'] and 'username' in data['user']:
         order_data['operator'] = data['user']['username']
 
+    requisite_id_missing = None
+    if paymentRequisite and paymentRequisite.get('id') is not None:
+        global RequsiteZajon
+        if RequsiteZajon is None:
+            RequsiteZajon = apps.get_model('deposit', 'RequsiteZajon')
+        rid = paymentRequisite['id']
+        if RequsiteZajon.objects.filter(pk=rid).exists():
+            order_data['requisite_id'] = rid
+        else:
+            requisite_id_missing = rid
+
     BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
     order, created = BirpayOrder.objects.get_or_create(birpay_id=birpay_id, defaults=order_data)
+    if requisite_id_missing is not None:
+        logger.debug("Реквизит Birpay id=%s не найден в RequsiteZajon, привязка не установлена", requisite_id_missing)
 
     # Обновляем контекст с order.id после получения/создания заказа
     bind_contextvars(birpay_id=birpay_id, merchant_transaction_id=merchant_transaction_id, birpay_order_id=order.id)
@@ -605,8 +620,8 @@ def process_birpay_order(data):
         logger.info(f"Создан новый {order} birpay_id={birpay_id}")
 
     # 1) Сначала Z-ASU: создание заявки на ASU (если нужно). Так к моменту отправки в GPT payment_id уже в БД.
-    order.refresh_from_db(fields=['payment_id'])
-    should_send = order.card_number and should_send_to_z_asu(order.card_number) and (created or not order.payment_id)
+    order.refresh_from_db(fields=['payment_id', 'requisite_id'])
+    should_send = should_send_to_z_asu(order) and (created or not order.payment_id)
     if should_send:
         logger.info(f"BirpayOrder {birpay_id} соответствует условию Z-ASU, отправляем на ASU (created={created}, payment_id={getattr(order, 'payment_id', None) or 'нет'})")
         try:
