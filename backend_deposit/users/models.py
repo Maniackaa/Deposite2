@@ -337,7 +337,7 @@ class Options(SingletonModel):
         max_length=512,
         blank=True,
         default='',
-        help_text='Формат: host:port:user:password. Если без прокси скачивание не удалось — повторная попытка с прокси.',
+        help_text='Формат: host:port:user:password. Сначала попытка с прокси; при неудаче — повтор без прокси.',
     )
     birpay_moshennik_list = ArrayField(models.CharField(max_length=1000), blank=True, default=list)
     birpay_painter_list = ArrayField(models.CharField(max_length=1000), blank=True, default=list)

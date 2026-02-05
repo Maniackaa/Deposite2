@@ -464,7 +464,8 @@ def _parse_check_proxy(proxy_str):
 def _download_birpay_check_file_sync(order_id, check_file_url):
     """
     Синхронная функция скачивания чека для тестовых заявок.
-    Сначала попытка без прокси; при неудаче — повтор с прокси из Options.birpay_check_proxy (формат host:port:user:password).
+    Сначала попытка с прокси из Options.birpay_check_proxy (формат host:port:user:password);
+    при неудаче — повтор без прокси.
     Перед сохранением и отправкой в GPT проверяет целостность изображения (PIL).
     """
     from deposit.models import BirpayOrder
@@ -479,18 +480,20 @@ def _download_birpay_check_file_sync(order_id, check_file_url):
             birpay_order_id=order.id
         )
         response = None
-        try:
-            response = requests.get(check_file_url, timeout=30, stream=True)
-        except Exception:
-            pass
-        if (response is None or not response.ok):
-            opts = Options.load()
-            proxy_dict = _parse_check_proxy(getattr(opts, 'birpay_check_proxy', '') or '')
-            if proxy_dict:
-                try:
-                    response = requests.get(check_file_url, timeout=30, stream=True, proxies=proxy_dict)
-                except Exception:
-                    response = None
+        opts = Options.load()
+        proxy_dict = _parse_check_proxy(getattr(opts, 'birpay_check_proxy', '') or '')
+        # Сначала попытка с прокси (если настроен)
+        if proxy_dict:
+            try:
+                response = requests.get(check_file_url, timeout=30, stream=True, proxies=proxy_dict)
+            except Exception:
+                response = None
+        if response is None or not response.ok:
+            # Повтор без прокси
+            try:
+                response = requests.get(check_file_url, timeout=30, stream=True)
+            except Exception:
+                response = None
         if response is None or not response.ok:
             order.check_file_failed = True
             order.save(update_fields=['check_file_failed'])

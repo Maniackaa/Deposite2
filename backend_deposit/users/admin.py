@@ -130,7 +130,7 @@ class OptionsAdmin(admin.ModelAdmin):
         }),
         ('GPT проверка чеков', {
             'fields': ('gpt_chek_is_active', 'gpt_auto_approve', 'birpay_check_proxy'),
-            'description': 'birpay_check_proxy: формат host:port:user:password. При неудаче скачивания чека без прокси — повтор с прокси.'
+            'description': 'birpay_check_proxy: формат host:port:user:password. Сначала скачивание чека с прокси; при неудаче — повтор без прокси.'
         }),
         ('Списки', {
             'fields': ('birpay_moshennik_list', 'birpay_painter_list')
