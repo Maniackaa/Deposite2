@@ -51,7 +51,7 @@
 #### POST /api/birpay/requisites/<id>/set-active/
 
 - **Body (JSON):** `{"active": true}` или `{"active": false}`; опционально `changed_by_user_id`, `changed_by_username` (агент ASU — для лога изменений).
-- **Ответ:** `200 OK` при успехе (тело — ответ сервиса/Birpay); при ошибке — `404` (реквизит не найден) или `502` (ошибка Birpay). После успеха обновляется локальная модель и пишется лог с данными агента.
+- **Ответ:** `200 OK` при успехе (тело — ответ сервиса/Birpay); при ошибке — `404` (реквизит не найден) или `502` (ошибка Birpay). Тело при 502: `{"success": false, "error": "..."}` — в `error` передаётся сообщение от Birpay (например `message.exception.app.toggle_not_allowed`, если Birpay не разрешает переключение активности). ASU может показывать пользователю дружественное сообщение при наличии `toggle_not_allowed`. После успеха обновляется локальная модель и пишется лог с данными агента.
 
 ---
 
@@ -99,8 +99,9 @@
 | Файл | Назначение |
 |------|------------|
 | `deposit/views_birpay_api.py` | Все классы API (permission, requisites, refill, payout) |
-| `deposit/urls_birpay_api.py` | Маршруты с префиксом `/api/birpay/` |
+| `deposit/urls_birpay_api.py` | Маршруты Birpay API; подключение в `backend_deposit/urls.py`: `path('api/birpay/', include('deposit.urls_birpay_api', namespace='api_birpay'))` |
 | `deposit/birpay_requisite_service.py` | Единый сервис обновления реквизита в Birpay |
+| `core/birpay_client.py` | Низкоуровневый клиент к Birpay (токен, запросы к реквизитам, refill, payout) |
 
 ---
 

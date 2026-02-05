@@ -1,5 +1,9 @@
 # Byte-compiled / optimized / DLL files
+# Token files (Birpay, ASU — do not commit)
+token.txt
+token_new.txt
 token*.txt
+*.token
 __pycache__/
 *.py[cod]
 *$py.class
