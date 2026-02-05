@@ -114,17 +114,18 @@ class BirpayClient:
         url = f'{self.base_url}{path}' if path.startswith('/') else f'{self.base_url}/api/operator/{path}'
         token = self.get_token()
         headers = {**self._headers, 'Authorization': f'Bearer {token}'}
+        logger.debug(f'url: {url}; {method} json: {json_data}')
         if method.upper() == 'POST':
-            resp = requests.post(url, headers=headers, json=json_data or {}, timeout=30)
+            resp = requests.post(url, headers=headers, json=json_data or {}, timeout=10)
         else:
-            resp = requests.put(url, headers=headers, json=json_data or {}, timeout=30)
+            resp = requests.put(url, headers=headers, json=json_data or {}, timeout=10)
         if resp.status_code == 401:
             token = self.refresh_token()
             headers['Authorization'] = f'Bearer {token}'
             if method.upper() == 'POST':
-                resp = requests.post(url, headers=headers, json=json_data or {}, timeout=30)
+                resp = requests.post(url, headers=headers, json=json_data or {}, timeout=10)
             else:
-                resp = requests.put(url, headers=headers, json=json_data or {}, timeout=30)
+                resp = requests.put(url, headers=headers, json=json_data or {}, timeout=10)
         return resp
 
     # --- Реквизиты (payment_requisite) ---
