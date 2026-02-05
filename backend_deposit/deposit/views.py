@@ -76,6 +76,7 @@ from deposit.models import (
     BirpayOrder,
     Bank,
     RequsiteZajon,
+    RequsiteZajonChangeLog,
 )
 
 from core.birpay_client import BirpayClient
@@ -250,6 +251,7 @@ def sync_requsite_zajon():
             if existing:
                 for field, value in common_fields.items():
                     setattr(existing, field, value)
+                existing._change_source = 'sync'
                 existing.save(update_fields=list(common_fields.keys()))
                 sync_result['updated'] += 1
             else:
@@ -386,6 +388,10 @@ class RequsiteZajonUpdateView(StaffOnlyPerm, UpdateView):
         if 'works_on_asu' in changed_fields:
             update_fields_list.append('works_on_asu')
         log.debug('Сохранение объекта', update_fields=update_fields_list)
+        self.object._change_source = 'admin'
+        user = getattr(self.request, 'user', None)
+        self.object._changed_by_user_id = getattr(user, 'id', None)
+        self.object._changed_by_username = getattr(user, 'username', '') or ''
         self.object.save(update_fields=update_fields_list)
         log.info('Объект успешно сохранен')
 
@@ -411,6 +417,35 @@ class RequsiteZajonUpdateView(StaffOnlyPerm, UpdateView):
         return context
 
 
+class RequsiteZajonChangeLogListView(StaffOnlyPerm, ListView):
+    """Список логов изменений реквизитов (requisite-zajon). Фильтр по ID: ?requisite_id=..."""
+    model = RequsiteZajonChangeLog
+    template_name = 'deposit/requisite_zajon_change_log_list.html'
+    context_object_name = 'logs'
+    paginate_by = 50
+
+    def dispatch(self, request, *args, **kwargs):
+        if not _has_requisite_access(request.user):
+            return redirect('deposit:index')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        qs = RequsiteZajonChangeLog.objects.select_related('requisite').order_by('-created_at')
+        requisite_id = self.request.GET.get('requisite_id', '').strip()
+        if requisite_id:
+            try:
+                rid = int(requisite_id)
+                qs = qs.filter(requisite_id=rid)
+            except ValueError:
+                pass
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filter_requisite_id'] = self.request.GET.get('requisite_id', '').strip()
+        return context
+
+
 class RequsiteZajonToggleActiveView(StaffOnlyPerm, View):
     def post(self, request, pk):
         if not _has_requisite_access(request.user):
@@ -431,6 +466,7 @@ class RequsiteZajonToggleActiveView(StaffOnlyPerm, View):
             )
         else:
             requisite.active = new_active_bool
+            requisite._change_source = 'toggle_active'
             requisite.save(update_fields=['active'])
             messages.success(
                 request,
@@ -2623,6 +2659,7 @@ class ZASUManagementView(SuperuserOnlyPerm, View):
         requisite.card_number = re.sub(r'\D', '', card_number_raw)[:16] if re.sub(r'\D', '', card_number_raw) else ''
         requisite.payload = dict(old_payload)
         requisite.payload['card_number'] = card_number_raw
+        requisite._change_source = 'z_asu_form'
         requisite.save(update_fields=['card_number', 'payload'])
         if sync_result.get('success'):
             messages.success(request, f'Реквизит {requisite_id}: номер карты обновлён локально и на Birpay.')

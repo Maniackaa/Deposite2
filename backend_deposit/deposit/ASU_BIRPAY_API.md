@@ -22,8 +22,8 @@
 | Класс | Метод | URL | Описание |
 |-------|--------|-----|----------|
 | BirpayRequisitesListAPIView | GET | `/api/birpay/requisites/` | Список реквизитов Birpay с полями из БД: `card_number`, `raw_card_number`, `works_on_asu` |
-| BirpayRequisiteUpdateAPIView | PUT | `/api/birpay/requisites/<id>/` | Обновить реквизит. Body: только изменяемые поля (например `card_number`). Данные готовит сервис из модели RequsiteZajon |
-| BirpayRequisiteSetActiveAPIView | POST | `/api/birpay/requisites/<id>/set-active/` | Включить/выключить реквизит. Body: `{"active": true\|false}` |
+| BirpayRequisiteUpdateAPIView | PUT | `/api/birpay/requisites/<id>/` | Обновить реквизит. Body: изменяемые поля + опционально `changed_by_user_id`, `changed_by_username` (агент ASU). Данные готовит сервис из модели RequsiteZajon; изменения пишутся в лог с данными агента |
+| BirpayRequisiteSetActiveAPIView | POST | `/api/birpay/requisites/<id>/set-active/` | Включить/выключить реквизит. Body: `{"active": true\|false}`; опционально `changed_by_user_id`, `changed_by_username` (агент ASU) |
 
 #### GET /api/birpay/requisites/
 
@@ -36,10 +36,12 @@
 
 #### PUT /api/birpay/requisites/<id>/
 
-- **Body (JSON):** только изменяемые поля, например:
+- **Body (JSON):** изменяемые поля и опционально данные агента ASU:
   - `card_number` — сырой номер карты (валидация: минимум 16 цифр, Luhn)
   - `name`, `agent_id`, `weight`, `active` — при необходимости
-- Полный payload для Birpay собирается на Депозите из модели RequsiteZajon и переданных полей. `agent_id=0` или `None` не переопределяют значение — берётся из модели.
+  - `changed_by_user_id` (опционально) — ID пользователя/агента на ASU, который внёс изменение (для лога)
+  - `changed_by_username` (опционально) — логин пользователя/агента на ASU (для лога)
+- Полный payload для Birpay собирается на Депозите из модели RequsiteZajon и переданных полей. `agent_id=0` или `None` не переопределяют значение — берётся из модели. После успеха Birpay обновляется локальная модель и пишется лог изменения с данными агента (если переданы).
 - **Ответ при успехе:** `200 OK`, тело — ответ Birpay (например `{"success": true, ...}`).
 - **Ошибки:**
   - `400 Bad Request` — ошибка валидации (например номер карты): `{"error": "..."}`.
@@ -48,8 +50,8 @@
 
 #### POST /api/birpay/requisites/<id>/set-active/
 
-- **Body (JSON):** `{"active": true}` или `{"active": false}`.
-- **Ответ:** `200 OK` при успехе (тело — ответ сервиса/Birpay); при ошибке — `404` (реквизит не найден) или `502` (ошибка Birpay).
+- **Body (JSON):** `{"active": true}` или `{"active": false}`; опционально `changed_by_user_id`, `changed_by_username` (агент ASU — для лога изменений).
+- **Ответ:** `200 OK` при успехе (тело — ответ сервиса/Birpay); при ошибке — `404` (реквизит не найден) или `502` (ошибка Birpay). После успеха обновляется локальная модель и пишется лог с данными агента.
 
 ---
 

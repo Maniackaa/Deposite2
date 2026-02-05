@@ -28,6 +28,7 @@
             <li><a class="dropdown-item" href="{% url 'deposit:operator_speed_graph' %}">Скорость операторов</a></li>
             {% if user.is_superuser or user.role == 'admin' or user.role == 'editor' %}
               <li><a class="dropdown-item" href="{% url 'deposit:requisite_zajon_list' %}">Реквизиты Zajon</a></li>
+              <li><a class="dropdown-item" href="{% url 'deposit:requisite_zajon_change_logs' %}">Логи изменений реквизитов</a></li>
             {% endif %}
           </ul>
         </li>

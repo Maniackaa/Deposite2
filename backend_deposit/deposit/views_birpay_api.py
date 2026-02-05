@@ -78,12 +78,22 @@ class BirpayRequisitesListAPIView(APIView):
 class BirpayRequisiteUpdateAPIView(APIView):
     """
     PUT /api/birpay/requisites/<id>/ — обновить реквизит.
-    Body: только изменяемые поля (например card_number). Данные готовит update_requisite_on_birpay из модели.
+    Body: изменяемые поля (card_number и т.д.) и опционально changed_by_user_id, changed_by_username (агент ASU).
+    После успеха Birpay обновляется локальная модель и пишется лог с данными агента.
     """
     permission_classes = [BirpayAPIPermission]
 
     def put(self, request: Request, requisite_id: int):
         body = dict(request.data or {})
+        changed_by_user_id = body.pop('changed_by_user_id', None)
+        changed_by_username = body.pop('changed_by_username', None)
+        if changed_by_user_id is not None:
+            try:
+                changed_by_user_id = int(changed_by_user_id)
+            except (TypeError, ValueError):
+                changed_by_user_id = None
+        if changed_by_username is not None:
+            changed_by_username = str(changed_by_username).strip() or None
         log_ctx = logger.bind(requisite_id=requisite_id, birpay_api='update_requisite')
         log_ctx.info('Birpay API update_requisite: вызов сервиса', body_keys=list(body.keys()))
         try:
@@ -111,26 +121,62 @@ class BirpayRequisiteUpdateAPIView(APIView):
                 data=result.get('data'),
                 error=result.get('error'),
             )
+        if success and body:
+            try:
+                requisite = RequsiteZajon.objects.get(pk=requisite_id)
+                update_fields = []
+                if 'card_number' in body:
+                    raw = (body.get('card_number') or '').strip()
+                    requisite.card_number = (raw.replace(' ', '').replace('-', '')[:16]) if raw else ''
+                    payload = dict(requisite.payload or {})
+                    payload['card_number'] = raw
+                    requisite.payload = payload
+                    update_fields.extend(['card_number', 'payload'])
+                if update_fields:
+                    requisite._change_source = 'api'
+                    requisite._changed_by_user_id = changed_by_user_id
+                    requisite._changed_by_username = changed_by_username or ''
+                    requisite.save(update_fields=update_fields)
+            except RequsiteZajon.DoesNotExist:
+                pass
+            except Exception as e:
+                log_ctx.exception('Birpay API update_requisite: не удалось обновить локальную модель', error=str(e))
         return Response(result, status=status.HTTP_200_OK if success else status.HTTP_502_BAD_GATEWAY)
 
 
 class BirpayRequisiteSetActiveAPIView(APIView):
-    """POST /api/birpay/requisites/<id>/set-active/ — включить/выключить реквизит. Body: {"active": true|false}. Данные из модели."""
+    """POST /api/birpay/requisites/<id>/set-active/ — включить/выключить реквизит. Body: {"active": true|false}, опционально changed_by_user_id, changed_by_username."""
     permission_classes = [BirpayAPIPermission]
 
     def post(self, request: Request, requisite_id: int):
-        body = request.data or {}
+        body = dict(request.data or {})
         active = body.get('active')
         if active is None:
             return Response({'error': 'Required: active (boolean)'}, status=status.HTTP_400_BAD_REQUEST)
+        changed_by_user_id = body.pop('changed_by_user_id', None)
+        changed_by_username = body.pop('changed_by_username', None)
+        if changed_by_user_id is not None:
+            try:
+                changed_by_user_id = int(changed_by_user_id)
+            except (TypeError, ValueError):
+                changed_by_user_id = None
+        if changed_by_username is not None:
+            changed_by_username = str(changed_by_username).strip() or None
         try:
             result = update_requisite_on_birpay(requisite_id, {'active': bool(active)})
-            return Response(result, status=status.HTTP_200_OK if result.get('success') else status.HTTP_502_BAD_GATEWAY)
         except Http404:
             return Response({'error': f'Реквизит {requisite_id} не найден.'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.exception('Birpay API set_requisite_active failed')
-            return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+        if result.get('success'):
+            try:
+                requisite = RequsiteZajon.objects.get(pk=requisite_id)
+                requisite.active = bool(active)
+                requisite._change_source = 'api'
+                requisite._changed_by_user_id = changed_by_user_id
+                requisite._changed_by_username = changed_by_username or ''
+                requisite.save(update_fields=['active'])
+            except RequsiteZajon.DoesNotExist:
+                pass
+        return Response(result, status=status.HTTP_200_OK if result.get('success') else status.HTTP_502_BAD_GATEWAY)
 
 
 # --- Refill (пополнение) ---

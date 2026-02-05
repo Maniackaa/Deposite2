@@ -441,6 +441,83 @@ class RequsiteZajon(models.Model):
         return False
 
 
+class RequsiteZajonChangeLog(models.Model):
+    """Лог изменений реквизита (requisite-zajon). Заполняется при каждом сохранении RequsiteZajon."""
+    requisite = models.ForeignKey(RequsiteZajon, on_delete=models.CASCADE, related_name='change_logs', db_index=True)
+    created_at = models.DateTimeField('Когда', auto_now_add=True, db_index=True)
+    action = models.CharField('Действие', max_length=16, choices=(('create', 'Создание'), ('update', 'Изменение')))
+    changes = models.JSONField('Изменения', default=dict, help_text='Список {field, old_value, new_value}')
+    source = models.CharField('Источник', max_length=32, default='', blank=True, db_index=True,
+                              help_text='api, admin, sync, z_asu_form, toggle_active')
+    changed_by_user_id = models.IntegerField('ID агента (ASU)', null=True, blank=True, db_index=True)
+    changed_by_username = models.CharField('Логин агента (ASU)', max_length=150, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        verbose_name = 'Лог изменения реквизита Zajon'
+        verbose_name_plural = 'Логи изменений реквизитов Zajon'
+
+    def __str__(self):
+        return f'{self.requisite_id} @ {self.created_at} ({self.action})'
+
+
+def _requsite_tracked_fields():
+    return ('card_number', 'active', 'works_on_asu', 'name', 'weight', 'payload')
+
+
+@receiver(pre_save, sender=RequsiteZajon)
+def requsite_zajon_pre_save_store_old(sender, instance: RequsiteZajon, **kwargs):
+    """Сохраняем старые значения для лога в post_save."""
+    if instance.pk:
+        try:
+            old = sender.objects.filter(pk=instance.pk).values(*_requsite_tracked_fields()).first()
+            instance._requsite_old_state = old or {}
+        except Exception:
+            instance._requsite_old_state = {}
+    else:
+        instance._requsite_old_state = None  # create
+
+
+@receiver(post_save, sender=RequsiteZajon)
+def requsite_zajon_post_save_log(sender, instance: RequsiteZajon, created, **kwargs):
+    """Пишем лог изменения реквизита."""
+    action = 'create' if created else 'update'
+    changes = []
+    source = getattr(instance, '_change_source', '') or 'signal'
+    changed_by_user_id = getattr(instance, '_changed_by_user_id', None)
+    changed_by_username = getattr(instance, '_changed_by_username', '') or ''
+
+    if created:
+        for f in _requsite_tracked_fields():
+            val = getattr(instance, f, None)
+            if val is not None and val != '' and (f != 'payload' or val):
+                changes.append({'field': f, 'old_value': None, 'new_value': val})
+    else:
+        old_state = getattr(instance, '_requsite_old_state', None) or {}
+        for f in _requsite_tracked_fields():
+            new_val = getattr(instance, f, None)
+            old_val = old_state.get(f) if isinstance(old_state, dict) else None
+            if old_val != new_val:
+                changes.append({'field': f, 'old_value': old_val, 'new_value': new_val})
+
+    if not changes and not created:
+        return
+    if not source and created:
+        source = 'sync'
+    elif not source:
+        source = 'signal'
+    RequsiteZajonChangeLog.objects.create(
+        requisite_id=instance.pk,
+        action=action,
+        changes=changes,
+        source=source,
+        changed_by_user_id=changed_by_user_id,
+        changed_by_username=changed_by_username or '',
+    )
+    if hasattr(instance, '_requsite_old_state'):
+        delattr(instance, '_requsite_old_state')
+
+
 @receiver(post_save, sender=Incoming)
 def after_save_incoming(sender, instance: Incoming, created, raw, using, update_fields, *args, **kwargs):
     try:

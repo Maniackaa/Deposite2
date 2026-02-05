@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}Логи изменений реквизитов Zajon{% endblock %}
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+
+<div class="container-fluid">
+    <h1>Логи изменений реквизитов (requisite-zajon)</h1>
+
+    <form method="get" class="mb-3 row g-2 align-items-end">
+        <div class="col-auto">
+            <label for="requisite_id" class="form-label">ID реквизита</label>
+            <input type="number" name="requisite_id" id="requisite_id" class="form-control form-control-sm" style="width: 120px;"
+                   value="{{ filter_requisite_id }}" placeholder="все">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary btn-sm">Показать</button>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'deposit:requisite_zajon_list' %}" class="btn btn-outline-secondary btn-sm">К списку реквизитов</a>
+        </div>
+    </form>
+
+    {% include 'includes/paginator.html' %}
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover table-sm">
+            <thead>
+                <tr>
+                    <th>ID лога</th>
+                    <th>ID реквизита</th>
+                    <th>Когда</th>
+                    <th>Действие</th>
+                    <th>Источник</th>
+                    <th>Агент (ASU)</th>
+                    <th>Изменения</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.id }}</td>
+                    <td>
+                        <a href="{% url 'deposit:requisite_zajon_edit' log.requisite_id %}">{{ log.requisite_id }}</a>
+                        {% if log.requisite %}<br><small class="text-muted">{{ log.requisite.name|truncatechars:30 }}</small>{% endif %}
+                    </td>
+                    <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ log.get_action_display|default:log.action }}</td>
+                    <td>{{ log.source|default:"—" }}</td>
+                    <td>
+                        {% if log.changed_by_user_id or log.changed_by_username %}
+                            {{ log.changed_by_username|default:log.changed_by_user_id|default:"—" }}
+                            {% if log.changed_by_user_id %}(id {{ log.changed_by_user_id }}){% endif %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if log.changes %}
+                            <ul class="list-unstyled mb-0 small">
+                                {% for c in log.changes %}
+                                <li><code>{{ c.field }}</code>: {{ c.old_value|default:"—" }} → {{ c.new_value|default:"—" }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">Нет записей</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% include 'includes/paginator.html' %}
+</div>
+{% endblock %}

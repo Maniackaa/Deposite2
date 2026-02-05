@@ -234,7 +234,13 @@ class BirpayClient:
             'success': success,
         }
         if not success:
-            result['error'] = response_json.get('error') or response_json.get('detail') or str(response_json)
+            msg = (
+                response_json.get('error')
+                or response_json.get('detail')
+                or response_json.get('message')
+                or str(response_json)
+            )
+            result['error'] = msg
         return result
 
     def set_requisite_active(
