@@ -106,7 +106,8 @@ def time_diff(ms, create_at):
 
 
 @register.filter
-def as_bin(value, bits=5):
+def as_bin(value, bits=8):
+    """Преобразует число в двоичную строку (младший бит слева), дополняет нулями до bits символов."""
     try:
         value = format(int(value), f'0{bits}b')
         return value[::-1]

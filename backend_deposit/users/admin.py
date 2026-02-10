@@ -129,8 +129,8 @@ class OptionsAdmin(admin.ModelAdmin):
             'description': 'Хост и учётные данные для Birpay API (реквизиты Zajon и др.). Пусто — из BIRPAY_HOST, BIRPAY_LOGIN, BIRPAY_PASSWORD'
         }),
         ('GPT проверка чеков', {
-            'fields': ('gpt_chek_is_active', 'gpt_auto_approve', 'birpay_check_proxy'),
-            'description': 'birpay_check_proxy: формат host:port:user:password. Сначала скачивание чека с прокси; при неудаче — повтор без прокси.'
+            'fields': ('gpt_chek_is_active', 'gpt_ignore_check_status', 'gpt_auto_approve', 'birpay_check_proxy'),
+            'description': 'gpt_ignore_check_status: если включено, оценка status с чека всегда считается успешной. birpay_check_proxy: формат host:port:user:password.'
         }),
         ('Списки', {
             'fields': ('birpay_moshennik_list', 'birpay_painter_list')

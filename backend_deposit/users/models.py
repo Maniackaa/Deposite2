@@ -330,6 +330,11 @@ class Options(SingletonModel):
     )
 
     gpt_chek_is_active = models.BooleanField(verbose_name='Делать проерку чеков GPT', default=0)
+    gpt_ignore_check_status = models.BooleanField(
+        verbose_name='Не учитывать статус с чека',
+        default=False,
+        help_text='Если включено, флаг «статус с чека» в GPT-проверке всегда считается успешным независимо от значения.',
+    )
     # gpt_prompt = models.TextField(verbose_name='Запрос для чеков', default='')
     gpt_auto_approve = models.BooleanField(default=False)
     birpay_check_proxy = models.CharField(

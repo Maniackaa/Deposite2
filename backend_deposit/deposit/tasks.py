@@ -759,7 +759,9 @@ def send_image_to_gpt_task(self, birpay_id):
             gpt_imho_result = BirpayOrder.GPTIMHO(0)
             # Мнение GPT: флаг gpt_status только при статусе 1 (подтверждён).
             # status -1 = "İcrada" / в процессе — не считаем успешным, не апрувим.
-            if gpt_status == 1:
+            # Опция «Не учитывать статус с чека»: всегда считать флаг gpt_status успешным.
+            options = Options.load()
+            if options.gpt_ignore_check_status or gpt_status == 1:
                 gpt_imho_result |= BirpayOrder.GPTIMHO.gpt_status
 
             # Проверка суммы в чеке
@@ -847,8 +849,8 @@ def send_image_to_gpt_task(self, birpay_id):
             order.gpt_processing = False
             order.sender = gpt_sender
             order.gpt_flags = gpt_imho_result.value
-            Options = apps.get_model('users', 'Options')
-            gpt_auto_approve = Options.load().gpt_auto_approve
+            OptionsModel = apps.get_model('users', 'Options')
+            gpt_auto_approve = OptionsModel.load().gpt_auto_approve
             # Автоматическое подтверждение только если ВСЕ 8 флагов установлены (255 = 0b11111111)
             if not order.is_moshennik() and not order.is_painter() and gpt_auto_approve and order.gpt_flags == 255:
                 # Автоматическое подтверждение с защитой от race condition

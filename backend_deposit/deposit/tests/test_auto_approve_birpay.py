@@ -216,7 +216,27 @@ class TestAutoApproveBirpayOrder(TestCase):
         
         # Проверяем, что не все флаги установлены (должно быть меньше 255)
         self.assertNotEqual(self.order.gpt_flags, 255)
-    
+
+    @patch('deposit.tasks.BirpayClient')
+    @patch('deposit.tasks.requests.post')
+    def test_gpt_ignore_check_status_sets_flag_even_when_status_not_1(self, mock_post, mock_birpay_client_cls):
+        """Тест: при включённой опции «Не учитывать статус с чека» флаг gpt_status ставится даже при status=0 с чека."""
+        self.options.gpt_ignore_check_status = True
+        self.options.save()
+
+        # Мокируем GPT API с status=0 (в обычном режиме флаг gpt_status не ставится)
+        mock_post.return_value = self.create_gpt_response(status=0)
+
+        send_image_to_gpt_task(self.order.birpay_id)
+
+        self.order.refresh_from_db()
+        # Флаг gpt_status (бит в gpt_flags) должен быть установлен, т.к. включена опция «Не учитывать статус с чека»
+        gpt_status_value = BirpayOrder.GPTIMHO.gpt_status.value
+        self.assertTrue(
+            bool(self.order.gpt_flags & gpt_status_value),
+            f'При gpt_ignore_check_status=True флаг gpt_status должен быть установлен. gpt_flags={self.order.gpt_flags}',
+        )
+
     @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
     def test_auto_approve_fails_wrong_amount(self, mock_post, mock_birpay_client_cls):
