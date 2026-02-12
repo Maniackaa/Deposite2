@@ -883,22 +883,20 @@ def send_image_to_gpt_task(self, birpay_id):
                             order.save(update_fields=update_fields)
                             sms_bound_successfully = False
                         else:
-                            # SMS свободна, привязываем
+                            # SMS свободна, привязываем (status=1 НЕ выставляем — только после успешного approve_refill)
                             # Контекст уже установлен в начале функции со всеми идентификаторами
                             order.incomingsms_id = locked_incoming.id
                             update_fields.append("incomingsms_id")
                             order.incoming = locked_incoming
                             order.confirmed_time = timezone.now()
-                            order.status = 1  # Логика Z-ASU: по смене status на 1 сигнал поставит задачу подтверждения на ASU
                             update_fields.append("incoming")
                             update_fields.append("confirmed_time")
-                            update_fields.append("status")
                             locked_incoming.birpay_id = order.merchant_transaction_id
                             # Автоматически заполняем merchant_user_id из BirpayOrder
                             locked_incoming.merchant_user_id = order.merchant_user_id
                             locked_incoming.save()
                             
-                            # Сохраняем order в транзакции
+                            # Сохраняем order в транзакции (без status=1; см. ниже после approve_refill)
                             order.save(update_fields=update_fields)
                             
                             logger.info(
@@ -915,15 +913,29 @@ def send_image_to_gpt_task(self, birpay_id):
                     order.save(update_fields=update_fields)
                     sms_bound_successfully = False
                 
-                # Вызываем approve_birpay_refill только после успешной привязки SMS (вне транзакции)
-                # Это гарантирует, что только один поток сможет подтвердить заказ в Birpay API
+                # Сначала подтверждаем в Birpay; только при успехе выставляем status=1 (и тогда сигнал пошлёт подтверждение на ASU)
                 if sms_bound_successfully:
                     response = BirpayClient().approve_refill(order.birpay_id)
-                    if response.status_code != 200:
+                    if response.status_code == 200:
+                        order.status = 1
+                        order.save(update_fields=['status'])
+                        # Логика Z-ASU: по смене status на 1 сигнал birpay_order_z_asu_on_status_change ставит задачу подтверждения на ASU
+                    else:
                         text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
                         logger.warning(text)
                         send_message_tg(message=text, chat_ids=settings.ALARM_IDS)
-                    # Логика Z-ASU: подтверждение на ASU выполняется только по смене status на 1 (сигнал ставит задачу)
+                        # Отвязываем SMS: Birpay не подтвердил, в БД не должно оставаться привязки и status=1
+                        bound_incoming = order.incoming
+                        order.incomingsms_id = None
+                        order.incoming = None
+                        order.confirmed_time = None
+                        order.save(update_fields=['incomingsms_id', 'incoming', 'confirmed_time'])
+                        if bound_incoming:
+                            bound_incoming.birpay_id = ''
+                            bound_incoming.merchant_user_id = ''
+                            bound_incoming.save(update_fields=['birpay_id', 'merchant_user_id'])
+                        logger.info(
+                            f'Отвязка SMS после ошибки Birpay approve_refill для {order} {order.merchant_transaction_id}')
             if order.is_moshennik():
                 logger.info(f'Обработка мошенника')
                 if len(incomings_with_correct_card_and_order_amount) == 1:

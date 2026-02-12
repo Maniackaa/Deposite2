@@ -922,12 +922,12 @@ class TestAutoApproveBirpayOrder(TestCase):
     @patch('deposit.tasks.BirpayClient')
     @patch('deposit.tasks.requests.post')
     def test_auto_approve_handles_api_error(self, mock_post, mock_birpay_client_cls):
-        """Тест: обработка ошибки API при автоподтверждении"""
+        """Тест: при ошибке approve_refill привязка SMS откатывается, статус не меняется"""
         
         # Мокируем GPT API
         mock_post.return_value = self.create_gpt_response()
         
-        # Мокируем approve_birpay_refill с ошибкой
+        # Мокируем approve_birpay_refill с ошибкой (500 или 400 «Balance too low» и т.п.)
         mock_response = Mock()
         mock_response.status_code = 500
         mock_response.text = 'Internal Server Error'
@@ -936,21 +936,16 @@ class TestAutoApproveBirpayOrder(TestCase):
         # Вызываем задачу
         send_image_to_gpt_task(self.order.birpay_id)
         
-        # Проверяем результаты
-        # Важно: order в задаче - это другой экземпляр, загруженный из базы
-        # Поэтому нужно проверить через refresh_from_db()
+        # Проверяем результаты: при ошибке Birpay привязка откатывается
         self.order.refresh_from_db()
         self.incoming.refresh_from_db()
         
-        # Проверяем, что заказ привязан к SMS (привязка происходит до вызова API)
-        # Привязка происходит в строках 639-645, до вызова approve_birpay_refill (строка 648)
-        self.assertEqual(self.order.incoming, self.incoming)
-        self.assertEqual(self.order.incomingsms_id, str(self.incoming.id))
+        self.assertIsNone(self.order.incoming)
+        self.assertIsNone(self.order.incomingsms_id)
+        self.assertIsNone(self.order.confirmed_time)
+        self.assertEqual(self.incoming.birpay_id, '')
+        self.assertEqual(self.order.status, 0)
         
-        # Проверяем обратную связь
-        self.assertEqual(self.incoming.birpay_id, self.order.merchant_transaction_id)
-        
-        # Проверяем, что approve_birpay_refill был вызван
         mock_birpay_client_cls.return_value.approve_refill.assert_called_once_with(self.order.birpay_id)
     
     @patch('deposit.tasks.BirpayClient')

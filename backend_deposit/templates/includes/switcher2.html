@@ -62,14 +62,7 @@
         </a>
       </li>
       {% if user.is_superuser %}
-      <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle text-danger" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-          🔴 Superuser
-        </a>
-        <ul class="dropdown-menu">
-          <li><a class="dropdown-item" href="{% url 'deposit:z_asu_management' %}">Управление Z-ASU</a></li>
-        </ul>
-      </li>
+
       {% endif %}
     </ul>
   </div>
