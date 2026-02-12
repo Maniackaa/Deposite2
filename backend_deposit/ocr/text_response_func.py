@@ -673,7 +673,7 @@ def response_sms22(fields, groups) -> dict[str, str | float]:
     """
     response_fields = {
         'response_date': {'pos': 1, 'func': date_response},
-        'sender':        {'pos': 2},
+        'recipient':     {'pos': 2},
         'pay':           {'pos': 0, 'func': float_digital},
         'balance':       {'pos': 3, 'func': float_digital},
     }
