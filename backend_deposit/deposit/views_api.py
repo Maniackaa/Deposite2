@@ -353,7 +353,7 @@ patterns = {
     'sms12': r'(\d\d\.\d\d\.\d\d \d\d:\d\d)(.*)AZ Card: (.*) amount:(.*)AZN.*Balance:(.*)AZN',
     'sms13': r'Odenis: (.*) AZN\n(.*)\n(\d\d\d\d\*\*\d\d\d\d).*\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
     'sms14': r'^.+[medaxil|mexaric]: (.+?) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
-    'sms15': r'Medaxil C2C: (.+?) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
+    'sms15': r'[Mm]e(?:daxil|xaric) C2C: ([\d\s.,]+?) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d\.\d\d)\nBALANCE\n(.+?) AZN.*',
     'sms16': r'.*Summa:\s*(.*?) AZN.*\n*.*\n*.*\nKarta:(.*)\n*Data:(.*)\n*Merchant:(.*)\n*Balans:(.*) .*',
     'sms17': r'(\d{2}\.\d{2}\.\d{2}\s\d{2}:\d{2})\s(.*?),\s.*?:\s(\*\*\*\*\d+)\sMEBLEG:([-\d.]+)\sAZN.*?Balans:([-\d.]+)AZN',
     'sms18': r'(\d{2}\.\d{2}\.\d{2}\s\d{2}:\d{2})\s(.*?), AZ Card: (.*)\sMEBLEG:([-\d.]+)\sAZN.*?Balans:\s*([-\d.]+) AZN',
