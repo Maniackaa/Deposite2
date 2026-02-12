@@ -1,5 +1,9 @@
 # Документация логики Z-ASU
 
+Документ описывает взаимодействие **двух проектов**: **Deposit** (депозит, Birpay) и **Payment (ASU)**. Логика Z-ASU — создание заявок на ASU из депозита, пересылка SMS, работа с реквизитами через API Депозита.
+
+**Смежная документация (проект ASU):** `H:\Dev\Payment\docs\deposit\ZAsuService.md` — класс `ZAsuService`, методы работы с API Депозита со стороны Payment (реквизиты, назначение карты, отключение реквизита при низком балансе).
+
 ---
 
 ## Краткое резюме: настройка для взаимодействия двух проектов
@@ -267,14 +271,7 @@ Content-Type: application/json
 
 **Логика Deposit:** только ответ **201** считается созданием заявки (`created=True`); при **200** заявка считается уже существующей (`created=False`), но `payment_id` сохраняется в BirpayOrder, чтобы не отправлять запрос повторно.
 
-**Ошибка (400 Bad Request):**
-```json
-{
-    "errors": {
-        "card_number": ["CreditCard с номером 4111111111111111 не найден"]
-    }
-}
-```
+**CreditCard не найден (201 Created):** заявка создаётся без реквизита и кошелька (status=0); в ответе — `payment_id`. Дальнейшие ошибки (PayRequisite/Wallet не найден) по-прежнему возвращают 400.
 
 ---
 
@@ -740,7 +737,7 @@ Z-ASU API имеет отдельную Swagger документацию:
 ### Ошибки при создании Payment
 
 1. **CreditCard не найден**
-   - HTTP 400: `{"errors": {"card_number": ["CreditCard с номером ... не найден"]}}`
+   - Заявка **создаётся**: Payment без `pay_requisite` и `work_wallet`, `status=0`. Возвращается **201** и `payment_id`. Депозит сохраняет `payment_id` в BirpayOrder, повторные запросы не уходят.
 
 2. **PayRequisite не найден**
    - HTTP 400: `{"errors": {"card_number": ["PayRequisite с pay_type=p2p ... не найден"]}}`
@@ -750,6 +747,12 @@ Z-ASU API имеет отдельную Swagger документацию:
 
 4. **Merchant не найден**
    - HTTP 400: `{"errors": {"merchant": ["Не найден Merchant с именем 'Z-ASU'"]}}`
+
+### Если z_asu_create_payment вернул 400: сколько попыток создания заявки из депозита на ASU?
+
+**В рамках одного вызова** создания заявки (один проход `process_birpay_order`): **ровно 1 попытка**. Повторных запросов (retry) при ответе 400 нет: `send_birpay_order_to_z_asu()` возвращает `{success: False, error: "HTTP 400: ..."}`, исключение не выбрасывается, `payment_id` в BirpayOrder не сохраняется.
+
+**При следующих запусках периодической задачи** `refresh_birpay_data`: та же заявка снова попадает в обработку (запись BirpayOrder уже есть, но `payment_id` пустой). Условие `should_send_to_z_asu(order) and (created or not order.payment_id)` снова истинно, поэтому при каждом следующем запуске периодики делается **ещё одна попытка** вызова create-payment. Итого: **1 попытка за один запуск**; количество попыток во времени равно количеству запусков `refresh_birpay_data`, пока заявка остаётся в списке и ошибка (400) не устранена.
 
 ### Ошибки при пересылке SMS
 
@@ -885,9 +888,11 @@ def z_asu_create_payment(request):
 ## Версия документа
 
 **Дата создания:** 2026-01-30  
-**Последнее обновление:** 2026-02-04
+**Последнее обновление:** 2026-01-30
 
 **Изменения:**
+- В начало добавлено описание работы с двумя проектами и ссылка на документацию ASU: `H:\Dev\Payment\docs\deposit\ZAsuService.md`.
+- В раздел **10. Обработка ошибок** добавлен подпункт **«Если z_asu_create_payment вернул 400: сколько попыток»**: одна попытка за один вызов; при каждом следующем запуске `refresh_birpay_data` — ещё одна попытка (retry внутри одного вызова нет).
 - Добавлен подраздел **Единый сервис обновления реквизита (Deposit)**: `deposit/birpay_requisite_service.py`, функция `update_requisite_on_birpay(requisite_id, overrides)`. Форма `/requisite-zajon/<id>/`, API `PUT /api/birpay/requisites/<id>/`, Z-ASU форма и переключение активности передают только ID и изменяемые поля; данные для Birpay готовит сервис из модели RequsiteZajon, дублирования кода нет.
 - В **эндпоинты Birpay API** добавлен `PUT /api/birpay/requisites/<id>/` (body — только изменяемые поля), `POST /api/birpay/requisites/<id>/set-active/` (body: `{"active": true|false}`).
 - В **файлы и компоненты** добавлен `deposit/birpay_requisite_service.py`; обновлены описания `views_birpay_api.py`, `RequsiteZajonUpdateView.form_valid`, `ZASUManagementView.post`, `RequsiteZajonToggleActiveView`; уточнён клиент на Payment (передаёт только нужные поля, данные готовит сервис на Депозите).

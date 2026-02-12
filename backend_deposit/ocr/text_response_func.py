@@ -35,6 +35,7 @@ def date_response(data_text: str) -> datetime.datetime:
     formats = [
         '%d/%m/%y %H:%M:%S',
         '%d.%m.%y %H:%M',
+        '%d.%m.%Y %H:%M:%S',
         '%H:%M %d.%m.%y',
         '%d %B %Y %H:%M',
         '%d %B %Y%H:%M',
@@ -655,6 +656,28 @@ def response_sms21(fields, groups) -> dict[str, str | float]:
         'balance':          {'pos': 4, 'func': float_digital},
     }
     sms_type = 'sms19'
+    try:
+        result = response_operations(fields, groups, response_fields, sms_type)
+        return result
+    except Exception as err:
+        err_log.error(f'Неизвестная ошибка при распознавании: {fields, groups} ({err})')
+        raise err
+
+
+def response_sms22(fields, groups) -> dict[str, str | float]:
+    """
+    Сумма:+1.00 AZN Дата:12.02.2026 13:34:09 Карта:5261***6148 Баланс:1.40
+
+    :param fields: ['response_date', 'recipient', 'sender', 'pay', 'balance', 'transaction', 'type']
+    :return: dict[str, str | float]
+    """
+    response_fields = {
+        'response_date': {'pos': 1, 'func': date_response},
+        'sender':        {'pos': 2},
+        'pay':           {'pos': 0, 'func': float_digital},
+        'balance':       {'pos': 3, 'func': float_digital},
+    }
+    sms_type = 'sms22'
     try:
         result = response_operations(fields, groups, response_fields, sms_type)
         return result

@@ -27,7 +27,7 @@ from deposit.filters import BirpayOrderAPIFilter
 from ocr.text_response_func import response_sms1, response_sms2, response_sms3, response_sms4, response_sms5, \
     response_sms6, response_sms7, response_sms8, response_sms9, response_sms10, response_sms11, response_sms12, \
     response_sms13, response_sms14, response_sms15, response_sms16, response_sms17, response_sms18, response_sms1b, \
-    response_sms19, response_sms20, response_sms21
+    response_sms19, response_sms20, response_sms21, response_sms22
 from ocr.views_api import convert_atb_value
 
 logger = structlog.get_logger('deposit')
@@ -359,9 +359,8 @@ patterns = {
     'sms18': r'(\d{2}\.\d{2}\.\d{2}\s\d{2}:\d{2})\s(.*?), AZ Card: (.*)\sMEBLEG:([-\d.]+)\sAZN.*?Balans:\s*([-\d.]+) AZN',
     'sms19': r'.*Kredit:\s*(.*?) AZN\s+(.*?)\s+Tarix:(.*)\n*Detal:(.*)\n*Balans:(.*) .*',
     'sms20': r'(Depozit)\n(.*) AZN\n(.*)\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
-    'sms21': r'(.*) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN'
-
-
+    'sms21': r'(.*) AZN\n(.*)\n(.*)\n(\d\d:\d\d \d\d\.\d\d.\d\d)\nBALANCE\n(.*) AZN',
+    'sms22': r'Сумма:\s*([+-]?[\d.]+)\s*AZN\s+Дата:(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2})\s+Карта:(.*?)\s+Баланс:([\d.]+)',
 }
 response_func = {
     'sms1': response_sms1,
@@ -386,6 +385,7 @@ response_func = {
     'sms19': response_sms19,
     'sms20': response_sms20,
     'sms21': response_sms21,
+    'sms22': response_sms22,
 }
 
 
