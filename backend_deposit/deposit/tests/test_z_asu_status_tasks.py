@@ -7,7 +7,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 from deposit.models import BirpayOrder, RequsiteZajon
-from deposit.tasks import process_birpay_order, refresh_birpay_data
+from deposit.tasks import process_birpay_order, refresh_birpay_data, send_birpay_order_to_z_asu_task
 
 
 def _birpay_row(birpay_id, merchant_tx_id, status=0, card_number='4111111111111111', amount=100.0, requisite_id=None):
@@ -218,6 +218,9 @@ class TestProcessBirpayOrderSendsToZAsu(TestCase):
     """При создании заявки с реквизитом works_on_asu=True делается попытка создания на ASU."""
 
     def setUp(self):
+        self._original_eager = send_birpay_order_to_z_asu_task.app.conf.task_always_eager
+        send_birpay_order_to_z_asu_task.app.conf.task_always_eager = True
+        self.addCleanup(self._restore_eager)
         self.now = timezone.now()
         self.requisite_id = 9010
         RequsiteZajon.objects.create(
@@ -232,6 +235,9 @@ class TestProcessBirpayOrderSendsToZAsu(TestCase):
             card_number='4189800086502240',
             works_on_asu=True,
         )
+
+    def _restore_eager(self):
+        send_birpay_order_to_z_asu_task.app.conf.task_always_eager = self._original_eager
 
     @patch('deposit.tasks.send_birpay_order_to_z_asu')
     def test_create_order_with_works_on_asu_requisite_calls_send_to_z_asu(self, mock_send):

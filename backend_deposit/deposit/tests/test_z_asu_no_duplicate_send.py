@@ -19,7 +19,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from deposit.models import BirpayOrder, RequsiteZajon
-from deposit.tasks import process_birpay_order
+from deposit.tasks import process_birpay_order, send_birpay_order_to_z_asu_task
 
 
 # ID реквизита в setUp (works_on_asu=True) — без него Z-ASU отправка не выполняется
@@ -51,6 +51,10 @@ class TestZASUNoDuplicateSend(TestCase):
     """Проверка: отправка на ASU не дублируется при повторном вызове process_birpay_order."""
 
     def setUp(self):
+        # Чтобы send_birpay_order_to_z_asu_task.delay() выполняла задачу сразу (и вызывала замоканную send_birpay_order_to_z_asu)
+        self._original_eager = send_birpay_order_to_z_asu_task.app.conf.task_always_eager
+        send_birpay_order_to_z_asu_task.app.conf.task_always_eager = True
+        self.addCleanup(self._restore_eager)
         self.now = timezone.now()
         RequsiteZajon.objects.create(
             id=9001,
@@ -64,6 +68,9 @@ class TestZASUNoDuplicateSend(TestCase):
             card_number='4111111111111111',
             works_on_asu=True,
         )
+
+    def _restore_eager(self):
+        send_birpay_order_to_z_asu_task.app.conf.task_always_eager = self._original_eager
 
     @patch('deposit.tasks.send_birpay_order_to_z_asu')
     def test_order_with_payment_id_does_not_send_to_z_asu(self, mock_send):

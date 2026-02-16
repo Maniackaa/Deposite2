@@ -34,6 +34,9 @@ from users.models import Options
 # При цикле models → ocr.views_api → tasks → models в * нет RequsiteZajon; получаем при первом обращении
 RequsiteZajon = None
 
+# Z-ASU: задержки перед повтором (сек) — 5 попыток: 10, 15, 20, 25, 30
+Z_ASU_RETRY_COUNTDOWNS = (10, 15, 20, 25, 30)
+
 User = get_user_model()
 
 logger = structlog.get_logger('deposit')
@@ -582,6 +585,53 @@ def download_birpay_check_file(self, order_id, check_file_url):
             return f"Error after max retries: {exc}"
 
 
+@shared_task(bind=True, max_retries=5, priority=2, time_limit=60)
+def send_birpay_order_to_z_asu_task(self, birpay_order_id):
+    """
+    Задача создания заявки на ASU (Z-ASU). До 5 повторов с задержками 10, 15, 20, 25, 30 сек.
+    При успехе сохраняет payment_id в BirpayOrder.
+    """
+    BirpayOrder = apps.get_model('deposit', 'BirpayOrder')
+    try:
+        order = BirpayOrder.objects.get(id=birpay_order_id)
+    except BirpayOrder.DoesNotExist:
+        logger.error(f'Z-ASU: BirpayOrder id={birpay_order_id} не найден')
+        return {'success': False, 'error': 'BirpayOrder не найден'}
+    bind_contextvars(birpay_order_id=order.id, birpay_id=order.birpay_id, merchant_transaction_id=order.merchant_transaction_id)
+    try:
+        result = send_birpay_order_to_z_asu(order)
+        if result.get('success'):
+            payment_id = result.get('payment_id')
+            if payment_id:
+                order.payment_id = str(payment_id)
+                order.save(update_fields=['payment_id'])
+                logger.info(f'Z-ASU: BirpayOrder {order.birpay_id} payment_id={payment_id} сохранён')
+            return result
+        # Ошибка API или сеть (send_birpay_order_to_z_asu при исключении возвращает success=False) — повтор
+        retries = self.request.retries
+        err_msg = result.get('error', '') or ''
+        if retries < len(Z_ASU_RETRY_COUNTDOWNS):
+            countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            logger.warning(
+                f'Z-ASU: ошибка создания заявки {order.birpay_id} (сеть/ASU), повтор через {countdown} сек (попытка {retries + 1}/5): {err_msg}'
+            )
+            raise self.retry(countdown=countdown)
+        logger.error(f'Z-ASU: исчерпаны повторы для BirpayOrder {order.birpay_id}: {err_msg}')
+        return result
+    except Exception as e:
+        # Исключение (например ConnectionError) — пробуем снова через 10, 15, 20, 25, 30 сек
+        retries = self.request.retries
+        if retries < len(Z_ASU_RETRY_COUNTDOWNS):
+            countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            logger.warning(
+                f'Z-ASU: исключение при создании заявки birpay_order_id={birpay_order_id} (сеть/ASU), повтор через {countdown} сек (попытка {retries + 1}/5): {e}',
+                exc_info=True,
+            )
+            raise self.retry(exc=e, countdown=countdown)
+        logger.error(f'Z-ASU: исчерпаны повторы для birpay_order_id={birpay_order_id}: {e}', exc_info=True)
+        return {'success': False, 'error': str(e)}
+
+
 def process_birpay_order(data):
     birpay_id = data['id']
     merchant_transaction_id = data['merchantTransactionId']
@@ -656,26 +706,12 @@ def process_birpay_order(data):
     else:
         logger.info(f"Создан новый {order} birpay_id={birpay_id}")
 
-    # 1) Сначала Z-ASU: создание заявки на ASU (если нужно). Так к моменту отправки в GPT payment_id уже в БД.
+    # 1) Z-ASU: постановка задачи создания заявки на ASU (до 5 повторов: 10, 15, 20, 25, 30 сек)
     order.refresh_from_db(fields=['payment_id', 'requisite_id'])
     should_send = should_send_to_z_asu(order) and (created or not order.payment_id)
     if should_send:
-        logger.info(f"BirpayOrder {birpay_id} соответствует условию Z-ASU, отправляем на ASU (created={created}, payment_id={getattr(order, 'payment_id', None) or 'нет'})")
-        try:
-            result = send_birpay_order_to_z_asu(order)
-            if result.get('success'):
-                payment_id = result.get('payment_id')
-                created = result.get('created', False)
-                logger.info(
-                    f"BirpayOrder {birpay_id} Z-ASU: payment_id={payment_id}, created={created}"
-                )
-                if payment_id:
-                    order.payment_id = str(payment_id)
-                    order.save(update_fields=['payment_id'])
-            else:
-                logger.error(f"Ошибка отправки BirpayOrder {birpay_id} на Z-ASU: {result.get('error')}")
-        except Exception as err:
-            logger.error(f"Исключение при отправке BirpayOrder {birpay_id} на Z-ASU: {err}", exc_info=True)
+        logger.info(f"BirpayOrder {birpay_id} соответствует условию Z-ASU, ставим задачу на ASU (created={created}, payment_id={getattr(order, 'payment_id', None) or 'нет'})")
+        send_birpay_order_to_z_asu_task.delay(order.id)
 
     # 2) После ASU — задача на скачивание чека; после скачивания — отправка в GPT (если нужно).
     if check_file_url and not order.check_file and not order.check_file_failed:
@@ -1066,19 +1102,12 @@ def check_cards_activity():
         return f"Ошибка: {err}"
 
 
-@shared_task(priority=2, time_limit=30, max_retries=3)
-def confirm_z_asu_transaction_task(payment_id=None, merchant_transaction_id=None):
+@shared_task(bind=True, priority=2, time_limit=30, max_retries=5)
+def confirm_z_asu_transaction_task(self, payment_id=None, merchant_transaction_id=None):
     """
-    Асинхронная задача для подтверждения на ASU.
+    Асинхронная задача для подтверждения на ASU. До 5 повторов с задержками 10, 15, 20, 25, 30 сек.
     Логика Z-ASU: при наличии payment_id вызывается confirm-payment (точный поиск),
     иначе — confirm-transaction по merchant_transaction_id (fallback).
-    
-    Args:
-        payment_id: UUID Payment на ASU (приоритет)
-        merchant_transaction_id: order_id для поиска Payment (если payment_id не задан)
-    
-    Returns:
-        dict: success, payment_id или error
     """
     try:
         clear_contextvars()
@@ -1097,28 +1126,33 @@ def confirm_z_asu_transaction_task(payment_id=None, merchant_transaction_id=None
         if result.get('success'):
             pid = result.get('payment_id', 'N/A')
             logger.info(f'Логика Z-ASU: успешно подтверждено на ASU (Payment {pid})')
-        else:
-            logger.error(f'Логика Z-ASU: ошибка подтверждения на ASU: {result.get("error", "Unknown")}')
+            return result
+        retries = self.request.retries
+        if retries < len(Z_ASU_RETRY_COUNTDOWNS):
+            countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            logger.warning(f'Логика Z-ASU: ошибка подтверждения на ASU, повтор через {countdown} сек (попытка {retries + 1}/5): {result.get("error", "Unknown")}')
+            raise self.retry(countdown=countdown)
+        logger.error(f'Логика Z-ASU: исчерпаны повторы подтверждения на ASU: {result.get("error", "Unknown")}')
         return result
     except Exception as e:
+        retries = self.request.retries
+        if retries < len(Z_ASU_RETRY_COUNTDOWNS):
+            countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            logger.warning(f'Логика Z-ASU: исключение при подтверждении на ASU, повтор через {countdown} сек (попытка {retries + 1}/5): {e}', exc_info=True)
+            raise self.retry(exc=e, countdown=countdown)
         logger.error(f'Логика Z-ASU: исключение при подтверждении на ASU: {e}', exc_info=True)
         clear_contextvars()
         return {'success': False, 'error': str(e)}
+    finally:
+        clear_contextvars()
 
 
-@shared_task(priority=2, time_limit=30, max_retries=3)
-def decline_z_asu_transaction_task(payment_id=None, merchant_transaction_id=None):
+@shared_task(bind=True, priority=2, time_limit=30, max_retries=5)
+def decline_z_asu_transaction_task(self, payment_id=None, merchant_transaction_id=None):
     """
-    Асинхронная задача для отклонения на ASU.
+    Асинхронная задача для отклонения на ASU. До 5 повторов с задержками 10, 15, 20, 25, 30 сек.
     Логика Z-ASU: при наличии payment_id вызывается decline-payment (точный поиск),
     иначе — decline-transaction по merchant_transaction_id (fallback).
-    
-    Args:
-        payment_id: UUID Payment на ASU (приоритет)
-        merchant_transaction_id: order_id для поиска Payment (если payment_id не задан)
-    
-    Returns:
-        dict: success, payment_id или error
     """
     try:
         clear_contextvars()
@@ -1137,10 +1171,20 @@ def decline_z_asu_transaction_task(payment_id=None, merchant_transaction_id=None
         if result.get('success'):
             pid = result.get('payment_id', 'N/A')
             logger.info(f'Логика Z-ASU: успешно отклонено на ASU (Payment {pid})')
-        else:
-            logger.error(f'Логика Z-ASU: ошибка отклонения на ASU: {result.get("error", "Unknown")}')
+            return result
+        retries = self.request.retries
+        if retries < len(Z_ASU_RETRY_COUNTDOWNS):
+            countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            logger.warning(f'Логика Z-ASU: ошибка отклонения на ASU, повтор через {countdown} сек (попытка {retries + 1}/5): {result.get("error", "Unknown")}')
+            raise self.retry(countdown=countdown)
+        logger.error(f'Логика Z-ASU: исчерпаны повторы отклонения на ASU: {result.get("error", "Unknown")}')
         return result
     except Exception as e:
+        retries = self.request.retries
+        if retries < len(Z_ASU_RETRY_COUNTDOWNS):
+            countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            logger.warning(f'Логика Z-ASU: исключение при отклонении на ASU, повтор через {countdown} сек (попытка {retries + 1}/5): {e}', exc_info=True)
+            raise self.retry(exc=e, countdown=countdown)
         logger.error(f'Логика Z-ASU: исключение при отклонении на ASU: {e}', exc_info=True)
         clear_contextvars()
         return {'success': False, 'error': str(e)}
