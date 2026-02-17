@@ -953,9 +953,21 @@ def send_image_to_gpt_task(self, birpay_id):
                 if sms_bound_successfully:
                     response = BirpayClient().approve_refill(order.birpay_id)
                     if response.status_code == 200:
+                        # Перечитываем payment_id перед save: задача создания заявки на ASU могла завершиться
+                        # после нашего refresh в начале блока — без payment_id сигнал не поставит confirm на ASU.
+                        order.refresh_from_db(fields=['payment_id'])
                         order.status = 1
                         order.save(update_fields=['status'])
                         # Логика Z-ASU: по смене status на 1 сигнал birpay_order_z_asu_on_status_change ставит задачу подтверждения на ASU
+                        # Если payment_id к этому моменту ещё не успел записаться (гонка) — ставим отложенное подтверждение по mtx_id
+                        if not order.payment_id:
+                            confirm_z_asu_transaction_task.apply_async(
+                                kwargs={'payment_id': None, 'merchant_transaction_id': order.merchant_transaction_id},
+                                countdown=20,
+                            )
+                            logger.info(
+                                f'Логика Z-ASU: payment_id ещё не записан, поставлена отложенная задача подтверждения на ASU по mtx_id {order.merchant_transaction_id} через 20 сек'
+                            )
                     else:
                         text = f"ОШИБКА пдтверждения {order} mtx_id {order.merchant_transaction_id}: {response.text}"
                         logger.warning(text)
