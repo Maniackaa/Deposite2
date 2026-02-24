@@ -13,6 +13,7 @@ import pytz
 from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.db import transaction, IntegrityError
 from django.utils import timezone
@@ -964,6 +965,7 @@ def send_image_to_gpt_task(self, birpay_id):
                             confirm_z_asu_transaction_task.apply_async(
                                 kwargs={'payment_id': None, 'merchant_transaction_id': order.merchant_transaction_id},
                                 countdown=20,
+                                task_id=f'confirm_z_asu_mtx_{order.merchant_transaction_id}',
                             )
                             logger.info(
                                 f'Логика Z-ASU: payment_id ещё не записан, поставлена отложенная задача подтверждения на ASU по mtx_id {order.merchant_transaction_id} через 20 сек'
@@ -1114,13 +1116,25 @@ def check_cards_activity():
         return f"Ошибка: {err}"
 
 
+# Z-ASU: таймаут блокировки (сек) — предотвращает дублирование при одновременном запуске
+Z_ASU_CONFIRM_LOCK_TIMEOUT = 30
+
+
 @shared_task(bind=True, priority=2, time_limit=30, max_retries=5)
 def confirm_z_asu_transaction_task(self, payment_id=None, merchant_transaction_id=None):
     """
     Асинхронная задача для подтверждения на ASU. До 5 повторов с задержками 10, 15, 20, 25, 30 сек.
     Логика Z-ASU: при наличии payment_id вызывается confirm-payment (точный поиск),
     иначе — confirm-transaction по merchant_transaction_id (fallback).
+    Идемпотентность: cache lock предотвращает дублирование при одновременном запуске.
     """
+    lock_key = f'z_asu_confirm_lock:{payment_id or f"mtx_{merchant_transaction_id}"}'
+    if not cache.add(lock_key, 1, timeout=Z_ASU_CONFIRM_LOCK_TIMEOUT):
+        logger.info(
+            f'Логика Z-ASU: подтверждение для {payment_id or merchant_transaction_id} уже выполняется, пропуск (идемпотентность)'
+        )
+        clear_contextvars()
+        return {'success': True, 'skipped': True, 'reason': 'duplicate'}
     try:
         clear_contextvars()
         if payment_id:
@@ -1142,6 +1156,7 @@ def confirm_z_asu_transaction_task(self, payment_id=None, merchant_transaction_i
         retries = self.request.retries
         if retries < len(Z_ASU_RETRY_COUNTDOWNS):
             countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            cache.delete(lock_key)
             logger.warning(f'Логика Z-ASU: ошибка подтверждения на ASU, повтор через {countdown} сек (попытка {retries + 1}/5): {result.get("error", "Unknown")}')
             raise self.retry(countdown=countdown)
         logger.error(f'Логика Z-ASU: исчерпаны повторы подтверждения на ASU: {result.get("error", "Unknown")}')
@@ -1150,6 +1165,7 @@ def confirm_z_asu_transaction_task(self, payment_id=None, merchant_transaction_i
         retries = self.request.retries
         if retries < len(Z_ASU_RETRY_COUNTDOWNS):
             countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            cache.delete(lock_key)
             logger.warning(f'Логика Z-ASU: исключение при подтверждении на ASU, повтор через {countdown} сек (попытка {retries + 1}/5): {e}', exc_info=True)
             raise self.retry(exc=e, countdown=countdown)
         logger.error(f'Логика Z-ASU: исключение при подтверждении на ASU: {e}', exc_info=True)
@@ -1165,7 +1181,15 @@ def decline_z_asu_transaction_task(self, payment_id=None, merchant_transaction_i
     Асинхронная задача для отклонения на ASU. До 5 повторов с задержками 10, 15, 20, 25, 30 сек.
     Логика Z-ASU: при наличии payment_id вызывается decline-payment (точный поиск),
     иначе — decline-transaction по merchant_transaction_id (fallback).
+    Идемпотентность: cache lock предотвращает дублирование при одновременном запуске.
     """
+    lock_key = f'z_asu_decline_lock:{payment_id or f"mtx_{merchant_transaction_id}"}'
+    if not cache.add(lock_key, 1, timeout=Z_ASU_CONFIRM_LOCK_TIMEOUT):
+        logger.info(
+            f'Логика Z-ASU: отклонение для {payment_id or merchant_transaction_id} уже выполняется, пропуск (идемпотентность)'
+        )
+        clear_contextvars()
+        return {'success': True, 'skipped': True, 'reason': 'duplicate'}
     try:
         clear_contextvars()
         if payment_id:
@@ -1187,6 +1211,7 @@ def decline_z_asu_transaction_task(self, payment_id=None, merchant_transaction_i
         retries = self.request.retries
         if retries < len(Z_ASU_RETRY_COUNTDOWNS):
             countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            cache.delete(lock_key)
             logger.warning(f'Логика Z-ASU: ошибка отклонения на ASU, повтор через {countdown} сек (попытка {retries + 1}/5): {result.get("error", "Unknown")}')
             raise self.retry(countdown=countdown)
         logger.error(f'Логика Z-ASU: исчерпаны повторы отклонения на ASU: {result.get("error", "Unknown")}')
@@ -1195,6 +1220,7 @@ def decline_z_asu_transaction_task(self, payment_id=None, merchant_transaction_i
         retries = self.request.retries
         if retries < len(Z_ASU_RETRY_COUNTDOWNS):
             countdown = Z_ASU_RETRY_COUNTDOWNS[retries]
+            cache.delete(lock_key)
             logger.warning(f'Логика Z-ASU: исключение при отклонении на ASU, повтор через {countdown} сек (попытка {retries + 1}/5): {e}', exc_info=True)
             raise self.retry(exc=e, countdown=countdown)
         logger.error(f'Логика Z-ASU: исключение при отклонении на ASU: {e}', exc_info=True)

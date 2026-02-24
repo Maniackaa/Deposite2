@@ -7,8 +7,30 @@ alwaysApply: true
 
 В проекте используется **PowerShell на Windows**. Перед любой командой Python (pytest, manage.py, скрипты) нужно **активировать виртуальное окружение**, иначе будет ModuleNotFoundError (django и др.).
 
+## Где venv
+
+Папка `venv` в **корне проекта** (рядом с backend_deposit):
+```
+Project-Deposite2/
+├── venv/           ← здесь
+├── backend_deposit/
+└── ...
+```
+
+## Как активировать
+
+Из корня проекта (папка, где лежат venv и backend_deposit):
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+Если терминал открыт в backend_deposit — сначала `cd ..`, затем активация.
+
+После активации в приглашении появится `(venv)`.
+
 ## Правило
 
 При предложении или запуске команд в терминале:
-1. Сначала активировать venv.
-2. Потом выполнять python / pytest / manage.py.
+1. Перейти в корень проекта и активировать: `.\venv\Scripts\Activate.ps1`
+2. Потом выполнять python / pytest / manage.py (из корня или backend_deposit).

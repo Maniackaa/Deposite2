@@ -80,70 +80,70 @@ class TestZASUStatusTasks(TestCase):
             raw_data={},
         )
 
+    def _assert_confirm_apply_async(self, mock_confirm_task, payment_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890'):
+        mock_confirm_task.apply_async.assert_called_once_with(
+            kwargs={'payment_id': payment_id, 'merchant_transaction_id': None},
+            task_id=f'confirm_z_asu_{payment_id}',
+        )
+
+    def _assert_decline_apply_async(self, mock_decline_task, payment_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890'):
+        mock_decline_task.apply_async.assert_called_once_with(
+            kwargs={'payment_id': payment_id, 'merchant_transaction_id': None},
+            task_id=f'decline_z_asu_{payment_id}',
+        )
+
     @patch('deposit.tasks.confirm_z_asu_transaction_task')
     def test_status_change_to_1_queues_confirm_task(self, mock_confirm_task):
         """При смене status на 1 и наличии payment_id ставится задача подтверждения на ASU."""
         self.order_with_payment_id.status = 1
         self.order_with_payment_id.save(update_fields=['status'])
-        mock_confirm_task.delay.assert_called_once_with(
-            payment_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            merchant_transaction_id=None,
-        )
+        self._assert_confirm_apply_async(mock_confirm_task)
 
     @patch('deposit.tasks.confirm_z_asu_transaction_task')
     def test_status_change_to_1_with_payment_id_passes_payment_id(self, mock_confirm_task):
         """При смене status на 1 задача вызывается с payment_id (merchant_transaction_id=None)."""
         self.order_with_payment_id.status = 1
         self.order_with_payment_id.save(update_fields=['status'])
-        mock_confirm_task.delay.assert_called_once_with(
-            payment_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            merchant_transaction_id=None,
-        )
+        self._assert_confirm_apply_async(mock_confirm_task)
 
     @patch('deposit.tasks.decline_z_asu_transaction_task')
     def test_status_change_to_2_queues_decline_task(self, mock_decline_task):
         """При смене status на 2 и наличии payment_id ставится задача отклонения на ASU."""
         self.order_with_payment_id.status = 2
         self.order_with_payment_id.save(update_fields=['status'])
-        mock_decline_task.delay.assert_called_once_with(
-            payment_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            merchant_transaction_id=None,
-        )
+        self._assert_decline_apply_async(mock_decline_task)
 
     @patch('deposit.tasks.decline_z_asu_transaction_task')
     def test_status_change_to_2_with_payment_id_passes_payment_id(self, mock_decline_task):
         """При смене status на 2 задача вызывается с payment_id."""
         self.order_with_payment_id.status = 2
         self.order_with_payment_id.save(update_fields=['status'])
-        mock_decline_task.delay.assert_called_once_with(
-            payment_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            merchant_transaction_id=None,
-        )
+        self._assert_decline_apply_async(mock_decline_task)
 
     @patch('deposit.tasks.confirm_z_asu_transaction_task')
     def test_status_change_to_1_without_payment_id_does_not_queue_task(self, mock_confirm_task):
         """Без payment_id задача подтверждения не ставится."""
         self.order_no_payment_id.status = 1
         self.order_no_payment_id.save(update_fields=['status'])
-        mock_confirm_task.delay.assert_not_called()
+        mock_confirm_task.apply_async.assert_not_called()
 
     @patch('deposit.tasks.decline_z_asu_transaction_task')
     def test_status_change_to_2_without_payment_id_does_not_queue_task(self, mock_decline_task):
         """Без payment_id задача отклонения не ставится."""
         self.order_no_payment_id.status = 2
         self.order_no_payment_id.save(update_fields=['status'])
-        mock_decline_task.delay.assert_not_called()
+        mock_decline_task.apply_async.assert_not_called()
 
     @patch('deposit.tasks.confirm_z_asu_transaction_task')
     def test_status_unchanged_does_not_queue_confirm_task(self, mock_confirm_task):
         """Если status не менялся (остался 1), повторная запись не ставит задачу."""
         self.order_with_payment_id.status = 1
         self.order_with_payment_id.save(update_fields=['status'])
-        self.assertEqual(mock_confirm_task.delay.call_count, 1)
-        mock_confirm_task.delay.reset_mock()
+        self.assertEqual(mock_confirm_task.apply_async.call_count, 1)
+        mock_confirm_task.apply_async.reset_mock()
         self.order_with_payment_id.amount = 200.0
         self.order_with_payment_id.save(update_fields=['amount', 'status'])
-        mock_confirm_task.delay.assert_not_called()
+        mock_confirm_task.apply_async.assert_not_called()
 
 
 class TestRefreshBirpayDataAsuConfirm(TestCase):
@@ -206,9 +206,9 @@ class TestRefreshBirpayDataAsuConfirm(TestCase):
         refresh_birpay_data()
 
         mock_birpay_client_cls.return_value.get_refill_orders.assert_called_once()
-        mock_confirm_task.delay.assert_called_once_with(
-            payment_id='uuid-asu-confirm-from-refresh',
-            merchant_transaction_id=None,
+        mock_confirm_task.apply_async.assert_called_once_with(
+            kwargs={'payment_id': 'uuid-asu-confirm-from-refresh', 'merchant_transaction_id': None},
+            task_id='confirm_z_asu_uuid-asu-confirm-from-refresh',
         )
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 1)

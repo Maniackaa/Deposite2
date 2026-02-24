@@ -727,10 +727,16 @@ def birpay_order_z_asu_on_status_change(sender, instance: BirpayOrder, created, 
     payment_id = instance.payment_id
     try:
         if status_val == 1:
-            confirm_z_asu_transaction_task.delay(payment_id=payment_id, merchant_transaction_id=None)
+            confirm_z_asu_transaction_task.apply_async(
+                kwargs={'payment_id': payment_id, 'merchant_transaction_id': None},
+                task_id=f'confirm_z_asu_{payment_id}',
+            )
             logger.info(f'Логика Z-ASU: статус заявки {instance.pk} сменился на 1, поставлена задача подтверждения на ASU (payment_id={payment_id})')
         elif status_val == 2:
-            decline_z_asu_transaction_task.delay(payment_id=payment_id, merchant_transaction_id=None)
+            decline_z_asu_transaction_task.apply_async(
+                kwargs={'payment_id': payment_id, 'merchant_transaction_id': None},
+                task_id=f'decline_z_asu_{payment_id}',
+            )
             logger.info(f'Логика Z-ASU: статус заявки {instance.pk} сменился на 2, поставлена задача отклонения на ASU (payment_id={payment_id})')
     except Exception as e:
         logger.error(f'Логика Z-ASU: не удалось поставить задачу ASU для заявки {instance.pk}: {e}', exc_info=True)
