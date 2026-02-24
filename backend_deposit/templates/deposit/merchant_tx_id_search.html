@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Поиск данных по Merchant Tx ID{% endblock %}
+
+{% block content %}
+{% include 'includes/operator_menu.html' %}
+<div class="container mt-4">
+    <h1 class="mb-4">Поиск данных по Merchant Tx ID</h1>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Загрузка файла</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Приложите файл <strong>xlsx</strong>. В первом столбце должны быть значения <strong>Merchant Tx ID</strong> из страницы birpay_orders.
+                Система найдёт соответствующие BirpayOrder и добавит столбцы с нашими данными (birpay_id, amount, status, merchant_user_id и др.).
+                Результат будет выдан в виде xlsx-файла.
+            </p>
+            <form method="post" action="{% url 'deposit:merchant_tx_id_search' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="id_xlsx_file" class="form-label">Файл xlsx</label>
+                    <input type="file" name="xlsx_file" id="id_xlsx_file" class="form-control" accept=".xlsx,.xls" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Обработать и скачать</button>
+            </form>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

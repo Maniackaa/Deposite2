@@ -92,6 +92,8 @@ urlpatterns = [
     path('z-asu-management/', views.ZASUManagementView.as_view(), name='z_asu_management'),
     # Проверка статуса заявки на birpay-gate по Merchant Tx ID
     path('birpay-gate-status-check/', views.BirpayGateStatusCheckView.as_view(), name='birpay_gate_status_check'),
+    # Поиск данных по Merchant Tx ID (xlsx → BirpayOrder → xlsx)
+    path('merchant-tx-id-search/', views.MerchantTxIdSearchView.as_view(), name='merchant_tx_id_search'),
 ]
 
 

@@ -2801,3 +2801,129 @@ class BirpayGateStatusCheckView(SuperuserOnlyPerm, View):
             'result_items': result_items,
             'error': error,
         })
+
+
+class MerchantTxIdSearchView(StaffOnlyPerm, View):
+    """
+    Поиск данных по Merchant Tx ID.
+    Загружается xlsx-файл, в первом столбце — Merchant Tx ID из birpay_orders.
+    Для каждой строки ищется BirpayOrder и добавляются столбцы с нашими данными.
+    Возвращается готовый xlsx с добавленными данными.
+    """
+    template_name = 'deposit/merchant_tx_id_search.html'
+
+    # Столбцы BirpayOrder для добавления в результат
+    BIRPAY_COLUMNS = [
+        ('birpay_id', 'birpay_id'),
+        ('amount', 'amount'),
+        ('status', 'status'),
+        ('status_internal', 'status_internal'),
+        ('merchant_user_id', 'merchant_user_id'),
+        ('merchant_name', 'merchant_name'),
+        ('customer_name', 'customer_name'),
+        ('card_number', 'card_number'),
+        ('created_at', 'created_at'),
+        ('incoming_id', 'incoming_id'),
+        ('payment_id', 'payment_id'),
+        ('confirmed_operator', 'confirmed_operator'),
+        ('confirmed_time', 'confirmed_time'),
+    ]
+
+    def get(self, request):
+        return render(request, self.template_name, {'error': None})
+
+    def post(self, request):
+        error = None
+        xlsx_file = request.FILES.get('xlsx_file')
+
+        if not xlsx_file:
+            error = 'Приложите файл xlsx.'
+            return render(request, self.template_name, {'error': error})
+
+        if not xlsx_file.name.lower().endswith(('.xlsx', '.xls')):
+            error = 'Файл должен быть в формате xlsx.'
+            return render(request, self.template_name, {'error': error})
+
+        try:
+            df = pd.read_excel(xlsx_file, engine='openpyxl', header=None)
+        except Exception as e:
+            logger.warning(f'Ошибка чтения xlsx: {e}', exc_info=True)
+            error = f'Не удалось прочитать файл: {e}'
+            return render(request, self.template_name, {'error': error})
+
+        if df.empty:
+            error = 'Файл пустой.'
+            return render(request, self.template_name, {'error': error})
+
+        # Первый столбец — Merchant Tx ID
+        mtx_col_idx = 0
+        mtx_ids = df.iloc[:, mtx_col_idx].astype(str).str.strip()
+
+        # Собираем уникальные Merchant Tx ID для batch-запроса
+        unique_mtx = mtx_ids.dropna().replace('', pd.NA).dropna().unique().tolist()
+        if not unique_mtx:
+            error = 'В первом столбце нет Merchant Tx ID.'
+            return render(request, self.template_name, {'error': error})
+
+        # Загружаем все BirpayOrder одним запросом (defer тяжёлых полей, select_related для FK)
+        orders_qs = BirpayOrder.objects.filter(
+            merchant_transaction_id__in=unique_mtx
+        ).defer('raw_data', 'gpt_data').select_related('confirmed_operator')
+        orders_map = {o.merchant_transaction_id: o for o in orders_qs}
+
+        def _fmt(val):
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return ''
+            if hasattr(val, 'strftime'):
+                return val.strftime('%Y-%m-%d %H:%M:%S')
+            return str(val)
+
+        # Один проход по строкам — собираем все данные BirpayOrder
+        row_data = []
+        for mtx in mtx_ids:
+            mtx_str = str(mtx).strip() if not pd.isna(mtx) else ''
+            if not mtx_str:
+                row_data.append({k: '' for k, _ in self.BIRPAY_COLUMNS})
+                continue
+            order = orders_map.get(mtx_str)
+            if order is None:
+                row_data.append({k: 'Не найден' for k, _ in self.BIRPAY_COLUMNS})
+                continue
+            d = {}
+            for col_key, _ in self.BIRPAY_COLUMNS:
+                if col_key == 'incoming_id':
+                    val = order.incoming_id or ''
+                elif col_key == 'confirmed_operator':
+                    val = order.confirmed_operator.username if order.confirmed_operator else ''
+                elif col_key == 'confirmed_time':
+                    val = _fmt(order.confirmed_time)
+                elif col_key == 'created_at':
+                    val = _fmt(order.created_at)
+                else:
+                    val = getattr(order, col_key, '')
+                d[col_key] = _fmt(val) if val is not None else ''
+            row_data.append(d)
+
+        # Пустой столбец для разделения
+        n_orig = len(df.columns)
+        df.insert(n_orig, '', [''] * len(df))
+
+        # Добавляем столбцы BirpayOrder
+        for col_key, _ in self.BIRPAY_COLUMNS:
+            df[f'Birpay_{col_key}'] = [r[col_key] for r in row_data]
+
+        # Сохраняем в BytesIO (xlsxwriter быстрее openpyxl для больших файлов)
+        output = io.BytesIO()
+        try:
+            df.to_excel(output, index=False, engine='xlsxwriter')
+        except ImportError:
+            df.to_excel(output, index=False, engine='openpyxl')
+        output.seek(0)
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        filename = f'merchant_tx_id_search_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
